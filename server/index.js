@@ -5752,9 +5752,9 @@ async function demarrerServeur () {
 						let donnees = await db.HGETALL('pads:' + pad)
 						donnees = Object.assign({}, donnees)
 						if (donnees === null) { resolve({}); return false }
-						// Pour résoudre le problème de chemin pour les fichiers déplacés
+						// Pour compatibilité avec les anciens chemins
 						if (donnees.hasOwnProperty('fond') && !donnees.fond.includes('/img/') && donnees.fond.substring(0, 1) !== '#' && donnees.fond !== '' && typeof donnees.fond === 'string') {
-							donnees.fond = definirCheminFichiers() + '/' + pad + '/' + path.basename(donnees.fond)
+							donnees.fond = path.basename(donnees.fond)
 						}
 						const reponse = await db.EXISTS('utilisateurs:' + donnees.identifiant)
 						if (reponse === 1) {
