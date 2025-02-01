@@ -116,7 +116,7 @@
 				<div class="pads" v-if="pads.length > 0 && requete === ''">
 					<template v-for="(pad, indexPad) in pads">
 						<div :id="'pad-' + pad.id" class="pad liste" v-if="affichage === 'liste'" :key="'pad_liste_' + indexPad">
-							<a class="fond" :href="'/p/' + pad.id + '/' + pad.token" :class="{'fond-personnalise': pad.fond.substring(1, 9) === 'fichiers'}" :style="definirFond(pad.fond)" />
+							<a class="fond" :href="'/p/' + pad.id + '/' + pad.token" :class="{'fond-personnalise': !pad.fond.includes('/img/') && pad.fond.substring(0, 1) !== '#'}" :style="definirFond(pad.fond, pad.id)" />
 							<a class="meta" :class="{'pad-rejoint': pad.identifiant !== identifiant, 'deplacer': dossiers.length > 0}" :href="'/p/' + pad.id + '/' + pad.token">
 								<span class="mise-a-jour" v-if="pad.hasOwnProperty('notification') && pad.notification.includes(identifiant)" />
 								<span class="titre">{{ pad.titre }}</span>
@@ -145,7 +145,7 @@
 						</div>
 
 						<div :id="'pad-' + pad.id" class="pad mosaique" v-else :key="'pad_mosaique_' + indexPad">
-							<a class="conteneur" :class="{'fond-personnalise': pad.fond.substring(1, 9) === 'fichiers'}" :style="definirFond(pad.fond)" :href="'/p/' + pad.id + '/' + pad.token">
+							<a class="conteneur" :class="{'fond-personnalise': !pad.fond.includes('/img/') && pad.fond.substring(0, 1) !== '#'}" :style="definirFond(pad.fond, pad.id)" :href="'/p/' + pad.id + '/' + pad.token">
 								<div class="meta">
 									<span class="titre"><span class="mise-a-jour" v-if="pad.hasOwnProperty('notification') && pad.notification.includes(identifiant)" />{{ pad.titre }}</span>
 									<span class="date">{{ $t('creeLe') }} {{ $formaterDate(pad.date, langue) }}</span>
@@ -183,7 +183,7 @@
 				<div class="pads" v-else-if="resultats.length > 0 && requete !== ''">
 					<template v-for="(pad, indexPad) in resultats">
 						<div :id="'pad-' + pad.id" class="pad liste" v-if="affichage === 'liste'" :key="'pad_liste_' + indexPad">
-							<a class="fond" :href="'/p/' + pad.id + '/' + pad.token" :class="{'fond-personnalise': pad.fond.substring(1, 9) === 'fichiers'}" :style="definirFond(pad.fond)" />
+							<a class="fond" :href="'/p/' + pad.id + '/' + pad.token" :class="{'fond-personnalise': !pad.fond.includes('/img/') && pad.fond.substring(0, 1) !== '#'}" :style="definirFond(pad.fond, pad.id)" />
 							<a class="meta" :class="{'pad-rejoint': pad.identifiant !== identifiant, 'deplacer': dossiers.length > 0}" :href="'/p/' + pad.id + '/' + pad.token">
 								<span class="mise-a-jour" v-if="pad.hasOwnProperty('notification') && pad.notification.includes(identifiant)" />
 								<span class="titre">{{ pad.titre }}</span>
@@ -212,7 +212,7 @@
 						</div>
 
 						<div :id="'pad-' + pad.id" class="pad mosaique" v-else :key="'pad_mosaique_' + indexPad">
-							<a class="conteneur" :class="{'fond-personnalise': pad.fond.substring(1, 9) === 'fichiers'}" :style="definirFond(pad.fond)" :href="'/p/' + pad.id + '/' + pad.token">
+							<a class="conteneur" :class="{'fond-personnalise': !pad.fond.includes('/img/') && pad.fond.substring(0, 1) !== '#'}" :style="definirFond(pad.fond, pad.id)" :href="'/p/' + pad.id + '/' + pad.token">
 								<div class="meta">
 									<span class="titre"><span class="mise-a-jour" v-if="pad.hasOwnProperty('notification') && pad.notification.includes(identifiant)" />{{ pad.titre }}</span>
 									<span class="date">{{ $t('creeLe') }} {{ $formaterDate(pad.date, langue) }}</span>
@@ -487,7 +487,9 @@ export default {
 			padsRejoints: this.$pageContext.pageProps.padsRejoints,
 			padsAdmins: this.$pageContext.pageProps.padsAdmins,
 			padsFavoris: this.$pageContext.pageProps.padsFavoris,
-			dossiers: this.$pageContext.pageProps.dossiers
+			dossiers: this.$pageContext.pageProps.dossiers,
+			stockage: import.meta.env.VITE_STORAGE,
+			lienPublicS3: import.meta.env.VITE_S3_PUBLIC_LINK
 		}
 	},
 	watch: {
@@ -590,11 +592,23 @@ export default {
 		definirTabIndexModale () {
 			return this.message === '' && this.modaleConfirmation === '' ? 0 : -1
 		},
-		definirFond (fond) {
+		definirFond (fond, id) {
 			if (fond.substring(0, 1) === '#') {
 				return { backgroundColor: fond }
-			} else {
+			} else if (fond.includes('/img/')) {
 				return { backgroundImage: 'url(' + fond + ')' }
+			} else {
+				return { backgroundImage: 'url(' + this.definirCheminFichiers() + '/' + id + '/' + this.definirNomLienFichier(fond) + ')' }
+			}
+		},
+		definirNomLienFichier (fichier) {
+			return fichier.split('\\').pop().split('/').pop()
+		},
+		definirCheminFichiers () {
+			if (this.stockage === 's3' && this.lienPublicS3 && this.lienPublicS3 !== '') {
+				return this.lienPublicS3
+			} else {
+				return '/fichiers'
 			}
 		},
 		afficherModaleCreerPad () {
