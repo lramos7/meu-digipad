@@ -390,5 +390,8 @@
 	"transfererPad": "Transfer a pad to another account",
 	"erreur": "Oops…",
 	"erreurChargementPage": "Error while loading page",
-	"retourAccueil": "Back to home page"
+	"retourAccueil": "Back to home page",
+	"nombreVues": "Number of views",
+	"repeterImageFond": "Repeat background image",
+	"parametreFondModifie": "Background image repeat parameter changed."
 }

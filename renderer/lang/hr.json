@@ -390,5 +390,8 @@
 	"transfererPad": "Prijenos podlogu na drugi račun",
 	"erreur": "Ups…",
 	"erreurChargementPage": "Pogreška pri učitavanju stranice",
-	"retourAccueil": "Povratak na početnu stranicu"
+	"retourAccueil": "Povratak na početnu stranicu",
+	"nombreVues": "Broj pregleda",
+	"repeterImageFond": "Ponovite pozadinsku sliku",
+	"parametreFondModifie": "Promijenjena postavka ponavljanja pozadinske slike."
 }
