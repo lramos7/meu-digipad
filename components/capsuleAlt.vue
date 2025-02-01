@@ -6,18 +6,18 @@
 		</div>
 		<div class="texte" v-if="item.texte !== ''" v-html="item.texte" />
 		<div class="media" v-if="item.media !== '' && action !== 'organiser'">
-			<img role="button" :tabindex="tabindex" v-if="item.type === 'image'" :src="'/' + $parent.definirDossierFichiers(pad.id) + '/' + pad.id + '/' + item.media" loading="lazy" :alt="item.media" @click="$parent.afficherVisionneuse(item)" @keydown.enter="$parent.afficherVisionneuse(item)">
+			<img role="button" :tabindex="tabindex" v-if="item.type === 'image'" :src="$parent.definirCheminFichiers() + '/' + pad.id + '/' + item.media" loading="lazy" :alt="item.media" @click="$parent.afficherVisionneuse(item)" @keydown.enter="$parent.afficherVisionneuse(item)">
 			<img role="button" :tabindex="tabindex" v-else-if="item.type === 'lien-image'" :src="item.media" loading="lazy" :alt="item.media" @click="$parent.afficherVisionneuse(item)" @keydown.enter="$parent.afficherVisionneuse(item)">
-			<span role="button" :tabindex="tabindex" v-else-if="item.type === 'audio' || item.type === 'video' || item.type === 'document' || item.type === 'pdf' || item.type === 'office' || item.type === 'embed'" @click="$parent.afficherVisionneuse(item)" @keydown.enter="$parent.afficherVisionneuse(item)"><img :class="{'vignette': $parent.definirVignette(item).substring(0, 5) !== '/img/'}" :src="$parent.definirVignette(item)" :alt="$parent.definirVignette(item)" loading="lazy"></span>
-			<span v-else-if="item.type === 'lien'"><a :href="item.media" target="_blank"><img :class="{'vignette': $parent.definirVignette(item).substring(0, 5) !== '/img/'}" :src="$parent.definirVignette(item)" :alt="$parent.definirVignette(item)" loading="lazy"></a></span>
-			<span v-else><a :href="'/' + $parent.definirDossierFichiers(pad.id) + '/' + pad.id + '/' + item.media" download><img :class="{'vignette': $parent.definirVignette(item).substring(0, 5) !== '/img/'}" :src="$parent.definirVignette(item)" :alt="$parent.definirVignette(item)" loading="lazy"></a></span>
+			<span role="button" :tabindex="tabindex" v-else-if="item.type === 'audio' || item.type === 'video' || (item.type === 'document' && visionneuseDocx !== '') || item.type === 'pdf' || (item.type === 'office' && visionneuseDocx !== '') || item.type === 'embed'" @click="$parent.afficherVisionneuse(item)" @keydown.enter="$parent.afficherVisionneuse(item)"><img :class="{'vignette': $parent.definirVignette(item).substring(0, 5) !== '/img/'}" :src="$parent.definirVignette(item)" :alt="$parent.definirNomLienFichier($parent.definirVignette(item))" loading="lazy"></span>
+			<span v-else-if="item.type === 'lien'"><a :href="item.media" target="_blank"><img :class="{'vignette': $parent.definirVignette(item).substring(0, 5) !== '/img/'}" :src="$parent.definirVignette(item)" :alt="$parent.definirNomLienFichier($parent.definirVignette(item))" loading="lazy"></a></span>
+			<span v-else><a :href="$parent.definirCheminFichiers() + '/' + pad.id + '/' + item.media" download><img :class="{'vignette': $parent.definirVignette(item).substring(0, 5) !== '/img/'}" :src="$parent.definirVignette(item)" :alt="$parent.definirNomLienFichier($parent.definirVignette(item))" loading="lazy"></a></span>
 		</div>
 		<div class="media" v-else-if="item.media !== '' && action === 'organiser'">
-			<img v-if="item.type === 'image'" :src="'/' + $parent.definirDossierFichiers(pad.id) + '/' + pad.id + '/' + item.media" loading="lazy" :alt="item.media">
+			<img v-if="item.type === 'image'" :src="$parent.definirCheminFichiers() + '/' + pad.id + '/' + item.media" loading="lazy" :alt="item.media">
 			<img v-else-if="item.type === 'lien-image'" :src="item.media" loading="lazy" :alt="item.media">
-			<span v-else-if="item.type === 'audio' || item.type === 'video' || item.type === 'document' || item.type === 'pdf' || item.type === 'office' || item.type === 'embed'"><img :class="{'vignette': $parent.definirVignette(item).substring(0, 5) !== '/img/'}" :src="$parent.definirVignette(item)" loading="lazy" :alt="$parent.definirVignette(item)"></span>
-			<span v-else-if="item.type === 'lien'"><img :class="{'vignette': $parent.definirVignette(item).substring(0, 5) !== '/img/'}" :src="$parent.definirVignette(item)" loading="lazy" :alt="$parent.definirVignette(item)"></span>
-			<span v-else><img :class="{'vignette': $parent.definirVignette(item).substring(0, 5) !== '/img/'}" :src="$parent.definirVignette(item)" loading="lazy" :alt="$parent.definirVignette(item)"></span>
+			<span v-else-if="item.type === 'audio' || item.type === 'video' || item.type === 'document' || item.type === 'pdf' || item.type === 'office' || item.type === 'embed'"><img :class="{'vignette': $parent.definirVignette(item).substring(0, 5) !== '/img/'}" :src="$parent.definirVignette(item)" loading="lazy" :alt="$parent.definirNomLienFichier($parent.definirVignette(item))"></span>
+			<span v-else-if="item.type === 'lien'"><img :class="{'vignette': $parent.definirVignette(item).substring(0, 5) !== '/img/'}" :src="$parent.definirVignette(item)" loading="lazy" :alt="$parent.definirNomLienFichier($parent.definirVignette(item))"></span>
+			<span v-else><img :class="{'vignette': $parent.definirVignette(item).substring(0, 5) !== '/img/'}" :src="$parent.definirVignette(item)" loading="lazy" :alt="$parent.definirNomLienFichier($parent.definirVignette(item))"></span>
 		</div>
 		<div class="evaluation" v-if="pad.evaluations === 'activees'">
 			<span class="etoiles">
@@ -60,6 +60,11 @@ export default {
 		action: String,
 		statut: String,
 		digidrive: Boolean
+	},
+	data () {
+		return {
+			visionneuseDocx: import.meta.env.VITE_DOCX_VIEWER
+		}
 	}
 }
 </script>

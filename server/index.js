@@ -1,7 +1,6 @@
 import 'dotenv/config'
 import path from 'path'
 import fs from 'fs-extra'
-import onHeaders from 'on-headers'
 import express from 'express'
 import { createServer } from 'http'
 import { Server } from 'socket.io'
@@ -15,6 +14,7 @@ import bodyParser from 'body-parser'
 import helmet from 'helmet'
 import v from 'voca'
 import multer from 'multer'
+import Busboy from 'busboy'
 import sharp from 'sharp'
 import gm from 'gm'
 import archiver from 'archiver'
@@ -40,10 +40,14 @@ import events from 'events'
 import base64 from 'base-64'
 import checkDiskSpace from 'check-disk-space'
 import pg from 'pg'
-import { renderPage } from 'vike/server'
+import { S3Client, CopyObjectCommand, PutObjectCommand, ListObjectsV2Command, GetObjectCommand, HeadObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3'
+import { renderPage, createDevMiddleware } from 'vike/server'
 
 const production = process.env.NODE_ENV === 'production'
-const cluster = parseInt(process.env.NODE_CLUSTER) === 1
+let cluster = false
+if (production) {
+	cluster = parseInt(process.env.NODE_CLUSTER) === 1
+}
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const root = `${__dirname}/..`
 
@@ -72,6 +76,24 @@ async function demarrerServeur () {
 		hote = process.env.DOMAIN
 	} else if (process.env.PORT) {
 		hote = 'http://localhost:' + process.env.PORT
+	}
+	let stockage = 'fs'
+	const lienPublicS3 = process.env.VITE_S3_PUBLIC_LINK
+	let s3Client = ''
+	let bucket = ''
+	if (process.env.VITE_STORAGE && process.env.VITE_STORAGE === 's3' && lienPublicS3 !== null && lienPublicS3 !== '') {
+		stockage = 's3'
+		bucket = process.env.S3_BUCKET
+	}
+	if (stockage === 's3') {
+		s3Client = new S3Client({
+			endpoint: process.env.S3_ENDPOINT,
+			region: process.env.S3_REGION,
+			credentials: {
+				accessKeyId: process.env.S3_ACCESS_KEY,
+				secretAccessKey: process.env.S3_SECRET_KEY
+			}
+		})
 	}
 	let db
 	let db_port = 6379
@@ -211,19 +233,13 @@ async function demarrerServeur () {
 			directives: {
 				"default-src": ["'self'", "https:", "ws:"],
 				"script-src": ["'self'", process.env.VITE_MATOMO, "'unsafe-inline'", "'unsafe-eval'"],
-				"media-src": ["'self'", "data:", "blob:"],
+				"media-src": ["'self'", "https:", "data:", "blob:"],
 				"img-src": ["'self'", "https:", "data:"],
 				"frame-ancestors": ["*"],
 				"frame-src": ["*", "blob:"]
 			}
 		})
 	)
-	app.use(function (req, res, next) {
-		onHeaders(res, function () {
-			res.removeHeader('Accept-Ranges')
-		})
-		next()
-	})
 	app.use(bodyParser.json({ limit: '300mb' }))
 	app.use(sessionMiddleware)
 	app.use(cors({ 'origin': domainesAutorises }))
@@ -231,41 +247,13 @@ async function demarrerServeur () {
 		app.use('/fichiers', express.static('static/fichiers'))
 		app.use('/pdfjs', express.static('static/pdfjs'))
 		app.use('/temp', express.static('static/temp'))
-		if (process.env.VITE_NFS_FOLDER && process.env.VITE_NFS_FOLDER !== '') {
-			app.use('/' + process.env.VITE_NFS_FOLDER, express.static('static/' + process.env.VITE_NFS_FOLDER))
-		}
-		if (process.env.VITE_NFS2_FOLDER && process.env.VITE_NFS2_FOLDER !== '') {
-			app.use('/' + process.env.VITE_NFS2_FOLDER, express.static('static/' + process.env.VITE_NFS2_FOLDER))
-		}
-		if (process.env.VITE_NFS3_FOLDER && process.env.VITE_NFS3_FOLDER !== '') {
-			app.use('/' + process.env.VITE_NFS3_FOLDER, express.static('static/' + process.env.VITE_NFS3_FOLDER))
-		}
-		if (process.env.VITE_NFS4_FOLDER && process.env.VITE_NFS4_FOLDER !== '') {
-			app.use('/' + process.env.VITE_NFS4_FOLDER, express.static('static/' + process.env.VITE_NFS4_FOLDER))
-		}
-		if (process.env.VITE_NFS5_FOLDER && process.env.VITE_NFS5_FOLDER !== '') {
-			app.use('/' + process.env.VITE_NFS5_FOLDER, express.static('static/' + process.env.VITE_NFS5_FOLDER))
-		}
-		if (process.env.VITE_NFS6_FOLDER && process.env.VITE_NFS6_FOLDER !== '') {
-			app.use('/' + process.env.VITE_NFS6_FOLDER, express.static('static/' + process.env.VITE_NFS6_FOLDER))
-		}
-		if (process.env.VITE_NFS7_FOLDER && process.env.VITE_NFS7_FOLDER !== '') {
-			app.use('/' + process.env.VITE_NFS7_FOLDER, express.static('static/' + process.env.VITE_NFS7_FOLDER))
-		}
-		if (process.env.VITE_NFS8_FOLDER && process.env.VITE_NFS8_FOLDER !== '') {
-			app.use('/' + process.env.VITE_NFS8_FOLDER, express.static('static/' + process.env.VITE_NFS8_FOLDER))
-		}
 	}
 
 	if (!production) {
-		const vite = await import('vite')
-    	const viteDevMiddleware = (
-      		await vite.createServer({
-        		root,
-        		server: { middlewareMode: true }
-			})
-    	).middlewares
-    	app.use(viteDevMiddleware)
+    	const { devMiddleware } = (
+      		await createDevMiddleware({ root })
+    	)
+    	app.use(devMiddleware)
   	} else if (production && parseInt(process.env.REVERSE_PROXY) !== 1) {
 		const sirv = (await import('sirv')).default
 		app.use(sirv(`${root}/dist/client`))
@@ -861,8 +849,10 @@ async function demarrerServeur () {
 				const id = parseInt(reponse) + 1
 				const creation = await creerPad(id, token, titre, date, identifiant, couleur)
 				if (creation === true) {
-					const chemin = path.join(__dirname, '..', '/static/' + definirDossierFichiers(id) + '/' + id)
-					await fs.mkdirp(chemin)
+					if (stockage === 'fs') {
+						const chemin = path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + id)
+						await fs.mkdirp(chemin)
+					}
 					res.json({ id: id, token: token, titre: titre, identifiant: identifiant, fond: '/img/fond1.png', acces: 'public', contributions: 'ouvertes', affichage: 'mur', registreActivite: 'active', conversation: 'desactivee', listeUtilisateurs: 'activee', editionNom: 'desactivee', fichiers: 'actives', enregistrements: 'desactives', liens: 'actives', documents: 'desactives', commentaires: 'desactives', evaluations: 'desactivees', copieBloc: 'desactivee', ordre: 'croissant', largeur: 'normale', date: date, colonnes: [], affichageColonnes: [], bloc: 0, activite: 0, admins: [] })
 				} else {
 					res.send('erreur_creation')
@@ -870,8 +860,10 @@ async function demarrerServeur () {
 			} else {
 				const creation = await creerPad(1, token, titre, date, identifiant, couleur)
 				if (creation === true) {
-					const chemin = path.join(__dirname, '..', '/static/' + definirDossierFichiers(1) + '/1')
-					await fs.mkdirp(chemin)
+					if (stockage === 'fs') {
+						const chemin = path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/1')
+						await fs.mkdirp(chemin)
+					}
 					res.json({ id: 1, token: token, titre: titre, identifiant: identifiant, fond: '/img/fond1.png', acces: 'public', contributions: 'ouvertes', affichage: 'mur', registreActivite: 'active', conversation: 'desactivee', listeUtilisateurs: 'activee', editionNom: 'desactivee', fichiers: 'actives', enregistrements: 'desactives', liens: 'actives', documents: 'desactives', commentaires: 'desactives', evaluations: 'desactivees', copieBloc: 'desactivee', ordre: 'croissant', largeur: 'normale', date: date, colonnes: [], affichageColonnes: [], bloc: 0, activite: 0, admins: [] })
 				} else {
 					res.send('erreur_creation')
@@ -923,8 +915,10 @@ async function demarrerServeur () {
 			const id = parseInt(reponse) + 1
 			const creation = await creerPadSansCompte(id, token, titre, hash, date, identifiant, nom, langue, '')
 			if (creation === true) {
-				const chemin = path.join(__dirname, '..', '/static/' + definirDossierFichiers(id) + '/' + id)
-				await fs.mkdirp(chemin)
+				if (stockage === 'fs') {
+					const chemin = path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + id)
+					await fs.mkdirp(chemin)
+				}
 				req.session.langue = langue
 				req.session.statut = 'auteur'
 				req.session.cookie.expires = new Date(Date.now() + dureeSession)
@@ -935,8 +929,10 @@ async function demarrerServeur () {
 		} else {
 			const creation = await creerPadSansCompte(1, token, titre, hash, date, identifiant, nom, langue, '')
 			if (creation === true) {
-				const chemin = path.join(__dirname, '..', '/static/' + definirDossierFichiers(1) + '/1')
-				await fs.mkdirp(chemin)
+				if (stockage === 'fs') {
+					const chemin = path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/1')
+					await fs.mkdirp(chemin)
+				}
 				req.session.langue = langue
 				req.session.statut = 'auteur'
 				req.session.cookie.expires = new Date(Date.now() + dureeSession)
@@ -1041,10 +1037,10 @@ async function demarrerServeur () {
 			const num = await db.GET('pad')
 			if (num === null) { res.send('erreur_duplication'); return false }
 			const id = parseInt(num) + 1
-			const dossier = path.join(__dirname, '..', '/static/' + definirDossierFichiers(id))
+			const dossier = path.join(__dirname, '..', '/static' + definirCheminFichiers())
 			checkDiskSpace(dossier).then(async function (diskSpace) {
 				const espace = Math.round((diskSpace.free / diskSpace.size) * 100)
-				if (espace < minimumEspaceDisque) {
+				if (stockage === 'fs' && espace < minimumEspaceDisque) {
 					res.send('erreur_espace_disque')
 				} else {
 					const resultat = await db.EXISTS('pads:' + pad)
@@ -1064,8 +1060,8 @@ async function demarrerServeur () {
 									infos = Object.assign({}, infos)
 									if (infos === null) { resolve({}); return false }
 									const date = dayjs().format()
-									if (infos.hasOwnProperty('vignette') && infos.vignette !== '' && typeof infos.vignette === 'string' && !infos.vignette.includes('/img/') && !verifierURL(infos.vignette, ['https', 'http'])) {
-										infos.vignette = '/' + definirDossierFichiers(id) + '/' + id + '/' + path.basename(infos.vignette)
+									if (infos.hasOwnProperty('vignette') && definirVignettePersonnalisee(infos.vignette) === true) {
+										infos.vignette = path.basename(infos.vignette)
 									}
 									let visibilite = 'visible'
 									if (infos.hasOwnProperty('visibilite')) {
@@ -1135,7 +1131,7 @@ async function demarrerServeur () {
 									})
 								}
 								if (!donnees.fond.includes('/img/') && donnees.fond.substring(0, 1) !== '#' && donnees.fond !== '' && typeof donnees.fond === 'string') {
-									donnees.fond = '/' + definirDossierFichiers(id) + '/' + id + '/' + path.basename(donnees.fond)
+									donnees.fond = path.basename(donnees.fond)
 								}
 								if (donnees.hasOwnProperty('code')) {
 									await db
@@ -1156,8 +1152,15 @@ async function demarrerServeur () {
 									.HSET('couleurs:' + identifiant, 'pad' + id, couleur)
 									.exec()
 								}
-								if (await fs.pathExists(path.join(__dirname, '..', '/static/' + definirDossierFichiers(pad) + '/' + pad))) {
-									await fs.copy(path.join(__dirname, '..', '/static/' + definirDossierFichiers(pad) + '/' + pad), path.join(__dirname, '..', '/static/' + definirDossierFichiers(id) + '/' + id))
+								if (stockage === 'fs' && await fs.pathExists(path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + pad))) {
+									await fs.copy(path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + pad), path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + id))
+								} else if (stockage === 's3') {
+									const liste = await s3Client.send(new ListObjectsV2Command({ Bucket: bucket, Prefix: pad + '/' }))
+									if (liste.hasOwnProperty('Contents')) {
+										for (let i = 0; i < liste.Contents.length; i++) {
+											await s3Client.send(new CopyObjectCommand({ Bucket: bucket, Key: id + '/' + liste.Contents[i].Key.replace(pad + '/', ''), CopySource: '/' + bucket + '/' + liste.Contents[i].Key, ACL: 'public-read' }))
+										}
+									}
 								}
 								res.json({ id: id, token: token, titre: 'Copie de ' + donnees.titre, identifiant: identifiant, fond: donnees.fond, acces: donnees.acces, code: code, contributions: donnees.contributions, affichage: donnees.affichage, registreActivite: registreActivite, conversation: conversation, listeUtilisateurs: listeUtilisateurs, editionNom: editionNom, fichiers: donnees.fichiers, enregistrements: enregistrements, liens: donnees.liens, documents: donnees.documents, commentaires: donnees.commentaires, evaluations: donnees.evaluations, copieBloc: copieBloc, ordre: ordre, largeur: largeur, date: date, colonnes: donnees.colonnes, affichageColonnes: affichageColonnes, bloc: donnees.bloc, activite: 0 })
 							})
@@ -1176,8 +1179,8 @@ async function demarrerServeur () {
 								for (const [indexBloc, bloc] of donnees.blocs.entries()) {
 									const donneesBloc = new Promise(async function (resolve) {
 										if (Object.keys(bloc).length > 0) {
-											if (bloc.hasOwnProperty('vignette') && bloc.vignette !== '' && typeof bloc.vignette === 'string' && !bloc.vignette.includes('/img/') && !verifierURL(bloc.vignette, ['https', 'http'])) {
-												bloc.vignette = '/' + definirDossierFichiers(id) + '/' + id + '/' + path.basename(bloc.vignette)
+											if (bloc.hasOwnProperty('vignette') && definirVignettePersonnalisee(bloc.vignette) === true) {
+												bloc.vignette = path.basename(bloc.vignette)
 											}
 											let visibilite = 'visible'
 											if (bloc.hasOwnProperty('visibilite')) {
@@ -1249,7 +1252,7 @@ async function demarrerServeur () {
 										})
 									}
 									if (!donnees.pad.fond.includes('/img/') && donnees.pad.fond.substring(0, 1) !== '#' && donnees.pad.fond !== '' && typeof donnees.pad.fond === 'string') {
-										donnees.pad.fond = '/' + definirDossierFichiers(id) + '/' + id + '/' + path.basename(donnees.pad.fond)
+										donnees.pad.fond = path.basename(donnees.pad.fond)
 									}
 									if (donnees.pad.hasOwnProperty('code')) {
 										await db
@@ -1270,8 +1273,15 @@ async function demarrerServeur () {
 										.HSET('couleurs:' + identifiant, 'pad' + id, couleur)
 										.exec()
 									}
-									if (await fs.pathExists(path.join(__dirname, '..', '/static/' + definirDossierFichiers(pad) + '/' + pad))) {
-										await fs.copy(path.join(__dirname, '..', '/static/' + definirDossierFichiers(pad) + '/' + pad), path.join(__dirname, '..', '/static/' + definirDossierFichiers(id) + '/' + id))
+									if (stockage === 'fs' && await fs.pathExists(path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + pad))) {
+										await fs.copy(path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + pad), path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + id))
+									} else if (stockage === 's3') {
+										const liste = await s3Client.send(new ListObjectsV2Command({ Bucket: bucket, Prefix: pad + '/' }))
+										if (liste.hasOwnProperty('Contents')) {
+											for (let i = 0; i < liste.Contents.length; i++) {
+												await s3Client.send(new CopyObjectCommand({ Bucket: bucket, Key: id + '/' + liste.Contents[i].Key.replace(pad + '/', ''), CopySource: '/' + bucket + '/' + liste.Contents[i].Key, ACL: 'public-read' }))
+											}
+										}
 									}
 									res.json({ id: id, token: token, titre: 'Copie de ' + donnees.pad.titre, identifiant: identifiant, fond: donnees.pad.fond, acces: donnees.pad.acces, code: code, contributions: donnees.pad.contributions, affichage: donnees.pad.affichage, registreActivite: registreActivite, conversation: conversation, listeUtilisateurs: listeUtilisateurs, editionNom: editionNom, fichiers: donnees.pad.fichiers, enregistrements: enregistrements, liens: donnees.pad.liens, documents: donnees.pad.documents, commentaires: donnees.pad.commentaires, evaluations: donnees.pad.evaluations, copieBloc: copieBloc, ordre: ordre, largeur: largeur, date: date, colonnes: donnees.pad.colonnes, affichageColonnes: affichageColonnes, bloc: donnees.pad.bloc, activite: 0 })
 								})
@@ -1396,8 +1406,15 @@ async function demarrerServeur () {
 							await fs.writeFile(path.normalize(chemin + '/' + id + '/index.html'), html, 'utf8')
 							if (!parametres.pad.fond.includes('/img/') && parametres.pad.fond.substring(0, 1) !== '#' && parametres.pad.fond !== '' && typeof parametres.pad.fond === 'string') {
 								const fichierFond = path.basename(parametres.pad.fond)
-								if (await fs.pathExists(path.join(__dirname, '..', '/static/' + definirDossierFichiers(id) + '/' + id + '/' + fichierFond))) {
-									await fs.copy(path.join(__dirname, '..', '/static/' + definirDossierFichiers(id) + '/' + id + '/' + fichierFond), path.normalize(chemin + '/' + id + '/fichiers/' + fichierFond, { overwrite: true }))
+								if (stockage === 'fs' && await fs.pathExists(path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + id + '/' + fichierFond))) {
+									await fs.copy(path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + id + '/' + fichierFond), path.normalize(chemin + '/' + id + '/fichiers/' + fichierFond, { overwrite: true }))
+								} else if (stockage === 's3') {
+									try {
+										const fichierMeta = await s3Client.send(new HeadObjectCommand({ Bucket: bucket, Key: id + '/' + fichierFond }))
+										if (fichierMeta.hasOwnProperty('ContentLength')) {
+											await telechargerFichierS3(id + '/' + fichierFond, path.normalize(chemin + '/' + id + '/fichiers/' + fichierFond))
+										}
+									} catch (e) {}
 								}
 							} else if (parametres.pad.fond.includes('/img/') && await fs.pathExists(path.join(__dirname, '..', '/public' + parametres.pad.fond))) {
 								await fs.copy(path.join(__dirname, '..', '/public' + parametres.pad.fond), path.normalize(chemin + '/' + id + '/static' + parametres.pad.fond, { overwrite: true }))
@@ -1412,16 +1429,30 @@ async function demarrerServeur () {
 							await fs.copy(path.join(__dirname, '..', '/public/fonts/Roboto-Slab-Medium.woff2'), path.normalize(chemin + '/' + id + '/static/fonts/Roboto-Slab-Medium.woff2'))
 							await fs.copy(path.join(__dirname, '..', '/public/img/favicon.png'), path.normalize(chemin + '/' + id + '/static/img/favicon.png'))
 							for (const bloc of parametres.blocs) {
-								if (Object.keys(bloc).length > 0 && bloc.hasOwnProperty('media') && bloc.media !== '' && bloc.type !== 'embed' && await fs.pathExists(path.join(__dirname, '..', '/static/' + definirDossierFichiers(id) + '/' + id + '/' + bloc.media))) {
-									await fs.copy(path.join(__dirname, '..', '/static/' + definirDossierFichiers(id) + '/' + id + '/' + bloc.media), path.normalize(chemin + '/' + id + '/fichiers/' + bloc.media, { overwrite: true }))
+								if (stockage === 'fs' && Object.keys(bloc).length > 0 && bloc.hasOwnProperty('media') && bloc.media !== '' && bloc.type !== 'embed' && bloc.type !== 'lien' && await fs.pathExists(path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + id + '/' + bloc.media))) {
+									await fs.copy(path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + id + '/' + bloc.media), path.normalize(chemin + '/' + id + '/fichiers/' + bloc.media, { overwrite: true }))
+								} else if (stockage === 's3' && Object.keys(bloc).length > 0 && bloc.hasOwnProperty('media') && bloc.media !== '' && bloc.type !== 'embed' && bloc.type !== 'lien') {
+									try {
+										const fichierMeta = await s3Client.send(new HeadObjectCommand({ Bucket: bucket, Key: id + '/' + bloc.media }))
+										if (fichierMeta.hasOwnProperty('ContentLength')) {
+											await telechargerFichierS3(id + '/' + bloc.media, path.normalize(chemin + '/' + id + '/fichiers/' + bloc.media))
+										}
+									} catch (e) {}
 								}
 								if (Object.keys(bloc).length > 0 && bloc.hasOwnProperty('vignette') && bloc.vignette !== '') {
 									if (typeof bloc.vignette === 'string' && bloc.vignette.includes('/img/') && !verifierURL(bloc.vignette, ['https', 'http']) && await fs.pathExists(path.join(__dirname, '..', '/public' + bloc.vignette))) {
 										await fs.copy(path.join(__dirname, '..', '/public' + bloc.vignette), path.normalize(chemin + '/' + id + '/static' + bloc.vignette, { overwrite: true }))
-									} else if (typeof bloc.vignette === 'string' && !verifierURL(bloc.vignette, ['https', 'http'])) {
+									} else if (definirVignettePersonnalisee(bloc.vignette) === true) {
 										const fichierVignette = path.basename(bloc.vignette)
-										if (await fs.pathExists(path.join(__dirname, '..', '/static/' + definirDossierFichiers(id) + '/' + id + '/' + fichierVignette))) {
-											await fs.copy(path.join(__dirname, '..', '/static/' + definirDossierFichiers(id) + '/' + id + '/' + fichierVignette), path.normalize(chemin + '/' + id + '/fichiers/' + fichierVignette, { overwrite: true }))
+										if (stockage === 'fs' && await fs.pathExists(path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + id + '/' + fichierVignette))) {
+											await fs.copy(path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + id + '/' + fichierVignette), path.normalize(chemin + '/' + id + '/fichiers/' + fichierVignette, { overwrite: true }))
+										} else if (stockage === 's3') {
+											try {
+												const fichierMeta = await s3Client.send(new HeadObjectCommand({ Bucket: bucket, Key: id + '/' + fichierVignette }))
+												if (fichierMeta.hasOwnProperty('ContentLength')) {
+													await telechargerFichierS3(id + '/' + fichierVignette, path.normalize(chemin + '/' + id + '/fichiers/' + fichierVignette))
+												}
+											} catch (e) {}
 										}
 									}
 								}
@@ -1461,8 +1492,15 @@ async function demarrerServeur () {
 						await fs.writeFile(path.normalize(chemin + '/' + id + '/index.html'), html, 'utf8')
 						if (!donnees.pad.fond.includes('/img/') && donnees.pad.fond.substring(0, 1) !== '#' && donnees.pad.fond !== '' && typeof donnees.pad.fond === 'string') {
 							const fichierFond = path.basename(donnees.pad.fond)
-							if (await fs.pathExists(path.join(__dirname, '..', '/static/' + definirDossierFichiers(id) + '/' + id + '/' + fichierFond))) {
-								await fs.copy(path.join(__dirname, '..', '/static/' + definirDossierFichiers(id) + '/' + id + '/' + fichierFond), path.normalize(chemin + '/' + id + '/fichiers/' + fichierFond, { overwrite: true }))
+							if (stockage === 'fs' && await fs.pathExists(path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + id + '/' + fichierFond))) {
+								await fs.copy(path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + id + '/' + fichierFond), path.normalize(chemin + '/' + id + '/fichiers/' + fichierFond, { overwrite: true }))
+							} else if (stockage === 's3') {
+								try {
+									const fichierMeta = await s3Client.send(new HeadObjectCommand({ Bucket: bucket, Key: id + '/' + fichierFond }))
+									if (fichierMeta.hasOwnProperty('ContentLength')) {
+										await telechargerFichierS3(id + '/' + fichierFond, path.normalize(chemin + '/' + id + '/fichiers/' + fichierFond))
+									}
+								} catch (e) {}
 							}
 						} else if (donnees.pad.fond.includes('/img/') && await fs.pathExists(path.join(__dirname, '..', '/public' + donnees.pad.fond))) {
 							await fs.copy(path.join(__dirname, '..', '/public' + donnees.pad.fond), path.normalize(chemin + '/' + id + '/static' + donnees.pad.fond, { overwrite: true }))
@@ -1477,16 +1515,30 @@ async function demarrerServeur () {
 						await fs.copy(path.join(__dirname, '..', '/public/fonts/Roboto-Slab-Medium.woff2'), path.normalize(chemin + '/' + id + '/static/fonts/Roboto-Slab-Medium.woff2'))
 						await fs.copy(path.join(__dirname, '..', '/public/img/favicon.png'), path.normalize(chemin + '/' + id + '/static/img/favicon.png'))
 						for (const bloc of donnees.blocs) {
-							if (Object.keys(bloc).length > 0 && bloc.hasOwnProperty('media') && bloc.media !== '' && bloc.type !== 'embed' && await fs.pathExists(path.join(__dirname, '..', '/static/' + definirDossierFichiers(id) + '/' + id + '/' + bloc.media))) {
-								await fs.copy(path.join(__dirname, '..', '/static/' + definirDossierFichiers(id) + '/' + id + '/' + bloc.media), path.normalize(chemin + '/' + id + '/fichiers/' + bloc.media, { overwrite: true }))
+							if (stockage === 'fs' && Object.keys(bloc).length > 0 && bloc.hasOwnProperty('media') && bloc.media !== '' && bloc.type !== 'embed' && bloc.type !== 'lien' && await fs.pathExists(path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + id + '/' + bloc.media))) {
+								await fs.copy(path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + id + '/' + bloc.media), path.normalize(chemin + '/' + id + '/fichiers/' + bloc.media, { overwrite: true }))
+							} else if (stockage === 's3' && Object.keys(bloc).length > 0 && bloc.hasOwnProperty('media') && bloc.media !== '' && bloc.type !== 'embed' && bloc.type !== 'lien') {
+								try {
+									const fichierMeta = await s3Client.send(new HeadObjectCommand({ Bucket: bucket, Key: id + '/' + bloc.media }))
+									if (fichierMeta.hasOwnProperty('ContentLength')) {
+										await telechargerFichierS3(id + '/' + bloc.media, path.normalize(chemin + '/' + id + '/fichiers/' + bloc.media))
+									}
+								} catch (e) {}
 							}
 							if (Object.keys(bloc).length > 0 && bloc.hasOwnProperty('vignette') && bloc.vignette !== '') {
 								if (typeof bloc.vignette === 'string' && bloc.vignette.includes('/img/') && !verifierURL(bloc.vignette, ['https', 'http']) && await fs.pathExists(path.join(__dirname, '..', '/public' + bloc.vignette))) {
 									await fs.copy(path.join(__dirname, '..', '/public' + bloc.vignette), path.normalize(chemin + '/' + id + '/static' + bloc.vignette, { overwrite: true }))
-								} else if (typeof bloc.vignette === 'string' && !verifierURL(bloc.vignette, ['https', 'http'])) {
+								} else if (definirVignettePersonnalisee(bloc.vignette) === true) {
 									const fichierVignette = path.basename(bloc.vignette)
-									if (await fs.pathExists(path.join(__dirname, '..', '/static/' + definirDossierFichiers(id) + '/' + id + '/' + fichierVignette))) {
-										await fs.copy(path.join(__dirname, '..', '/static/' + definirDossierFichiers(id) + '/' + id + '/' + fichierVignette), path.normalize(chemin + '/' + id + '/fichiers/' + fichierVignette, { overwrite: true }))
+									if (stockage === 'fs' && await fs.pathExists(path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + id + '/' + fichierVignette))) {
+										await fs.copy(path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + id + '/' + fichierVignette), path.normalize(chemin + '/' + id + '/fichiers/' + fichierVignette, { overwrite: true }))
+									} else if (stockage === 's3') {
+										try {
+											const fichierMeta = await s3Client.send(new HeadObjectCommand({ Bucket: bucket, Key: id + '/' + fichierVignette }))
+											if (fichierMeta.hasOwnProperty('ContentLength')) {
+												await telechargerFichierS3(id + '/' + fichierVignette, path.normalize(chemin + '/' + id + '/fichiers/' + fichierVignette))
+											}
+										} catch (e) {}
 									}
 								}
 							}
@@ -1539,15 +1591,17 @@ async function demarrerServeur () {
 						const resultat = await db.GET('pad')
 						if (resultat === null) { res.send('erreur_import'); return false }
 						const id = parseInt(resultat) + 1
-						const dossier = path.join(__dirname, '..', '/static/' + definirDossierFichiers(id))
+						const dossier = path.join(__dirname, '..', '/static' + definirCheminFichiers())
 						checkDiskSpace(dossier).then(async function (diskSpace) {
 							const espace = Math.round((diskSpace.free / diskSpace.size) * 100)
 							if (espace < minimumEspaceDisque) {
 								res.send('erreur_espace_disque')
 							} else {
-								const chemin = path.join(__dirname, '..', '/static/' + definirDossierFichiers(id) + '/' + id)
 								const donneesBlocs = []
-								await fs.mkdirp(chemin)
+								const chemin = path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + id)
+								if (stockage === 'fs') {
+									await fs.mkdirp(chemin)
+								}
 								for (const [indexBloc, bloc] of donnees.blocs.entries()) {
 									const donneesBloc = new Promise(async function (resolve) {
 										if (bloc.hasOwnProperty('id') && bloc.hasOwnProperty('bloc') && bloc.hasOwnProperty('titre') && bloc.hasOwnProperty('texte') && bloc.hasOwnProperty('media') && bloc.hasOwnProperty('iframe') && bloc.hasOwnProperty('type') && bloc.hasOwnProperty('source') && bloc.hasOwnProperty('vignette') && bloc.hasOwnProperty('identifiant') && bloc.hasOwnProperty('commentaires') && bloc.hasOwnProperty('evaluations') && bloc.hasOwnProperty('colonne') && bloc.hasOwnProperty('listeCommentaires') && bloc.hasOwnProperty('listeEvaluations')) {
@@ -1560,8 +1614,8 @@ async function demarrerServeur () {
 											if (parametres.evaluations === true) {
 												evaluations = bloc.evaluations
 											}
-											if (bloc.vignette !== '' && typeof bloc.vignette === 'string' && !bloc.vignette.includes('/img/') && !verifierURL(bloc.vignette, ['https', 'http'])) {
-												bloc.vignette = '/' + definirDossierFichiers(donnees.pad.id) + '/' + donnees.pad.id + '/' + path.basename(bloc.vignette)
+											if (definirVignettePersonnalisee(bloc.vignette) === true) {
+												bloc.vignette = path.basename(bloc.vignette)
 											}
 											let visibilite = 'visible'
 											if (bloc.hasOwnProperty('visibilite')) {
@@ -1587,11 +1641,17 @@ async function demarrerServeur () {
 													}
 												}
 											}
-											if (bloc.hasOwnProperty('media') && bloc.media !== '' && bloc.type !== 'embed' && await fs.pathExists(path.normalize(cible + '/fichiers/' + bloc.media))) {
+											if (stockage === 'fs' && bloc.hasOwnProperty('media') && bloc.media !== '' && bloc.type !== 'embed' && bloc.type !== 'lien' && await fs.pathExists(path.normalize(cible + '/fichiers/' + bloc.media))) {
 												await fs.copy(path.normalize(cible + '/fichiers/' + bloc.media), path.normalize(chemin + '/' + bloc.media, { overwrite: true }))
+											} else if (stockage === 's3' && bloc.hasOwnProperty('media') && bloc.media !== '' && bloc.type !== 'embed' && bloc.type !== 'lien' && await fs.pathExists(path.normalize(cible + '/fichiers/' + bloc.media))) {
+												const buffer = await fs.readFile(path.normalize(cible + '/fichiers/' + bloc.media))
+												await s3Client.send(new PutObjectCommand({ Bucket: bucket, Key: id + '/' + bloc.media, Body: buffer, ACL: 'public-read' }))
 											}
-											if (bloc.hasOwnProperty('vignette') && bloc.vignette !== '' && typeof bloc.vignette === 'string' && !bloc.vignette.includes('/img/') && !verifierURL(bloc.vignette, ['https', 'http']) && await fs.pathExists(path.normalize(cible + '/fichiers/' + path.basename(bloc.vignette)))) {
-												await fs.copy(path.normalize(cible + '/fichiers/' + path.basename(bloc.vignette)), path.normalize(chemin + '/' + path.basename(bloc.vignette), { overwrite: true }))
+											if (stockage === 'fs' && bloc.hasOwnProperty('vignette') && definirVignettePersonnalisee(bloc.vignette) === true && await fs.pathExists(path.normalize(cible + '/fichiers/' + bloc.vignette))) {
+												await fs.copy(path.normalize(cible + '/fichiers/' + bloc.vignette), path.normalize(chemin + '/' + bloc.vignette, { overwrite: true }))
+											} else if (stockage === 's3' && bloc.hasOwnProperty('vignette') && definirVignettePersonnalisee(bloc.vignette) === true && await fs.pathExists(path.normalize(cible + '/fichiers/' + bloc.vignette))) {
+												const buffer = await fs.readFile(path.normalize(cible + '/fichiers/' + bloc.vignette))
+												await s3Client.send(new PutObjectCommand({ Bucket: bucket, Key: id + '/' + bloc.vignette, Body: buffer, ACL: 'public-read' }))
 											}
 											resolve({ bloc: bloc.bloc, blocId: blocId })
 										} else {
@@ -1649,8 +1709,11 @@ async function demarrerServeur () {
 									if (parametres.activite === true) {
 										activiteId = donnees.pad.activite
 									}
-									if (!donnees.pad.fond.includes('/img/') && donnees.pad.fond.substring(0, 1) !== '#' && donnees.pad.fond !== '' && typeof donnees.pad.fond === 'string' && await fs.pathExists(path.normalize(cible + '/fichiers/' + path.basename(donnees.pad.fond)))) {
+									if (stockage === 'fs' && !donnees.pad.fond.includes('/img/') && donnees.pad.fond.substring(0, 1) !== '#' && donnees.pad.fond !== '' && typeof donnees.pad.fond === 'string' && await fs.pathExists(path.normalize(cible + '/fichiers/' + path.basename(donnees.pad.fond)))) {
 										await fs.copy(path.normalize(cible + '/fichiers/' + path.basename(donnees.pad.fond)), path.normalize(chemin + '/' + path.basename(donnees.pad.fond), { overwrite: true }))
+									} else if (stockage === 's3' && !donnees.pad.fond.includes('/img/') && donnees.pad.fond.substring(0, 1) !== '#' && donnees.pad.fond !== '' && typeof donnees.pad.fond === 'string' && await fs.pathExists(path.normalize(cible + '/fichiers/' + path.basename(donnees.pad.fond)))) {
+										const buffer = await fs.readFile(path.normalize(cible + '/fichiers/' + path.basename(donnees.pad.fond)))
+										await s3Client.send(new PutObjectCommand({ Bucket: bucket, Key: id + '/' + path.basename(donnees.pad.fond), Body: buffer, ACL: 'public-read' }))
 									}
 									await db
 									.multi()
@@ -1753,9 +1816,16 @@ async function demarrerServeur () {
 						.exec()
 					}
 					await db.DEL('utilisateurs-pads:' + pad)
-					const chemin = path.join(__dirname, '..', '/static/' + definirDossierFichiers(pad) + '/' + pad)
-					if (suppressionFichiers === true) {
+					if (stockage === 'fs' && suppressionFichiers === true) {
+						const chemin = path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + pad)
 						await fs.remove(chemin)
+					} else if (stockage === 's3' && suppressionFichiers === true) {
+						const liste = await s3Client.send(new ListObjectsV2Command({ Bucket: bucket, Prefix: pad + '/' }))
+						if (liste.hasOwnProperty('Contents')) {
+							for (let i = 0; i < liste.Contents.length; i++) {
+								await s3Client.send(new DeleteObjectCommand({ Bucket: bucket, Key: liste.Contents[i].Key }))
+							}
+						}
 					}
 					res.send('pad_supprime')
 				} else {
@@ -1820,8 +1890,15 @@ async function demarrerServeur () {
 							.exec()
 						}
 						await db.DEL('utilisateurs-pads:' + pad)
-						if (suppressionFichiers === true) {
-							await fs.remove(path.join(__dirname, '..', '/static/' + definirDossierFichiers(pad) + '/' + pad))
+						if (stockage === 'fs' && suppressionFichiers === true) {
+							await fs.remove(path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + pad))
+						} else if (stockage === 's3' && suppressionFichiers === true) {
+							const liste = await s3Client.send(new ListObjectsV2Command({ Bucket: bucket, Prefix: pad + '/' }))
+							if (liste.hasOwnProperty('Contents')) {
+								for (let i = 0; i < liste.Contents.length; i++) {
+									await s3Client.send(new DeleteObjectCommand({ Bucket: bucket, Key: liste.Contents[i].Key }))
+								}
+							}
 						}
 						const client = await pool.connect()
 						await client.query('DELETE FROM pads WHERE pad = $1', [parseInt(pad)])
@@ -2295,8 +2372,17 @@ async function demarrerServeur () {
 							.exec()
 						}
 						await db.DEL('utilisateurs-pads:' + pad)
-						const chemin = path.join(__dirname, '..', '/static/' + definirDossierFichiers(pad) + '/' + pad)
-						await fs.remove(chemin)
+						if (stockage === 'fs') {
+							const chemin = path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + pad)
+							await fs.remove(chemin)
+						} else if (stockage === 's3') {
+							const liste = await s3Client.send(new ListObjectsV2Command({ Bucket: bucket, Prefix: pad + '/' }))
+							if (liste.hasOwnProperty('Contents')) {
+								for (let i = 0; i < liste.Contents.length; i++) {
+									await s3Client.send(new DeleteObjectCommand({ Bucket: bucket, Key: liste.Contents[i].Key }))
+								}
+							}
+						}
 						resolve(pad)
 					} else if (resultat !== 1 && pgdb === true && isNaN(parseInt(pad)) === false) {
 						const client = await pool.connect()
@@ -2314,7 +2400,16 @@ async function demarrerServeur () {
 								.exec()
 							}
 							await db.DEL('utilisateurs-pads:' + pad)
-							await fs.remove(path.join(__dirname, '..', '/static/' + definirDossierFichiers(pad) + '/' + pad))
+							if (stockage === 'fs') {
+								await fs.remove(path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + pad))
+							} else if (stockage === 's3') {
+								const liste = await s3Client.send(new ListObjectsV2Command({ Bucket: bucket, Prefix: pad + '/' }))
+								if (liste.hasOwnProperty('Contents')) {
+									for (let i = 0; i < liste.Contents.length; i++) {
+										await s3Client.send(new DeleteObjectCommand({ Bucket: bucket, Key: liste.Contents[i].Key }))
+									}
+								}
+							}
 							await client.query('DELETE FROM pads WHERE pad = $1', [parseInt(pad)])
 							client.release()
 							resolve(pad)
@@ -2347,11 +2442,11 @@ async function demarrerServeur () {
 								donnees = Object.assign({}, donnees)
 								if (donnees === null) { resolve(); return false }
 								if (donnees.hasOwnProperty('identifiant') && donnees.identifiant === identifiant) {
-									if (donnees.hasOwnProperty('media') && donnees.media !== '' && donnees.type !== 'embed') {
-										supprimerFichier(pad, donnees.media)
+									if (donnees.hasOwnProperty('media') && donnees.media !== '' && donnees.type !== 'embed' && donnees.type !== 'lien') {
+										await supprimerFichier(pad, donnees.media)
 									}
-									if (donnees.hasOwnProperty('vignette') && donnees.vignette !== '' && typeof donnees.vignette === 'string' && !donnees.vignette.includes('/img/') && !verifierURL(donnees.vignette, ['https', 'http'])) {
-										supprimerFichier(pad, path.basename(donnees.vignette))
+									if (donnees.hasOwnProperty('vignette') && definirVignettePersonnalisee(donnees.vignette) === true) {
+										await supprimerFichier(pad, path.basename(donnees.vignette))
 									}
 									await db
 									.multi()
@@ -2428,11 +2523,11 @@ async function demarrerServeur () {
 							const donneesBloc = new Promise(async function (resolve) {
 								for (let i = 0; i < blocs.length; i++) {
 									if (blocs[i].identifiant === identifiant) {
-										if (blocs[i].hasOwnProperty('media') && blocs[i].media !== '' && blocs[i].type !== 'embed') {
-											supprimerFichier(pad, blocs[i].media)
+										if (blocs[i].hasOwnProperty('media') && blocs[i].media !== '' && blocs[i].type !== 'embed' && blocs[i].type !== 'lien') {
+											await supprimerFichier(pad, blocs[i].media)
 										}
-										if (blocs[i].hasOwnProperty('vignette') && blocs[i].vignette !== '' && typeof blocs[i].vignette === 'string' && !blocs[i].vignette.includes('/img/') && !verifierURL(blocs[i].vignette, ['https', 'http'])) {
-											supprimerFichier(pad, path.basename(blocs[i].vignette))
+										if (blocs[i].hasOwnProperty('vignette') && definirVignettePersonnalisee(blocs[i].vignette) === true) {
+											await supprimerFichier(pad, path.basename(blocs[i].vignette))
 										}
 										await db
 										.multi()
@@ -2710,6 +2805,115 @@ async function demarrerServeur () {
 		const identifiant = req.session.identifiant
 		if (!identifiant) {
 			res.send('non_connecte')
+		} else if (stockage === 's3') {
+			const buffers = []
+			let nom
+			let mimetype
+			const busboy = Busboy({ headers: req.headers })
+			busboy.on('file', function (champ, fichier, meta) {
+				mimetype = meta.mimeType
+				nom = definirNomFichier(meta.filename)
+				fichier.on('data', function (donnees) {
+					buffers.push(donnees)
+				})
+			})
+			busboy.on('finish', async function () {
+				const bufferFichier = Buffer.concat(buffers)
+				if (bufferFichier !== null && nom !== null && mimetype !== null) {
+					if (mimetype.split('/')[0] === 'image') {
+						const extension = path.parse(nom).ext
+						if (extension.toLowerCase() === '.jpg' || extension.toLowerCase() === '.jpeg') {
+							const buffer = await sharp(bufferFichier).withMetadata().rotate().jpeg().resize(1200, 1200, {
+								fit: sharp.fit.inside,
+								withoutEnlargement: true
+							}).toBuffer()
+							if (buffer !== null) {
+								await s3Client.send(new PutObjectCommand({ Bucket: bucket, Key: 'temp/' + nom, Body: buffer, ACL: 'public-read' }))
+								res.json({ fichier: nom, mimetype: mimetype })
+							} else {
+								res.send('erreur_televersement')
+							}
+						} else if (extension.toLowerCase() !== '.gif') {
+							const buffer = await sharp(bufferFichier).withMetadata().resize(1200, 1200, {
+								fit: sharp.fit.inside,
+								withoutEnlargement: true
+							}).toBuffer()
+							if (buffer !== null) {
+								await s3Client.send(new PutObjectCommand({ Bucket: bucket, Key: 'temp/' + nom, Body: buffer, ACL: 'public-read' }))
+								res.json({ fichier: nom, mimetype: mimetype })
+							} else {
+								res.send('erreur_televersement')
+							}
+						} else {
+							await s3Client.send(new PutObjectCommand({ Bucket: bucket, Key: 'temp/' + nom, Body: bufferFichier, ACL: 'public-read' }))
+							res.json({ fichier: nom, mimetype: mimetype })
+						}
+					} else if (mimetype === 'application/pdf') {
+						gm(bufferFichier).setFormat('jpg').resize(450).quality(80).toBuffer(async function (erreur, buffer) {
+							if (erreur) {
+								await s3Client.send(new PutObjectCommand({ Bucket: bucket, Key: 'temp/' + path.parse(nom).name + '.pdf', Body: bufferFichier, ACL: 'public-read' }))
+								res.json({ fichier: nom, mimetype: 'pdf', vignetteGeneree: false })
+							} else {
+								await s3Client.send(new PutObjectCommand({ Bucket: bucket, Key: 'temp/' + path.parse(nom).name + '.pdf', Body: bufferFichier, ACL: 'public-read' }))
+								await s3Client.send(new PutObjectCommand({ Bucket: bucket, Key: 'temp/' + path.parse(nom).name + '.jpg', Body: buffer, ACL: 'public-read' }))
+								res.json({ fichier: nom, mimetype: 'pdf', vignetteGeneree: true })
+							}
+						})
+					} else if (mimetype === 'application/vnd.oasis.opendocument.presentation' || mimetype === 'application/vnd.oasis.opendocument.text' || mimetype === 'application/vnd.oasis.opendocument.spreadsheet') {
+						mimetype = 'document'
+						let pdfBuffer
+						try {
+							pdfBuffer = await libre.convertAsync(bufferFichier, '.pdf', undefined)
+						} catch (err) {
+							pdfBuffer = 'erreur'
+						}
+						if (pdfBuffer && pdfBuffer !== 'erreur') {
+							gm(pdfBuffer).setFormat('jpg').resize(450).quality(80).toBuffer(async function (erreur, buffer) {
+								if (erreur) {
+									await s3Client.send(new PutObjectCommand({ Bucket: bucket, Key: 'temp/' + nom, Body: bufferFichier, ACL: 'public-read' }))
+									res.json({ fichier: nom, mimetype: mimetype, vignetteGeneree: false })
+								} else {
+									await s3Client.send(new PutObjectCommand({ Bucket: bucket, Key: 'temp/' + nom, Body: bufferFichier, ACL: 'public-read' }))
+									await s3Client.send(new PutObjectCommand({ Bucket: bucket, Key: 'temp/' + path.parse(nom).name + '.jpg', Body: buffer, ACL: 'public-read' }))
+									res.json({ fichier: nom, mimetype: mimetype, vignetteGeneree: true })
+								}
+							})
+						} else {
+							await s3Client.send(new PutObjectCommand({ Bucket: bucket, Key: 'temp/' + nom, Body: bufferFichier, ACL: 'public-read' }))
+							res.json({ fichier: nom, mimetype: mimetype, vignetteGeneree: false })
+						}
+					} else if (mimetype === 'application/msword' || mimetype === 'application/vnd.ms-powerpoint' || mimetype === 'application/vnd.ms-excel' || mimetype.includes('officedocument') === true) {
+						mimetype = 'office'
+						let pdfBuffer
+						try {
+							pdfBuffer = await libre.convertAsync(bufferFichier, '.pdf', undefined)
+						} catch (err) {
+							pdfBuffer = 'erreur'
+						}
+						if (pdfBuffer && pdfBuffer !== 'erreur') {
+							gm(pdfBuffer).setFormat('jpg').resize(450).quality(80).toBuffer(async function (erreur, buffer) {
+								if (erreur) {
+									await s3Client.send(new PutObjectCommand({ Bucket: bucket, Key: 'temp/' + nom, Body: bufferFichier, ACL: 'public-read' }))
+									res.json({ fichier: nom, mimetype: mimetype, vignetteGeneree: false })
+								} else {
+									await s3Client.send(new PutObjectCommand({ Bucket: bucket, Key: 'temp/' + nom, Body: bufferFichier, ACL: 'public-read' }))
+									await s3Client.send(new PutObjectCommand({ Bucket: bucket, Key: 'temp/' + path.parse(nom).name + '.jpg', Body: buffer, ACL: 'public-read' }))
+									res.json({ fichier: nom, mimetype: mimetype, vignetteGeneree: true })
+								}
+							})
+						} else {
+							await s3Client.send(new PutObjectCommand({ Bucket: bucket, Key: 'temp/' + nom, Body: bufferFichier, ACL: 'public-read' }))
+							res.json({ fichier: nom, mimetype: mimetype, vignetteGeneree: false })
+						}
+					} else {
+						await s3Client.send(new PutObjectCommand({ Bucket: bucket, Key: 'temp/' + nom, Body: bufferFichier, ACL: 'public-read' }))
+						res.json({ fichier: nom, mimetype: mimetype })
+					}
+				} else {
+					res.send('erreur_televersement')
+				}
+			})
+			req.pipe(busboy)
 		} else {
 			televerserTemp(req, res, async function (err) {
 				if (err === 'erreur_espace_disque') { res.send('erreur_espace_disque'); return false }
@@ -2719,27 +2923,30 @@ async function demarrerServeur () {
 					let mimetype = fichier.mimetype
 					const chemin = path.join(__dirname, '..', '/static/temp/' + fichier.filename)
 					const destination = path.join(__dirname, '..', '/static/temp/' + path.parse(fichier.filename).name + '.jpg')
-					const destinationPDF = path.join(__dirname, '..', '/static/temp/' + path.parse(fichier.filename).name + '.pdf')
 					if (mimetype.split('/')[0] === 'image') {
 						const extension = path.parse(fichier.filename).ext
 						if (extension.toLowerCase() === '.jpg' || extension.toLowerCase() === '.jpeg') {
-							sharp(chemin).withMetadata().rotate().jpeg().resize(1200, 1200, {
+							const buffer = await sharp(chemin).withMetadata().rotate().jpeg().resize(1200, 1200, {
 								fit: sharp.fit.inside,
 								withoutEnlargement: true
-							}).toBuffer(async function (err, buffer) {
-								if (err) { res.send('erreur_televersement'); return false }
+							}).toBuffer()
+							if (buffer !== null) {
 								await fs.writeFile(chemin, buffer)
 								res.json({ fichier: fichier.filename, mimetype: mimetype })
-							})
+							} else {
+								res.send('erreur_televersement')
+							}
 						} else if (extension.toLowerCase() !== '.gif') {
-							sharp(chemin).withMetadata().resize(1200, 1200, {
+							const buffer = await sharp(chemin).withMetadata().resize(1200, 1200, {
 								fit: sharp.fit.inside,
 								withoutEnlargement: true
-							}).toBuffer(async function (err, buffer) {
-								if (err) { res.send('erreur_televersement'); return false }
+							}).toBuffer()
+							if (buffer !== null) {
 								await fs.writeFile(chemin, buffer)
 								res.json({ fichier: fichier.filename, mimetype: mimetype })
-							})
+							} else {
+								res.send('erreur_televersement')
+							}
 						} else {
 							res.json({ fichier: fichier.filename, mimetype: mimetype })
 						}
@@ -2761,19 +2968,13 @@ async function demarrerServeur () {
 							pdfBuffer = 'erreur'
 						}
 						if (pdfBuffer && pdfBuffer !== 'erreur') {
-							await fs.writeFile(destinationPDF, pdfBuffer)
-							if (await fs.pathExists(destinationPDF)) {
-								gm(destinationPDF + '[0]').setFormat('jpg').resize(450).quality(80).write(destination, async function (erreur) {
-									await fs.remove(destinationPDF)
-									if (erreur) {
-										res.json({ fichier: fichier.filename, mimetype: mimetype, vignetteGeneree: false })
-									} else {
-										res.json({ fichier: fichier.filename, mimetype: mimetype, vignetteGeneree: true })
-									}
-								})
-							} else {
-								res.json({ fichier: fichier.filename, mimetype: mimetype, vignetteGeneree: false })
-							}
+							gm(pdfBuffer).setFormat('jpg').resize(450).quality(80).write(destination, function (erreur) {
+								if (erreur) {
+									res.json({ fichier: fichier.filename, mimetype: mimetype, vignetteGeneree: false })
+								} else {
+									res.json({ fichier: fichier.filename, mimetype: mimetype, vignetteGeneree: true })
+								}
+							})
 						} else {
 							res.json({ fichier: fichier.filename, mimetype: mimetype, vignetteGeneree: false })
 						}
@@ -2787,19 +2988,13 @@ async function demarrerServeur () {
 							pdfBuffer = 'erreur'
 						}
 						if (pdfBuffer && pdfBuffer !== 'erreur') {
-							await fs.writeFile(destinationPDF, pdfBuffer)
-							if (await fs.pathExists(destinationPDF)) {
-								gm(destinationPDF + '[0]').setFormat('jpg').resize(450).quality(80).write(destination, async function (erreur) {
-									await fs.remove(destinationPDF)
-									if (erreur) {
-										res.json({ fichier: fichier.filename, mimetype: mimetype, vignetteGeneree: false })
-									} else {
-										res.json({ fichier: fichier.filename, mimetype: mimetype, vignetteGeneree: true })
-									}
-								})
-							} else {
-								res.json({ fichier: fichier.filename, mimetype: mimetype, vignetteGeneree: false })
-							}
+							gm(pdfBuffer).setFormat('jpg').resize(450).quality(80).write(destination, function (erreur) {
+								if (erreur) {
+									res.json({ fichier: fichier.filename, mimetype: mimetype, vignetteGeneree: false })
+								} else {
+									res.json({ fichier: fichier.filename, mimetype: mimetype, vignetteGeneree: true })
+								}
+							})
 						} else {
 							res.json({ fichier: fichier.filename, mimetype: mimetype, vignetteGeneree: false })
 						}
@@ -2817,6 +3012,31 @@ async function demarrerServeur () {
 		const identifiant = req.session.identifiant
 		if (!identifiant) {
 			res.send('non_connecte')
+		} else if (stockage === 's3') {
+			const buffers = []
+			let nom
+			const formData = new Map()
+			const busboy = Busboy({ headers: req.headers })
+			busboy.on('field', function (champ, valeur) {
+				formData.set(champ, valeur)
+			})
+			busboy.on('file', function (champ, fichier, meta) {
+				nom = definirNomFichier(meta.filename)
+				fichier.on('data', function (donnees) {
+					buffers.push(donnees)
+				})
+			})
+			busboy.on('finish', async function () {
+				const bufferFichier = Buffer.concat(buffers)
+				if (bufferFichier !== null && nom !== null) {
+					const pad = formData.get('pad')
+					await s3Client.send(new PutObjectCommand({ Bucket: bucket, Key: pad + '/' + nom, Body: bufferFichier, ACL: 'public-read' }))
+					res.send(nom)
+				} else {
+					res.send('erreur_televersement')
+				}
+			})
+			req.pipe(busboy)
 		} else {
 			televerser(req, res, function (err) {
 				if (err === 'erreur_espace_disque') { res.send('erreur_espace_disque'); return false }
@@ -2831,31 +3051,77 @@ async function demarrerServeur () {
 		const identifiant = req.session.identifiant
 		if (!identifiant) {
 			res.send('non_connecte')
+		} else if (stockage === 's3') {
+			const buffers = []
+			let nom
+			const busboy = Busboy({ headers: req.headers })
+			busboy.on('file', function (champ, fichier, meta) {
+				nom = definirNomFichier(meta.filename)
+				fichier.on('data', function (donnees) {
+					buffers.push(donnees)
+				})
+			})
+			busboy.on('finish', async function () {
+				const bufferFichier = Buffer.concat(buffers)
+				if (bufferFichier !== null && nom !== null) {
+					const extension = path.parse(nom).ext
+					if (extension.toLowerCase() === '.jpg' || extension.toLowerCase() === '.jpeg') {
+						const buffer = await sharp(bufferFichier).withMetadata().rotate().jpeg().resize(400, 400, {
+							fit: sharp.fit.inside,
+							withoutEnlargement: true
+						}).toBuffer()
+						if (buffer !== null) {
+							await s3Client.send(new PutObjectCommand({ Bucket: bucket, Key: 'temp/' + nom, Body: buffer, ACL: 'public-read' }))
+							res.send(nom)
+						} else {
+							res.send('erreur_televersement')
+						}
+					} else {
+						const buffer = await sharp(bufferFichier).withMetadata().resize(400, 400, {
+							fit: sharp.fit.inside,
+							withoutEnlargement: true
+						}).toBuffer()
+						if (buffer !== null) {
+							await s3Client.send(new PutObjectCommand({ Bucket: bucket, Key: 'temp/' + nom, Body: buffer, ACL: 'public-read' }))
+							res.send(nom)
+						} else {
+							res.send('erreur_televersement')
+						}
+					}
+				} else {
+					res.send('erreur_televersement')
+				}
+			})
+			req.pipe(busboy)
 		} else {
-			televerserTemp(req, res, function (err) {
+			televerserTemp(req, res, async function (err) {
 				if (err === 'erreur_espace_disque') { res.send('erreur_espace_disque'); return false }
 				else if (err) { res.send('erreur_televersement'); return false }
 				const fichier = req.file
 				const chemin = path.join(__dirname, '..', '/static/temp/' + fichier.filename)
 				const extension = path.parse(fichier.filename).ext
 				if (extension.toLowerCase() === '.jpg' || extension.toLowerCase() === '.jpeg') {
-					sharp(chemin).withMetadata().rotate().jpeg().resize(400, 400, {
+					const buffer = await sharp(chemin).withMetadata().rotate().jpeg().resize(400, 400, {
 						fit: sharp.fit.inside,
 						withoutEnlargement: true
-					}).toBuffer(async function (err, buffer) {
-						if (err) { res.send('erreur_televersement'); return false }
+					}).toBuffer()
+					if (buffer !== null) {
 						await fs.writeFile(chemin, buffer)
-						res.send('/temp/' + fichier.filename)
-					})
+						res.send(fichier.filename)
+					} else {
+						res.send('erreur_televersement')
+					}
 				} else {
-					sharp(chemin).withMetadata().resize(400, 400, {
+					const buffer = await sharp(chemin).withMetadata().resize(400, 400, {
 						fit: sharp.fit.inside,
 						withoutEnlargement: true
-					}).toBuffer(async function (err, buffer) {
-						if (err) { res.send('erreur_televersement'); return false }
+					}).toBuffer()
+					if (buffer !== null) {
 						await fs.writeFile(chemin, buffer)
-						res.send('/temp/' + fichier.filename)
-					})
+						res.send(fichier.filename)
+					} else {
+						res.send('erreur_televersement')
+					}
 				}
 			})
 		}
@@ -2865,32 +3131,83 @@ async function demarrerServeur () {
 		const identifiant = req.session.identifiant
 		if (!identifiant) {
 			res.send('non_connecte')
+		} else if (stockage === 's3') {
+			const buffers = []
+			let nom
+			const formData = new Map()
+			const busboy = Busboy({ headers: req.headers })
+			busboy.on('field', function (champ, valeur) {
+				formData.set(champ, valeur)
+			})
+			busboy.on('file', async function (champ, fichier, meta) {
+				nom = definirNomFichier(meta.filename)
+				fichier.on('data', function (donnees) {
+					buffers.push(donnees)
+				})
+			})
+			busboy.on('finish', async function () {
+				const bufferFichier = Buffer.concat(buffers)
+				if (bufferFichier !== null && nom !== null) {
+					const pad = formData.get('pad')
+					const extension = path.parse(nom).ext
+					if (extension.toLowerCase() === '.jpg' || extension.toLowerCase() === '.jpeg') {
+						const buffer = await sharp(bufferFichier).withMetadata().rotate().jpeg().resize(1200, 1200, {
+							fit: sharp.fit.inside,
+							withoutEnlargement: true
+						}).toBuffer()
+						if (buffer !== null) {
+							await s3Client.send(new PutObjectCommand({ Bucket: bucket, Key: pad + '/' + nom, Body: buffer, ACL: 'public-read' }))
+							res.send(nom)
+						} else {
+							res.send('erreur_televersement')
+						}
+					} else {
+						const buffer = await sharp(bufferFichier).withMetadata().resize(1200, 1200, {
+							fit: sharp.fit.inside,
+							withoutEnlargement: true
+						}).toBuffer()
+						if (buffer !== null) {
+							await s3Client.send(new PutObjectCommand({ Bucket: bucket, Key: pad + '/' + nom, Body: buffer, ACL: 'public-read' }))
+							res.send(nom)
+						} else {
+							res.send('erreur_televersement')
+						}
+					}
+				} else {
+					res.send('erreur_televersement')
+				}
+			})
+			req.pipe(busboy)	
 		} else {
-			televerser(req, res, function (err) {
+			televerser(req, res, async function (err) {
 				if (err === 'erreur_espace_disque') { res.send('erreur_espace_disque'); return false }
 				else if (err) { res.send('erreur_televersement'); return false }
 				const fichier = req.file
 				const pad = req.body.pad
-				const chemin = path.join(__dirname, '..', '/static/' + definirDossierFichiers(pad) + '/' + pad + '/' + fichier.filename)
+				const chemin = path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + pad + '/' + fichier.filename)
 				const extension = path.parse(fichier.filename).ext
 				if (extension.toLowerCase() === '.jpg' || extension.toLowerCase() === '.jpeg') {
-					sharp(chemin).withMetadata().rotate().jpeg().resize(1200, 1200, {
+					const buffer = await sharp(chemin).withMetadata().rotate().jpeg().resize(1200, 1200, {
 						fit: sharp.fit.inside,
 						withoutEnlargement: true
-					}).toBuffer(async function (err, buffer) {
-						if (err) { res.send('erreur_televersement'); return false }
+					}).toBuffer()
+					if (buffer !== null) {
 						await fs.writeFile(chemin, buffer)
-						res.send('/' + definirDossierFichiers(pad) + '/' + pad + '/' + fichier.filename)
-					})
+						res.send(fichier.filename)
+					} else {
+						res.send('erreur_televersement')
+					}
 				} else {
-					sharp(chemin).withMetadata().resize(1200, 1200, {
+					const buffer = await sharp(chemin).withMetadata().resize(1200, 1200, {
 						fit: sharp.fit.inside,
 						withoutEnlargement: true
-					}).toBuffer(async function (err, buffer) {
-						if (err) { res.send('erreur_televersement'); return false }
+					}).toBuffer()
+					if (buffer !== null) {
 						await fs.writeFile(chemin, buffer)
-						res.send('/' + definirDossierFichiers(pad) + '/' + pad + '/' + fichier.filename)
-					})
+						res.send(fichier.filename)
+					} else {
+						res.send('erreur_televersement')
+					}
 				}
 			})
 		}
@@ -2980,8 +3297,10 @@ async function demarrerServeur () {
 					const id = parseInt(reponse) + 1
 					const creation = await creerPadSansCompte(id, token, titre, hash, date, identifiant, nom, langue, 'api')
 					if (creation === true) {
-						const chemin = path.join(__dirname, '..', '/static/' + definirDossierFichiers(id) + '/' + id)
-						await fs.mkdirp(chemin)
+						if (stockage === 'fs') {
+							const chemin = path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + id)
+							await fs.mkdirp(chemin)
+						}
 						res.send(id + '/' + token)
 					} else {
 						res.send('erreur_creation')
@@ -2989,8 +3308,10 @@ async function demarrerServeur () {
 				} else {
 					const creation = await creerPadSansCompte(1, token, titre, hash, date, identifiant, nom, langue, 'api')
 					if (creation === true) {
-						const chemin = path.join(__dirname, '..', '/static/' + definirDossierFichiers(1) + '/1')
-						await fs.mkdirp(chemin)
+						if (stockage === 'fs') {
+							const chemin = path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/1')
+							await fs.mkdirp(chemin)
+						}
 						res.send('1/' + token)
 					} else {
 						res.send('erreur_creation')
@@ -3129,8 +3450,17 @@ async function demarrerServeur () {
 							.exec()
 						}
 						await db.DEL('utilisateurs-pads:' + pad)
-						const chemin = path.join(__dirname, '..', '/static/' + definirDossierFichiers(pad) + '/' + pad)
-						await fs.remove(chemin)
+						if (stockage === 'fs') {
+							const chemin = path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + pad)
+							await fs.remove(chemin)
+						} else if (stockage === 's3') {
+							const liste = await s3Client.send(new ListObjectsV2Command({ Bucket: bucket, Prefix: pad + '/' }))
+							if (liste.hasOwnProperty('Contents')) {
+								for (let i = 0; i < liste.Contents.length; i++) {
+									await s3Client.send(new DeleteObjectCommand({ Bucket: bucket, Key: liste.Contents[i].Key }))
+								}
+							}
+						}
 						res.send('contenu_supprime')
 					} else if (!donneesPad.hasOwnProperty('motdepasse') && donneesPad.identifiant === identifiant) {
 						const resultat = await db.EXISTS('utilisateurs:' + identifiant)
@@ -3171,8 +3501,17 @@ async function demarrerServeur () {
 										.exec()
 									}
 								await db.DEL('utilisateurs-pads:' + pad)
-								const chemin = path.join(__dirname, '..', '/static/' + definirDossierFichiers(pad) + '/' + pad)
-								await fs.remove(chemin)
+								if (stockage === 'fs') {
+									const chemin = path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + pad)
+									await fs.remove(chemin)
+								} else if (stockage === 's3') {
+									const liste = await s3Client.send(new ListObjectsV2Command({ Bucket: bucket, Prefix: pad + '/' }))
+									if (liste.hasOwnProperty('Contents')) {
+										for (let i = 0; i < liste.Contents.length; i++) {
+											await s3Client.send(new DeleteObjectCommand({ Bucket: bucket, Key: liste.Contents[i].Key }))
+										}
+									}
+								}
 								res.send('contenu_supprime')
 							} else {
 								res.send('non_autorise')
@@ -3203,7 +3542,16 @@ async function demarrerServeur () {
 								.exec()
 							}
 							await db.DEL('utilisateurs-pads:' + pad)
-							await fs.remove(path.join(__dirname, '..', '/static/' + definirDossierFichiers(pad) + '/' + pad))
+							if (stockage === 'fs') {
+								await fs.remove(path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + pad))
+							} else if (stockage === 's3') {
+								const liste = await s3Client.send(new ListObjectsV2Command({ Bucket: bucket, Prefix: pad + '/' }))
+								if (liste.hasOwnProperty('Contents')) {
+									for (let i = 0; i < liste.Contents.length; i++) {
+										await s3Client.send(new DeleteObjectCommand({ Bucket: bucket, Key: liste.Contents[i].Key }))
+									}
+								}
+							}
 							const client = await pool.connect()
 							await client.query('DELETE FROM pads WHERE pad = $1', [parseInt(pad)])
 							client.release()
@@ -3230,7 +3578,16 @@ async function demarrerServeur () {
 										.exec()
 									}
 									await db.DEL('utilisateurs-pads:' + pad)
-									await fs.remove(path.join(__dirname, '..', '/static/' + definirDossierFichiers(pad) + '/' + pad))
+									if (stockage === 'fs') {
+										await fs.remove(path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + pad))
+									} else if (stockage === 's3') {
+										const liste = await s3Client.send(new ListObjectsV2Command({ Bucket: bucket, Prefix: pad + '/' }))
+										if (liste.hasOwnProperty('Contents')) {
+											for (let i = 0; i < liste.Contents.length; i++) {
+												await s3Client.send(new DeleteObjectCommand({ Bucket: bucket, Key: liste.Contents[i].Key }))
+											}
+										}
+									}
 									const client = await pool.connect()
 									await client.query('DELETE FROM pads WHERE pad = $1', [parseInt(pad)])
 									client.release()
@@ -3293,7 +3650,7 @@ async function demarrerServeur () {
 			socket.join(room)
 			socket.data.identifiant = identifiant
 			socket.data.nom = nom
-			const clients = await io.in(room).fetchSockets()
+			const clients = await io.to(room).fetchSockets()
 			const utilisateurs = []
 			for (let i = 0; i < clients.length; i++) {
 				const donneesUtilisateur = new Promise(async function (resolve) {
@@ -3310,7 +3667,7 @@ async function demarrerServeur () {
 			}
 			Promise.all(utilisateurs).then(function (resultats) {
 				const utilisateursConnectes = resultats.filter((v, i, a) => a.findIndex(t => (t.identifiant === v.identifiant)) === i)
-				io.in(room).emit('connexion', utilisateursConnectes)
+				io.to(room).emit('connexion', utilisateursConnectes)
 			})
 		})
 
@@ -3394,8 +3751,8 @@ async function demarrerServeur () {
 					} else if (!admins.includes(identifiant) && proprietaire !== identifiant && donnees.contributions === 'moderees') {
 						visibilite = 'masquee'
 					}
-					if (vignette && vignette !== '' && typeof vignette === 'string' && !vignette.includes('/img/') && !verifierURL(vignette, ['https', 'http'])) {
-						vignette = '/' + definirDossierFichiers(pad) + '/' + pad + '/' + path.basename(vignette)
+					if (vignette && definirVignettePersonnalisee(vignette) === true) {
+						vignette = path.basename(vignette)
 					}
 					await db
 					.multi()
@@ -3412,15 +3769,31 @@ async function demarrerServeur () {
 						.ZADD('activite:' + pad, [{ score: activiteId, value: JSON.stringify({ id: activiteId, bloc: bloc, identifiant: identifiant, titre: titre, date: date, couleur: couleur, type: 'bloc-ajoute' }) }])
 						.exec()
 					}
-					if (media !== '' && type !== 'embed' && await fs.pathExists(path.join(__dirname, '..', '/static/temp/' + media))) {
-						await fs.copy(path.join(__dirname, '..', '/static/temp/' + media), path.join(__dirname, '..', '/static/' + definirDossierFichiers(pad) + '/' + pad + '/' + media))
+					if (stockage === 'fs' && media !== '' && type !== 'embed' && type !== 'lien' && await fs.pathExists(path.join(__dirname, '..', '/static/temp/' + media))) {
+						await fs.copy(path.join(__dirname, '..', '/static/temp/' + media), path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + pad + '/' + media))
 						await fs.remove(path.join(__dirname, '..', '/static/temp/' + media))
+					} else if (stockage === 's3' && media !== '' && type !== 'embed' && type !== 'lien') {
+						try {
+							const fichierMeta = await s3Client.send(new HeadObjectCommand({ Bucket: bucket, Key: 'temp/' + media }))
+							if (fichierMeta.hasOwnProperty('ContentLength')) {
+								await s3Client.send(new CopyObjectCommand({ Bucket: bucket, Key: pad + '/' + media, CopySource: '/' + bucket + '/temp/' + media, ACL: 'public-read' }))
+								await s3Client.send(new DeleteObjectCommand({ Bucket: bucket, Key: 'temp/' + media }))
+							}
+						} catch (e) {}
 					}
-					if (vignette && vignette !== '' && typeof vignette === 'string' && !vignette.includes('/img/') && !verifierURL(vignette, ['https', 'http']) && await fs.pathExists(path.join(__dirname, '..', '/static/temp/' + path.basename(vignette)))) {
-						await fs.copy(path.join(__dirname, '..', '/static/temp/' + path.basename(vignette)), path.join(__dirname, '..', '/static' + vignette))
-						await fs.remove(path.join(__dirname, '..', '/static/temp/' + path.basename(vignette)))
+					if (stockage === 'fs' && vignette && definirVignettePersonnalisee(vignette) === true && await fs.pathExists(path.join(__dirname, '..', '/static/temp/' + vignette))) {
+						await fs.copy(path.join(__dirname, '..', '/static/temp/' + vignette), path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + pad + '/' + vignette))
+						await fs.remove(path.join(__dirname, '..', '/static/temp/' + vignette))
+					} else if (stockage === 's3' && vignette && definirVignettePersonnalisee(vignette) === true) {
+						try {
+							const fichierMeta = await s3Client.send(new HeadObjectCommand({ Bucket: bucket, Key: 'temp/' + vignette }))
+							if (fichierMeta.hasOwnProperty('ContentLength')) {
+								await s3Client.send(new CopyObjectCommand({ Bucket: bucket, Key: pad + '/' + vignette, CopySource: '/' + bucket + '/temp/' + vignette, ACL: 'public-read' }))
+								await s3Client.send(new DeleteObjectCommand({ Bucket: bucket, Key: 'temp/' + vignette }))
+							}
+						} catch (e) {}
 					}
-					io.in('pad-' + pad).emit('ajouterbloc', { bloc: bloc, titre: titre, texte: texte, media: media, iframe: iframe, type: type, source: source, vignette: vignette, identifiant: identifiant, nom: nom, date: date, couleur: couleur, commentaires: 0, evaluations: [], colonne: colonne, visibilite: visibilite, activiteId: activiteId })
+					io.to('pad-' + pad).emit('ajouterbloc', { bloc: bloc, titre: titre, texte: texte, media: media, iframe: iframe, type: type, source: source, vignette: vignette, identifiant: identifiant, nom: nom, date: date, couleur: couleur, commentaires: 0, evaluations: [], colonne: colonne, visibilite: visibilite, activiteId: activiteId })
 					socket.request.session.cookie.expires = new Date(Date.now() + dureeSession)
 					socket.request.session.save()
 				} else {
@@ -3461,8 +3834,8 @@ async function demarrerServeur () {
 								visibilite = 'privee'
 							}
 							const date = dayjs().format()
-							if (vignette && objet.hasOwnProperty('vignette') && objet.vignette !== vignette && vignette !== '' && typeof vignette === 'string' && !vignette.includes('/img/') && !verifierURL(vignette, ['https', 'http'])) {
-								vignette = '/' + definirDossierFichiers(pad) + '/' + pad + '/' + path.basename(vignette)
+							if (vignette && objet.hasOwnProperty('vignette') && objet.vignette !== vignette && definirVignettePersonnalisee(vignette) === true) {
+								vignette = path.basename(vignette)
 							}
 							if (visibilite === 'visible') {
 								// Enregistrer entrée du registre d'activité
@@ -3474,21 +3847,37 @@ async function demarrerServeur () {
 								.HINCRBY('pads:' + pad, 'activite', 1)
 								.ZADD('activite:' + pad, [{ score: activiteId, value: JSON.stringify({ id: activiteId, bloc: bloc, identifiant: identifiant, titre: titre, date: date, couleur: couleur, type: 'bloc-modifie' }) }])
 								.exec()
-								if (objet.hasOwnProperty('media') && objet.media !== media && media !== '' && type !== 'embed' && await fs.pathExists(path.join(__dirname, '..', '/static/temp/' + media))) {
-									await fs.copy(path.join(__dirname, '..', '/static/temp/' + media), path.join(__dirname, '..', '/static/' + definirDossierFichiers(pad) + '/' + pad + '/' + media))
+								if (stockage === 'fs' && objet.hasOwnProperty('media') && objet.media !== media && media !== '' && type !== 'embed' && type !== 'lien' && await fs.pathExists(path.join(__dirname, '..', '/static/temp/' + media))) {
+									await fs.copy(path.join(__dirname, '..', '/static/temp/' + media), path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + pad + '/' + media))
 									await fs.remove(path.join(__dirname, '..', '/static/temp/' + media))
+								} else if (stockage === 's3' && objet.hasOwnProperty('media') && objet.media !== media && media !== '' && type !== 'embed' && type !== 'lien') {
+									try {
+										const fichierMeta = await s3Client.send(new HeadObjectCommand({ Bucket: bucket, Key: 'temp/' + media }))
+										if (fichierMeta.hasOwnProperty('ContentLength')) {
+											await s3Client.send(new CopyObjectCommand({ Bucket: bucket, Key: pad + '/' + media, CopySource: '/' + bucket + '/temp/' + media, ACL: 'public-read' }))
+											await s3Client.send(new DeleteObjectCommand({ Bucket: bucket, Key: 'temp/' + media }))
+										}
+									} catch (e) {}
 								}
-								if (objet.hasOwnProperty('media') && objet.media !== media && objet.media !== '' && objet.type !== 'embed') {
-									supprimerFichier(pad, objet.media)
+								if (objet.hasOwnProperty('media') && objet.media !== media && objet.media !== '' && objet.type !== 'embed' && objet.type !== 'lien') {
+									await supprimerFichier(pad, objet.media)
 								}
-								if (vignette && objet.hasOwnProperty('vignette') && objet.vignette !== vignette && vignette !== '' && typeof vignette === 'string' && !vignette.includes('/img/') && !verifierURL(vignette, ['https', 'http']) && await fs.pathExists(path.join(__dirname, '..', '/static/temp/' + path.basename(vignette)))) {
-									await fs.copy(path.join(__dirname, '..', '/static/temp/' + path.basename(vignette)), path.join(__dirname, '..', '/static' + vignette))
-									await fs.remove(path.join(__dirname, '..', '/static/temp/' + path.basename(vignette)))
+								if (stockage === 'fs' && vignette && objet.hasOwnProperty('vignette') && objet.vignette !== vignette && definirVignettePersonnalisee(vignette) === true && await fs.pathExists(path.join(__dirname, '..', '/static/temp/' + vignette))) {
+									await fs.copy(path.join(__dirname, '..', '/static/temp/' + vignette), path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + pad + '/' + vignette))
+									await fs.remove(path.join(__dirname, '..', '/static/temp/' + vignette))
+								} else if (stockage === 's3' && vignette && objet.hasOwnProperty('vignette') && objet.vignette !== vignette && definirVignettePersonnalisee(vignette) === true) {
+									try {
+										const fichierMeta = await s3Client.send(new HeadObjectCommand({ Bucket: bucket, Key: 'temp/' + vignette }))
+										if (fichierMeta.hasOwnProperty('ContentLength')) {
+											await s3Client.send(new CopyObjectCommand({ Bucket: bucket, Key: pad + '/' + vignette, CopySource: '/' + bucket + '/temp/' + vignette, ACL: 'public-read' }))
+											await s3Client.send(new DeleteObjectCommand({ Bucket: bucket, Key: 'temp/' + vignette }))
+										}
+									} catch (e) {}
 								}
-								if (objet.hasOwnProperty('vignette') && objet.vignette !== vignette && objet.vignette !== '' && typeof objet.vignette === 'string' && !objet.vignette.includes('/img/') && !verifierURL(objet.vignette, ['https', 'http'])) {
-									supprimerFichier(pad, path.basename(objet.vignette))
+								if (objet.hasOwnProperty('vignette') && objet.vignette !== vignette && definirVignettePersonnalisee(objet.vignette) === true) {
+									await supprimerFichier(pad, path.basename(objet.vignette))
 								}
-								io.in('pad-' + pad).emit('modifierbloc', { bloc: bloc, titre: titre, texte: texte, media: media, iframe: iframe, type: type, source: source, vignette: vignette, identifiant: identifiant, nom: nom, modifie: date, couleur: couleur, colonne: colonne, visibilite: visibilite, activiteId: activiteId })
+								io.to('pad-' + pad).emit('modifierbloc', { bloc: bloc, titre: titre, texte: texte, media: media, iframe: iframe, type: type, source: source, vignette: vignette, identifiant: identifiant, nom: nom, modifie: date, couleur: couleur, colonne: colonne, visibilite: visibilite, activiteId: activiteId })
 								socket.request.session.cookie.expires = new Date(Date.now() + dureeSession)
 								socket.request.session.save()
 							} else if (visibilite === 'privee' || visibilite === 'masquee') {
@@ -3497,39 +3886,71 @@ async function demarrerServeur () {
 								.HSET('pad-' + pad + ':' + bloc, ['titre', titre, 'texte', texte, 'media', media, 'iframe', iframe, 'type', type, 'source', source, 'vignette', vignette, 'visibilite', visibilite, 'modifie', date])
 								.HSET('dates-pads:' + pad, 'date', date)
 								.exec()
-								if (objet.hasOwnProperty('media') && objet.media !== media && media !== '' && type !== 'embed' && await fs.pathExists(path.join(__dirname, '..', '/static/temp/' + media))) {
-									await fs.copy(path.join(__dirname, '..', '/static/temp/' + media), path.join(__dirname, '..', '/static/' + definirDossierFichiers(pad) + '/' + pad + '/' + media))
+								if (stockage === 'fs' && objet.hasOwnProperty('media') && objet.media !== media && media !== '' && type !== 'embed' && type !== 'lien' && await fs.pathExists(path.join(__dirname, '..', '/static/temp/' + media))) {
+									await fs.copy(path.join(__dirname, '..', '/static/temp/' + media), path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + pad + '/' + media))
 									await fs.remove(path.join(__dirname, '..', '/static/temp/' + media))
+								} else if (stockage === 's3' && objet.hasOwnProperty('media') && objet.media !== media && media !== '' && type !== 'embed' && type !== 'lien') {
+									try {
+										const fichierMeta = await s3Client.send(new HeadObjectCommand({ Bucket: bucket, Key: 'temp/' + media }))
+										if (fichierMeta.hasOwnProperty('ContentLength')) {
+											await s3Client.send(new CopyObjectCommand({ Bucket: bucket, Key: pad + '/' + media, CopySource: '/' + bucket + '/temp/' + media, ACL: 'public-read' }))
+											await s3Client.send(new DeleteObjectCommand({ Bucket: bucket, Key: 'temp/' + media }))
+										}
+									} catch (e) {}
 								}
-								if (objet.hasOwnProperty('media') && objet.media !== media && objet.media !== '' && objet.type !== 'embed') {
-									supprimerFichier(pad, objet.media)
+								if (objet.hasOwnProperty('media') && objet.media !== media && objet.media !== '' && objet.type !== 'embed' && objet.type !== 'lien') {
+									await supprimerFichier(pad, objet.media)
 								}
-								if (vignette && objet.hasOwnProperty('vignette') && objet.vignette !== vignette && vignette !== '' && typeof vignette === 'string' && !vignette.includes('/img/') && !verifierURL(vignette, ['https', 'http']) && await fs.pathExists(path.join(__dirname, '..', '/static/temp/' + path.basename(vignette)))) {
-									await fs.copy(path.join(__dirname, '..', '/static/temp/' + path.basename(vignette)), path.join(__dirname, '..', '/static' + vignette))
-									await fs.remove(path.join(__dirname, '..', '/static/temp/' + path.basename(vignette)))
+								if (stockage === 'fs' && vignette && objet.hasOwnProperty('vignette') && objet.vignette !== vignette && definirVignettePersonnalisee(vignette) === true && await fs.pathExists(path.join(__dirname, '..', '/static/temp/' + vignette))) {
+									await fs.copy(path.join(__dirname, '..', '/static/temp/' + vignette), path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + pad + '/' + vignette))
+									await fs.remove(path.join(__dirname, '..', '/static/temp/' + vignette))
+								} else if (stockage === 's3' && vignette && objet.hasOwnProperty('vignette') && objet.vignette !== vignette && definirVignettePersonnalisee(vignette) === true) {
+									try {
+										const fichierMeta = await s3Client.send(new HeadObjectCommand({ Bucket: bucket, Key: 'temp/' + vignette }))
+										if (fichierMeta.hasOwnProperty('ContentLength')) {
+											await s3Client.send(new CopyObjectCommand({ Bucket: bucket, Key: pad + '/' + vignette, CopySource: '/' + bucket + '/temp/' + vignette, ACL: 'public-read' }))
+											await s3Client.send(new DeleteObjectCommand({ Bucket: bucket, Key: 'temp/' + vignette }))
+										}
+									} catch (e) {}
 								}
-								if (objet.hasOwnProperty('vignette') && objet.vignette !== vignette && objet.vignette !== '' && typeof objet.vignette === 'string' && !objet.vignette.includes('/img/') && !verifierURL(objet.vignette, ['https', 'http'])) {
-									supprimerFichier(pad, path.basename(objet.vignette))
+								if (objet.hasOwnProperty('vignette') && objet.vignette !== vignette && definirVignettePersonnalisee(objet.vignette) === true) {
+									await supprimerFichier(pad, path.basename(objet.vignette))
 								}
-								io.in('pad-' + pad).emit('modifierbloc', { bloc: bloc, titre: titre, texte: texte, media: media, iframe: iframe, type: type, source: source, vignette: vignette, identifiant: identifiant, nom: nom, modifie: date, couleur: couleur, colonne: colonne, visibilite: visibilite })
+								io.to('pad-' + pad).emit('modifierbloc', { bloc: bloc, titre: titre, texte: texte, media: media, iframe: iframe, type: type, source: source, vignette: vignette, identifiant: identifiant, nom: nom, modifie: date, couleur: couleur, colonne: colonne, visibilite: visibilite })
 								socket.request.session.cookie.expires = new Date(Date.now() + dureeSession)
 								socket.request.session.save()
 							} else {
-								if (objet.hasOwnProperty('media') && objet.media !== media && media !== '' && type !== 'embed' && await fs.pathExists(path.join(__dirname, '..', '/static/temp/' + media))) {
-									await fs.copy(path.join(__dirname, '..', '/static/temp/' + media), path.join(__dirname, '..', '/static/' + definirDossierFichiers(pad) + '/' + pad + '/' + media))
+								if (stockage === 'fs' && objet.hasOwnProperty('media') && objet.media !== media && media !== '' && type !== 'embed' && type !== 'lien' && await fs.pathExists(path.join(__dirname, '..', '/static/temp/' + media))) {
+									await fs.copy(path.join(__dirname, '..', '/static/temp/' + media), path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + pad + '/' + media))
 									await fs.remove(path.join(__dirname, '..', '/static/temp/' + media))
+								} else if (stockage === 's3' && objet.hasOwnProperty('media') && objet.media !== media && media !== '' && type !== 'embed' && type !== 'lien') {
+									try {
+										const fichierMeta = await s3Client.send(new HeadObjectCommand({ Bucket: bucket, Key: 'temp/' + media }))
+										if (fichierMeta.hasOwnProperty('ContentLength')) {
+											await s3Client.send(new CopyObjectCommand({ Bucket: bucket, Key: pad + '/' + media, CopySource: '/' + bucket + '/temp/' + media, ACL: 'public-read' }))
+											await s3Client.send(new DeleteObjectCommand({ Bucket: bucket, Key: 'temp/' + media }))
+										}
+									} catch (e) {}
 								}
-								if (objet.hasOwnProperty('media') && objet.media !== media && objet.media !== '' && objet.type !== 'embed') {
-									supprimerFichier(pad, objet.media)
+								if (objet.hasOwnProperty('media') && objet.media !== media && objet.media !== '' && objet.type !== 'embed' && objet.type !== 'lien') {
+									await supprimerFichier(pad, objet.media)
 								}
-								if (vignette && objet.hasOwnProperty('vignette') && objet.vignette !== vignette && vignette !== '' && typeof vignette === 'string' && !vignette.includes('/img/') && !verifierURL(vignette, ['https', 'http']) && await fs.pathExists(path.join(__dirname, '..', '/static/temp/' + path.basename(vignette)))) {
-									await fs.copy(path.join(__dirname, '..', '/static/temp/' + path.basename(vignette)), path.join(__dirname, '..', '/static' + vignette))
-									await fs.remove(path.join(__dirname, '..', '/static/temp/' + path.basename(vignette)))
+								if (stockage === 'fs' && vignette && objet.hasOwnProperty('vignette') && objet.vignette !== vignette && definirVignettePersonnalisee(vignette) === true && await fs.pathExists(path.join(__dirname, '..', '/static/temp/' + vignette))) {
+									await fs.copy(path.join(__dirname, '..', '/static/temp/' + vignette), path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + pad + '/' + vignette))
+									await fs.remove(path.join(__dirname, '..', '/static/temp/' + vignette))
+								} else if (stockage === 's3' && vignette && objet.hasOwnProperty('vignette') && objet.vignette !== vignette && definirVignettePersonnalisee(vignette) === true) {
+									try {
+										const fichierMeta = await s3Client.send(new HeadObjectCommand({ Bucket: bucket, Key: 'temp/' + vignette }))
+										if (fichierMeta.hasOwnProperty('ContentLength')) {
+											await s3Client.send(new CopyObjectCommand({ Bucket: bucket, Key: pad + '/' + vignette, CopySource: '/' + bucket + '/temp/' + vignette, ACL: 'public-read' }))
+											await s3Client.send(new DeleteObjectCommand({ Bucket: bucket, Key: 'temp/' + vignette }))
+										}
+									} catch (e) {}
 								}
-								if (objet.hasOwnProperty('vignette') && objet.vignette !== vignette && objet.vignette !== '' && typeof objet.vignette === 'string' && !objet.vignette.includes('/img/') && !verifierURL(objet.vignette, ['https', 'http'])) {
-									supprimerFichier(pad, path.basename(objet.vignette))
+								if (objet.hasOwnProperty('vignette') && objet.vignette !== vignette && definirVignettePersonnalisee(objet.vignette) === true) {
+									await supprimerFichier(pad, path.basename(objet.vignette))
 								}
-								io.in('pad-' + pad).emit('modifierbloc', { bloc: bloc, titre: titre, texte: texte, media: media, iframe: iframe, type: type, source: source, vignette: vignette, identifiant: identifiant, nom: nom, modifie: date, couleur: couleur, colonne: colonne, visibilite: visibilite })
+								io.to('pad-' + pad).emit('modifierbloc', { bloc: bloc, titre: titre, texte: texte, media: media, iframe: iframe, type: type, source: source, vignette: vignette, identifiant: identifiant, nom: nom, modifie: date, couleur: couleur, colonne: colonne, visibilite: visibilite })
 								socket.request.session.cookie.expires = new Date(Date.now() + dureeSession)
 								socket.request.session.save()
 							}
@@ -3563,10 +3984,8 @@ async function demarrerServeur () {
 					const id = parseInt(donnees.bloc) + 1
 					const date = dayjs().format()
 					const activiteId = parseInt(donnees.activite) + 1
-					let vignetteOrigine = ''
-					if (vignette && vignette !== '' && typeof vignette === 'string' && !vignette.includes('/img/') && !verifierURL(vignette, ['https', 'http'])) {
-						vignette = '/' + definirDossierFichiers(pad) + '/' + pad + '/' + path.basename(vignette)
-						vignetteOrigine = '/' + definirDossierFichiers(padOrigine) + '/' + padOrigine + '/' + path.basename(vignette)
+					if (vignette && definirVignettePersonnalisee(vignette) === true) {
+						vignette = path.basename(vignette)
 					}
 					await db
 					.multi()
@@ -3583,13 +4002,27 @@ async function demarrerServeur () {
 						.ZADD('activite:' + pad, [{ score: activiteId, value: JSON.stringify({ id: activiteId, bloc: bloc, identifiant: identifiant, titre: titre, date: date, couleur: couleur, type: 'bloc-ajoute' }) }])
 						.exec()
 					}
-					if (media !== '' && type !== 'embed' && await fs.pathExists(path.join(__dirname, '..', '/static/' + definirDossierFichiers(padOrigine) + '/' + padOrigine + '/' + media))) {
-						await fs.copy(path.join(__dirname, '..', '/static/' + definirDossierFichiers(padOrigine) + '/' + padOrigine + '/' + media), path.join(__dirname, '..', '/static/' + definirDossierFichiers(pad) + '/' + pad + '/' + media))
+					if (stockage === 'fs' && media !== '' && type !== 'embed' && type !== 'lien' && await fs.pathExists(path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + padOrigine + '/' + media))) {
+						await fs.copy(path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + padOrigine + '/' + media), path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + pad + '/' + media))
+					} else if (stockage === 's3' && media !== '' && type !== 'embed' && type !== 'lien') {
+						try {
+							const fichierMeta = await s3Client.send(new HeadObjectCommand({ Bucket: bucket, Key: padOrigine + '/' + media }))
+							if (fichierMeta.hasOwnProperty('ContentLength')) {
+								await s3Client.send(new CopyObjectCommand({ Bucket: bucket, Key: pad + '/' + media, CopySource: '/' + bucket + '/' + padOrigine + '/' + media, ACL: 'public-read' }))
+							}
+						} catch (e) {}
 					}
-					if (vignette && vignette !== '' && !String(vignette).includes('/img/') && !verifierURL(vignette, ['https', 'http']) && await fs.pathExists(path.join(__dirname, '..', '/static' + vignetteOrigine))) {
-						await fs.copy(path.join(__dirname, '..', '/static' + vignetteOrigine), path.join(__dirname, '..', '/static' + vignette))
+					if (stockage === 'fs' && vignette && definirVignettePersonnalisee(vignette) === true && await fs.pathExists(path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + padOrigine + '/' + vignette))) {
+						await fs.copy(path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + padOrigine + '/' + vignette), path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + pad + '/' + vignette))
+					} else if (stockage === 's3' && vignette && definirVignettePersonnalisee(vignette) === true) {
+						try {
+							const fichierMeta = await s3Client.send(new HeadObjectCommand({ Bucket: bucket, Key: padOrigine + '/' + vignette }))
+							if (fichierMeta.hasOwnProperty('ContentLength')) {
+								await s3Client.send(new CopyObjectCommand({ Bucket: bucket, Key: pad + '/' + vignette, CopySource: '/' + bucket + '/' + padOrigine + '/' + vignette, ACL: 'public-read' }))
+							}
+						} catch (e) {}
 					}
-					io.in('pad-' + pad).emit('ajouterbloc', { bloc: bloc, titre: titre, texte: texte, media: media, iframe: iframe, type: type, source: source, vignette: vignette, identifiant: identifiant, nom: nom, date: date, couleur: couleur, commentaires: 0, evaluations: [], colonne: colonne, visibilite: visibilite, activiteId: activiteId })
+					io.to('pad-' + pad).emit('ajouterbloc', { bloc: bloc, titre: titre, texte: texte, media: media, iframe: iframe, type: type, source: source, vignette: vignette, identifiant: identifiant, nom: nom, date: date, couleur: couleur, commentaires: 0, evaluations: [], colonne: colonne, visibilite: visibilite, activiteId: activiteId })
 					socket.emit('copierbloc')
 					socket.request.session.cookie.expires = new Date(Date.now() + dureeSession)
 					socket.request.session.save()
@@ -3632,7 +4065,7 @@ async function demarrerServeur () {
 						.HINCRBY('pads:' + pad, 'activite', 1)
 						.ZADD('activite:' + pad, [{ score: activiteId, value: JSON.stringify({ id: activiteId, bloc: item.bloc, identifiant: item.identifiant, titre: item.titre, date: date, couleur: item.couleur, type: 'bloc-ajoute' }) }])
 						.exec()
-						io.in('pad-' + pad).emit('autoriserbloc', { bloc: item.bloc, titre: item.titre, texte: item.texte, media: item.media, iframe: item.iframe, type: item.type, source: item.source, vignette: item.vignette, identifiant: item.identifiant, nom: item.nom, date: date, couleur: item.couleur, commentaires: 0, evaluations: [], colonne: item.colonne, visibilite: 'visible', activiteId: activiteId, moderation: moderation, admin: identifiant, indexBloc: indexBloc, indexBlocColonne: indexBlocColonne })
+						io.to('pad-' + pad).emit('autoriserbloc', { bloc: item.bloc, titre: item.titre, texte: item.texte, media: item.media, iframe: item.iframe, type: item.type, source: item.source, vignette: item.vignette, identifiant: item.identifiant, nom: item.nom, date: date, couleur: item.couleur, commentaires: 0, evaluations: [], colonne: item.colonne, visibilite: 'visible', activiteId: activiteId, moderation: moderation, admin: identifiant, indexBloc: indexBloc, indexBlocColonne: indexBlocColonne })
 						socket.request.session.cookie.expires = new Date(Date.now() + dureeSession)
 						socket.request.session.save()
 					}
@@ -3694,7 +4127,7 @@ async function demarrerServeur () {
 							if (ordre === 'decroissant') {
 								items.reverse()
 							}
-							io.in('pad-' + pad).emit('deplacerbloc', { blocs: items, identifiant: identifiant })
+							io.to('pad-' + pad).emit('deplacerbloc', { blocs: items, identifiant: identifiant })
 						} else {
 							socket.emit('erreur')
 						}
@@ -3729,11 +4162,11 @@ async function demarrerServeur () {
 							admins = donnees.admins
 						}
 						if (objet.identifiant === identifiant || proprietaire === identifiant || admins.includes(identifiant)) {
-							if (objet.hasOwnProperty('media') && objet.media !== '' && objet.type !== 'embed') {
-								supprimerFichier(pad, objet.media)
+							if (objet.hasOwnProperty('media') && objet.media !== '' && objet.type !== 'embed' && objet.type !== 'lien') {
+								await supprimerFichier(pad, objet.media)
 							}
-							if (objet.hasOwnProperty('vignette') && objet.vignette !== '' && typeof objet.vignette === 'string' && !objet.vignette.includes('/img/') && !verifierURL(objet.vignette, ['https', 'http'])) {
-								supprimerFichier(pad, path.basename(objet.vignette))
+							if (objet.hasOwnProperty('vignette') && definirVignettePersonnalisee(objet.vignette) === true) {
+								await supprimerFichier(pad, path.basename(objet.vignette))
 							}
 							let etherpadId, url
 							if (objet.hasOwnProperty('iframe') && objet.iframe !== '' && objet.iframe.includes(etherpad)) {
@@ -3760,7 +4193,7 @@ async function demarrerServeur () {
 								.HINCRBY('pads:' + pad, 'activite', 1)
 								.ZADD('activite:' + pad, [{ score: activiteId, value: JSON.stringify({ id: activiteId, bloc: bloc, identifiant: identifiant, titre: titre, date: date, couleur: couleur, type: 'bloc-supprime' }) }])
 								.exec()
-								io.in('pad-' + pad).emit('supprimerbloc', { bloc: bloc, identifiant: identifiant, nom: nom, titre: titre, date: date, couleur: couleur, colonne: colonne, activiteId: activiteId })
+								io.to('pad-' + pad).emit('supprimerbloc', { bloc: bloc, identifiant: identifiant, nom: nom, titre: titre, date: date, couleur: couleur, colonne: colonne, activiteId: activiteId })
 								socket.request.session.cookie.expires = new Date(Date.now() + dureeSession)
 								socket.request.session.save()
 							}
@@ -3821,7 +4254,7 @@ async function demarrerServeur () {
 				.HINCRBY('pads:' + pad, 'activite', 1)
 				.ZADD('activite:' + pad, [{ score: activiteId, value: JSON.stringify({ id: activiteId, bloc: bloc, identifiant: identifiant, titre: titre, date: date, couleur: couleur, type: 'bloc-commente' }) }])
 				.exec()
-				io.in('pad-' + pad).emit('commenterbloc', { id: commentaireId, bloc: bloc, identifiant: identifiant, nom: nom, texte: texte, titre: titre, date: date, couleur: couleur, commentaires: commentaires.length + 1, activiteId: activiteId })
+				io.to('pad-' + pad).emit('commenterbloc', { id: commentaireId, bloc: bloc, identifiant: identifiant, nom: nom, texte: texte, titre: titre, date: date, couleur: couleur, commentaires: commentaires.length + 1, activiteId: activiteId })
 				socket.request.session.cookie.expires = new Date(Date.now() + dureeSession)
 				socket.request.session.save()
 			} else {
@@ -3853,7 +4286,7 @@ async function demarrerServeur () {
 				.ZADD('commentaires:' + bloc, [{ score: id, value: JSON.stringify(commentaire) }])
 				.HSET('dates-pads:' + pad, 'date', dateModification)
 				.exec()
-				io.in('pad-' + pad).emit('modifiercommentaire', { id: id, texte: texte })
+				io.to('pad-' + pad).emit('modifiercommentaire', { id: id, texte: texte })
 				socket.request.session.cookie.expires = new Date(Date.now() + dureeSession)
 				socket.request.session.save()
 			} else {
@@ -3875,7 +4308,7 @@ async function demarrerServeur () {
 				.exec()
 				const commentaires = await db.ZCARD('commentaires:' + bloc)
 				if (commentaires === null) { socket.emit('erreur'); return false }
-				io.in('pad-' + pad).emit('supprimercommentaire', { id: id, bloc: bloc, commentaires: commentaires })
+				io.to('pad-' + pad).emit('supprimercommentaire', { id: id, bloc: bloc, commentaires: commentaires })
 				socket.request.session.cookie.expires = new Date(Date.now() + dureeSession)
 				socket.request.session.save()
 			} else {
@@ -3950,7 +4383,7 @@ async function demarrerServeur () {
 				.HINCRBY('pads:' + pad, 'activite', 1)
 				.ZADD('activite:' + pad, [{ score: activiteId, value: JSON.stringify({ id: activiteId, bloc: bloc, identifiant: identifiant, titre: titre, date: date, couleur: couleur, type: 'bloc-evalue' }) }])
 				.exec()
-				io.in('pad-' + pad).emit('evaluerbloc', { id: evaluationId, bloc: bloc, identifiant: identifiant, nom: nom, titre: titre, date: date, couleur: couleur, evaluation: evaluation, activiteId: activiteId })
+				io.to('pad-' + pad).emit('evaluerbloc', { id: evaluationId, bloc: bloc, identifiant: identifiant, nom: nom, titre: titre, date: date, couleur: couleur, evaluation: evaluation, activiteId: activiteId })
 				socket.request.session.cookie.expires = new Date(Date.now() + dureeSession)
 				socket.request.session.save()
 			} else {
@@ -3972,7 +4405,7 @@ async function demarrerServeur () {
 				.ZADD('evaluations:' + bloc, [{ score: id, value: JSON.stringify(evaluation) }])
 				.HSET('dates-pads:' + pad, 'date', date)
 				.exec()
-				io.in('pad-' + pad).emit('modifierevaluation', { id: id, bloc: bloc, date: date, etoiles: etoiles })
+				io.to('pad-' + pad).emit('modifierevaluation', { id: id, bloc: bloc, date: date, etoiles: etoiles })
 				socket.request.session.cookie.expires = new Date(Date.now() + dureeSession)
 				socket.request.session.save()
 			} else {
@@ -3992,7 +4425,7 @@ async function demarrerServeur () {
 				.HSET('dates-pads:' + pad, 'date', date)
 				.ZREMRANGEBYSCORE('evaluations:' + bloc, id, id)
 				.exec()
-				io.in('pad-' + pad).emit('supprimerevaluation', { id: id, bloc: bloc })
+				io.to('pad-' + pad).emit('supprimerevaluation', { id: id, bloc: bloc })
 				socket.request.session.cookie.expires = new Date(Date.now() + dureeSession)
 				socket.request.session.save()
 			} else {
@@ -4004,13 +4437,13 @@ async function demarrerServeur () {
 			if (identifiant !== '' && identifiant !== undefined && socket.request.session.identifiant === identifiant) {
 				if (statut === 'invite') {
 					await db.HSET('noms:' + identifiant, 'nom', nom)
-					io.in('pad-' + pad).emit('modifiernom', { identifiant: identifiant, nom: nom })
+					io.to('pad-' + pad).emit('modifiernom', { identifiant: identifiant, nom: nom })
 					socket.request.session.nom = nom
 					socket.request.session.cookie.expires = new Date(Date.now() + dureeSession)
 					socket.request.session.save()
 				} else if (statut === 'auteur') {
 					await db.HSET('utilisateurs:' + identifiant, 'nom', nom)
-					io.in('pad-' + pad).emit('modifiernom', { identifiant: identifiant, nom: nom })
+					io.to('pad-' + pad).emit('modifiernom', { identifiant: identifiant, nom: nom })
 					socket.request.session.nom = nom
 					socket.request.session.cookie.expires = new Date(Date.now() + dureeSession)
 					socket.request.session.save()
@@ -4023,7 +4456,7 @@ async function demarrerServeur () {
 		socket.on('modifiercouleur', async function (pad, couleur, identifiant) {
 			if (identifiant !== '' && identifiant !== undefined && socket.request.session.identifiant === identifiant) {
 				await db.HSET('couleurs:' + identifiant, 'pad' + pad, couleur)
-				io.in('pad-' + pad).emit('modifiercouleur', { identifiant: identifiant, couleur: couleur })
+				io.to('pad-' + pad).emit('modifiercouleur', { identifiant: identifiant, couleur: couleur })
 				socket.request.session.cookie.expires = new Date(Date.now() + dureeSession)
 				socket.request.session.save()
 			} else {
@@ -4047,7 +4480,7 @@ async function demarrerServeur () {
 				}
 				if (admins.includes(identifiant) || proprietaire === identifiant) {
 					await db.HSET('pads:' + pad, 'titre', titre)
-					io.in('pad-' + pad).emit('modifiertitre', titre)
+					io.to('pad-' + pad).emit('modifiertitre', titre)
 					socket.request.session.cookie.expires = new Date(Date.now() + dureeSession)
 					socket.request.session.save()
 				} else {
@@ -4074,7 +4507,7 @@ async function demarrerServeur () {
 				}
 				if (admins.includes(identifiant) || proprietaire === identifiant) {
 					await db.HSET('pads:' + pad, 'code', code)
-					io.in('pad-' + pad).emit('modifiercodeacces', code)
+					io.to('pad-' + pad).emit('modifiercodeacces', code)
 					socket.request.session.cookie.expires = new Date(Date.now() + dureeSession)
 					socket.request.session.save()
 				} else {
@@ -4113,7 +4546,7 @@ async function demarrerServeur () {
 							await db.SREM('pads-admins:' + admin, pad.toString())
 						}
 					})
-					io.in('pad-' + pad).emit('modifieradmins', admins)
+					io.to('pad-' + pad).emit('modifieradmins', admins)
 					socket.request.session.cookie.expires = new Date(Date.now() + dureeSession)
 					socket.request.session.save()
 				} else {
@@ -4146,7 +4579,7 @@ async function demarrerServeur () {
 						code = Math.floor(100000 + Math.random() * 900000)
 					}
 					await db.HSET('pads:' + pad, ['acces', acces, 'code', code])
-					io.in('pad-' + pad).emit('modifieracces', { acces: acces, code: code })
+					io.to('pad-' + pad).emit('modifieracces', { acces: acces, code: code })
 					socket.request.session.cookie.expires = new Date(Date.now() + dureeSession)
 					socket.request.session.save()
 				} else {
@@ -4173,7 +4606,7 @@ async function demarrerServeur () {
 				}
 				if (admins.includes(identifiant) || proprietaire === identifiant) {
 					await db.HSET('pads:' + pad, 'contributions', contributions)
-					io.in('pad-' + pad).emit('modifiercontributions', { contributions: contributions, contributionsPrecedentes: contributionsPrecedentes })
+					io.to('pad-' + pad).emit('modifiercontributions', { contributions: contributions, contributionsPrecedentes: contributionsPrecedentes })
 					socket.request.session.cookie.expires = new Date(Date.now() + dureeSession)
 					socket.request.session.save()
 				} else {
@@ -4200,7 +4633,7 @@ async function demarrerServeur () {
 				}
 				if (admins.includes(identifiant) || proprietaire === identifiant) {
 					await db.HSET('pads:' + pad, 'affichage', affichage)
-					io.in('pad-' + pad).emit('modifieraffichage', affichage)
+					io.to('pad-' + pad).emit('modifieraffichage', affichage)
 					socket.request.session.cookie.expires = new Date(Date.now() + dureeSession)
 					socket.request.session.save()
 				} else {
@@ -4227,7 +4660,7 @@ async function demarrerServeur () {
 				}
 				if (admins.includes(identifiant) || proprietaire === identifiant) {
 					await db.HSET('pads:' + pad, 'ordre', ordre)
-					io.in('pad-' + pad).emit('modifierordre', ordre)
+					io.to('pad-' + pad).emit('modifierordre', ordre)
 					socket.request.session.cookie.expires = new Date(Date.now() + dureeSession)
 					socket.request.session.save()
 				} else {
@@ -4254,7 +4687,7 @@ async function demarrerServeur () {
 				}
 				if (admins.includes(identifiant) || proprietaire === identifiant) {
 					await db.HSET('pads:' + pad, 'largeur', largeur)
-					io.in('pad-' + pad).emit('modifierlargeur', largeur)
+					io.to('pad-' + pad).emit('modifierlargeur', largeur)
 					socket.request.session.cookie.expires = new Date(Date.now() + dureeSession)
 					socket.request.session.save()
 				} else {
@@ -4280,10 +4713,10 @@ async function demarrerServeur () {
 					admins = donnees.admins
 				}
 				if (admins.includes(identifiant) || proprietaire === identifiant) {
-					await db.HSET('pads:' + pad, 'fond', fond)
-					io.in('pad-' + pad).emit('modifierfond', fond)
+					await db.HSET('pads:' + pad, ['fond', fond, 'fondRepete', 'desactive'])
+					io.to('pad-' + pad).emit('modifierfond', fond)
 					if (!ancienfond.includes('/img/') && ancienfond.substring(0, 1) !== '#' && ancienfond !== '' && typeof ancienfond === 'string') {
-						supprimerFichier(pad, path.basename(ancienfond))
+						await supprimerFichier(pad, path.basename(ancienfond))
 					}
 					socket.request.session.cookie.expires = new Date(Date.now() + dureeSession)
 					socket.request.session.save()
@@ -4310,11 +4743,38 @@ async function demarrerServeur () {
 					admins = donnees.admins
 				}
 				if (admins.includes(identifiant) || proprietaire === identifiant) {
-					await db.HSET('pads:' + pad, 'fond', fond)
-					io.in('pad-' + pad).emit('modifiercouleurfond', fond)
+					await db.HSET('pads:' + pad, ['fond', fond, 'fondRepete', 'desactive'])
+					io.to('pad-' + pad).emit('modifiercouleurfond', fond)
 					if (!ancienfond.includes('/img/') && ancienfond.substring(0, 1) !== '#' && ancienfond !== '' && typeof ancienfond === 'string') {
-						supprimerFichier(pad, path.basename(ancienfond))
+						await supprimerFichier(pad, path.basename(ancienfond))
 					}
+					socket.request.session.cookie.expires = new Date(Date.now() + dureeSession)
+					socket.request.session.save()
+				} else {
+					socket.emit('nonautorise')
+				}
+			} else {
+				socket.emit('deconnecte')
+			}
+		})
+
+		socket.on('modifierfondrepete', async function (pad, statut, identifiant) {
+			if (maintenance === true) {
+				socket.emit('maintenance')
+				return false
+			}
+			if (identifiant !== '' && identifiant !== undefined && socket.request.session.identifiant === identifiant) {
+				let donnees = await db.HGETALL('pads:' + pad)
+				donnees = Object.assign({}, donnees)
+				if (donnees === null || !donnees.hasOwnProperty('identifiant')) { socket.emit('erreur'); return false }
+				const proprietaire = donnees.identifiant
+				let admins = []
+				if (donnees.hasOwnProperty('admins')) {
+					admins = donnees.admins
+				}
+				if (admins.includes(identifiant) || proprietaire === identifiant) {
+					await db.HSET('pads:' + pad, 'fondRepete', statut)
+					io.to('pad-' + pad).emit('modifierfondrepete', statut)
 					socket.request.session.cookie.expires = new Date(Date.now() + dureeSession)
 					socket.request.session.save()
 				} else {
@@ -4341,7 +4801,7 @@ async function demarrerServeur () {
 				}
 				if (admins.includes(identifiant) || proprietaire === identifiant) {
 					await db.HSET('pads:' + pad, 'registreActivite', statut)
-					io.in('pad-' + pad).emit('modifieractivite', statut)
+					io.to('pad-' + pad).emit('modifieractivite', statut)
 					socket.request.session.cookie.expires = new Date(Date.now() + dureeSession)
 					socket.request.session.save()
 				} else {
@@ -4368,7 +4828,7 @@ async function demarrerServeur () {
 				}
 				if (admins.includes(identifiant) || proprietaire === identifiant) {
 					await db.HSET('pads:' + pad, 'conversation', statut)
-					io.in('pad-' + pad).emit('modifierconversation', statut)
+					io.to('pad-' + pad).emit('modifierconversation', statut)
 					socket.request.session.cookie.expires = new Date(Date.now() + dureeSession)
 					socket.request.session.save()
 				} else {
@@ -4395,7 +4855,7 @@ async function demarrerServeur () {
 				}
 				if (admins.includes(identifiant) || proprietaire === identifiant) {
 					await db.HSET('pads:' + pad, 'listeUtilisateurs', statut)
-					io.in('pad-' + pad).emit('modifierlisteutilisateurs', statut)
+					io.to('pad-' + pad).emit('modifierlisteutilisateurs', statut)
 					socket.request.session.cookie.expires = new Date(Date.now() + dureeSession)
 					socket.request.session.save()
 				} else {
@@ -4422,7 +4882,7 @@ async function demarrerServeur () {
 				}
 				if (admins.includes(identifiant) || proprietaire === identifiant) {
 					await db.HSET('pads:' + pad, 'editionNom', statut)
-					io.in('pad-' + pad).emit('modifiereditionnom', statut)
+					io.to('pad-' + pad).emit('modifiereditionnom', statut)
 					socket.request.session.cookie.expires = new Date(Date.now() + dureeSession)
 					socket.request.session.save()
 				} else {
@@ -4449,7 +4909,7 @@ async function demarrerServeur () {
 				}
 				if (admins.includes(identifiant) || proprietaire === identifiant) {
 					await db.HSET('pads:' + pad, 'fichiers', statut)
-					io.in('pad-' + pad).emit('modifierfichiers', statut)
+					io.to('pad-' + pad).emit('modifierfichiers', statut)
 					socket.request.session.cookie.expires = new Date(Date.now() + dureeSession)
 					socket.request.session.save()
 				} else {
@@ -4476,7 +4936,7 @@ async function demarrerServeur () {
 				}
 				if (admins.includes(identifiant) || proprietaire === identifiant) {
 					await db.HSET('pads:' + pad, 'enregistrements', statut)
-					io.in('pad-' + pad).emit('modifierenregistrements', statut)
+					io.to('pad-' + pad).emit('modifierenregistrements', statut)
 					socket.request.session.cookie.expires = new Date(Date.now() + dureeSession)
 					socket.request.session.save()
 				} else {
@@ -4503,7 +4963,7 @@ async function demarrerServeur () {
 				}
 				if (admins.includes(identifiant) || proprietaire === identifiant) {
 					await db.HSET('pads:' + pad, 'liens', statut)
-					io.in('pad-' + pad).emit('modifierliens', statut)
+					io.to('pad-' + pad).emit('modifierliens', statut)
 					socket.request.session.cookie.expires = new Date(Date.now() + dureeSession)
 					socket.request.session.save()
 				} else {
@@ -4530,7 +4990,7 @@ async function demarrerServeur () {
 				}
 				if (admins.includes(identifiant) || proprietaire === identifiant) {
 					await db.HSET('pads:' + pad, 'documents', statut)
-					io.in('pad-' + pad).emit('modifierdocuments', statut)
+					io.to('pad-' + pad).emit('modifierdocuments', statut)
 					socket.request.session.cookie.expires = new Date(Date.now() + dureeSession)
 					socket.request.session.save()
 				} else {
@@ -4557,7 +5017,7 @@ async function demarrerServeur () {
 				}
 				if (admins.includes(identifiant) || proprietaire === identifiant) {
 					await db.HSET('pads:' + pad, 'commentaires', statut)
-					io.in('pad-' + pad).emit('modifiercommentaires', statut)
+					io.to('pad-' + pad).emit('modifiercommentaires', statut)
 					socket.request.session.cookie.expires = new Date(Date.now() + dureeSession)
 					socket.request.session.save()
 				} else {
@@ -4584,7 +5044,7 @@ async function demarrerServeur () {
 				}
 				if (admins.includes(identifiant) || proprietaire === identifiant) {
 					await db.HSET('pads:' + pad, 'evaluations', statut)
-					io.in('pad-' + pad).emit('modifierevaluations', statut)
+					io.to('pad-' + pad).emit('modifierevaluations', statut)
 					socket.request.session.cookie.expires = new Date(Date.now() + dureeSession)
 					socket.request.session.save()
 				} else {
@@ -4611,7 +5071,7 @@ async function demarrerServeur () {
 				}
 				if (admins.includes(identifiant) || proprietaire === identifiant) {
 					await db.HSET('pads:' + pad, 'copieBloc', statut)
-					io.in('pad-' + pad).emit('modifiercopiebloc', statut)
+					io.to('pad-' + pad).emit('modifiercopiebloc', statut)
 					socket.request.session.cookie.expires = new Date(Date.now() + dureeSession)
 					socket.request.session.save()
 				} else {
@@ -4625,7 +5085,7 @@ async function demarrerServeur () {
 		socket.on('message', function (pad, texte, identifiant, nom) {
 			if (identifiant !== '' && identifiant !== undefined && socket.request.session.identifiant === identifiant) {
 				const date = dayjs().format()
-				io.in('pad-' + pad).emit('message', { texte: texte, identifiant: identifiant, nom: nom, date: date })
+				io.to('pad-' + pad).emit('message', { texte: texte, identifiant: identifiant, nom: nom, date: date })
 				socket.request.session.cookie.expires = new Date(Date.now() + dureeSession)
 				socket.request.session.save()
 			} else {
@@ -4644,7 +5104,7 @@ async function demarrerServeur () {
 					admins = donnees.admins
 				}
 				if (admins.includes(identifiant) || proprietaire === identifiant) {
-					io.in('pad-' + pad).emit('reinitialisermessages')
+					io.to('pad-' + pad).emit('reinitialisermessages')
 					socket.request.session.cookie.expires = new Date(Date.now() + dureeSession)
 					socket.request.session.save()
 				} else {
@@ -4667,7 +5127,7 @@ async function demarrerServeur () {
 				}
 				if (admins.includes(identifiant) || proprietaire === identifiant) {
 					await db.DEL('activite:' + pad)
-					io.in('pad-' + pad).emit('reinitialiseractivite')
+					io.to('pad-' + pad).emit('reinitialiseractivite')
 					socket.request.session.cookie.expires = new Date(Date.now() + dureeSession)
 					socket.request.session.save()
 				} else {
@@ -4704,7 +5164,7 @@ async function demarrerServeur () {
 					.HINCRBY('pads:' + pad, 'activite', 1)
 					.ZADD('activite:' + pad, [{ score: activiteId, value: JSON.stringify({ id: activiteId, identifiant: identifiant, titre: titre, date: date, couleur: couleur, type: 'colonne-ajoutee' }) }])
 					.exec()
-					io.in('pad-' + pad).emit('ajoutercolonne', { identifiant: identifiant, nom: nom, titre: titre, colonnes: colonnes, affichageColonnes: affichageColonnes, date: date, couleur: couleur, activiteId: activiteId })
+					io.to('pad-' + pad).emit('ajoutercolonne', { identifiant: identifiant, nom: nom, titre: titre, colonnes: colonnes, affichageColonnes: affichageColonnes, date: date, couleur: couleur, activiteId: activiteId })
 					socket.request.session.cookie.expires = new Date(Date.now() + dureeSession)
 					socket.request.session.save()
 				} else {
@@ -4733,7 +5193,7 @@ async function demarrerServeur () {
 					const colonnes = JSON.parse(donnees.colonnes)
 					colonnes[index] = titre
 					await db.HSET('pads:' + pad, 'colonnes', JSON.stringify(colonnes))
-					io.in('pad-' + pad).emit('modifiertitrecolonne', colonnes)
+					io.to('pad-' + pad).emit('modifiertitrecolonne', colonnes)
 					socket.request.session.cookie.expires = new Date(Date.now() + dureeSession)
 					socket.request.session.save()
 				} else {
@@ -4770,7 +5230,7 @@ async function demarrerServeur () {
 					}
 					affichageColonnes[index] = valeur
 					await db.HSET('pads:' + pad, 'affichageColonnes', JSON.stringify(affichageColonnes))
-					io.in('pad-' + pad).emit('modifieraffichagecolonne', affichageColonnes, valeur, index)
+					io.to('pad-' + pad).emit('modifieraffichagecolonne', affichageColonnes, valeur, index)
 					socket.request.session.cookie.expires = new Date(Date.now() + dureeSession)
 					socket.request.session.save()
 				} else {
@@ -4850,11 +5310,11 @@ async function demarrerServeur () {
 									let objet = await db.HGETALL('pad-' + pad + ':' + blocSupprime)
 									objet = Object.assign({}, objet)
 									if (objet === null) { resolve(); return false }
-									if (objet.hasOwnProperty('media') && objet.media !== '' && objet.type !== 'embed') {
-										supprimerFichier(pad, objet.media)
+									if (objet.hasOwnProperty('media') && objet.media !== '' && objet.type !== 'embed' && objet.type !== 'lien') {
+										await supprimerFichier(pad, objet.media)
 									}
-									if (objet.hasOwnProperty('vignette') && objet.vignette !== '' && typeof objet.vignette === 'string' && !objet.vignette.includes('/img/') && !verifierURL(objet.vignette, ['https', 'http'])) {
-										supprimerFichier(pad, path.basename(objet.vignette))
+									if (objet.hasOwnProperty('vignette') && definirVignettePersonnalisee(objet.vignette) === true) {
+										await supprimerFichier(pad, path.basename(objet.vignette))
 									}
 									if (objet.hasOwnProperty('bloc') && objet.bloc === blocSupprime) {
 										await db
@@ -4896,7 +5356,7 @@ async function demarrerServeur () {
 							.HINCRBY('pads:' + pad, 'activite', 1)
 							.ZADD('activite:' + pad, [{ score: activiteId, value: JSON.stringify({ id: activiteId, identifiant: identifiant, titre: titre, date: date, couleur: couleur, type: 'colonne-supprimee' }) }])
 							.exec()
-							io.in('pad-' + pad).emit('supprimercolonne', { identifiant: identifiant, nom: nom, titre: titre, colonne: colonne, colonnes: colonnes, affichageColonnes: affichageColonnes, date: date, couleur: couleur, activiteId: activiteId })
+							io.to('pad-' + pad).emit('supprimercolonne', { identifiant: identifiant, nom: nom, titre: titre, colonne: colonne, colonnes: colonnes, affichageColonnes: affichageColonnes, date: date, couleur: couleur, activiteId: activiteId })
 							socket.request.session.cookie.expires = new Date(Date.now() + dureeSession)
 							socket.request.session.save()
 						})
@@ -4998,7 +5458,7 @@ async function demarrerServeur () {
 							.HINCRBY('pads:' + pad, 'activite', 1)
 							.ZADD('activite:' + pad, [{ score: activiteId, value: JSON.stringify({ id: activiteId, identifiant: identifiant, titre: titre, date: date, couleur: couleur, type: 'colonne-deplacee' }) }])
 							.exec()
-							io.in('pad-' + pad).emit('deplacercolonne', { identifiant: identifiant, nom: nom, titre: titre, direction: direction, colonne: colonne, colonnes: colonnes, affichageColonnes: affichageColonnes, date: date, couleur: couleur, activiteId: activiteId })
+							io.to('pad-' + pad).emit('deplacercolonne', { identifiant: identifiant, nom: nom, titre: titre, direction: direction, colonne: colonne, colonnes: colonnes, affichageColonnes: affichageColonnes, date: date, couleur: couleur, activiteId: activiteId })
 							socket.request.session.cookie.expires = new Date(Date.now() + dureeSession)
 							socket.request.session.save()
 						})
@@ -5061,7 +5521,7 @@ async function demarrerServeur () {
 				return false
 			}
 			await db.HSET('pads:' + pad, 'notification', JSON.stringify(admins))
-			io.in('pad-' + pad).emit('modifiernotification', admins)
+			io.to('pad-' + pad).emit('modifiernotification', admins)
 			socket.request.session.cookie.expires = new Date(Date.now() + dureeSession)
 			socket.request.session.save()
 		})
@@ -5094,7 +5554,7 @@ async function demarrerServeur () {
 				}
 				if (admins.includes(identifiant) || proprietaire === identifiant) {
 					await db.ZREMRANGEBYSCORE('activite:' + pad, id, id)
-					io.in('pad-' + pad).emit('supprimeractivite', id)
+					io.to('pad-' + pad).emit('supprimeractivite', id)
 					socket.request.session.cookie.expires = new Date(Date.now() + dureeSession)
 					socket.request.session.save()
 				} else {
@@ -5294,7 +5754,7 @@ async function demarrerServeur () {
 						if (donnees === null) { resolve({}); return false }
 						// Pour résoudre le problème de chemin pour les fichiers déplacés
 						if (donnees.hasOwnProperty('fond') && !donnees.fond.includes('/img/') && donnees.fond.substring(0, 1) !== '#' && donnees.fond !== '' && typeof donnees.fond === 'string') {
-							donnees.fond = '/' + definirDossierFichiers(pad) + '/' + pad + '/' + path.basename(donnees.fond)
+							donnees.fond = definirCheminFichiers() + '/' + pad + '/' + path.basename(donnees.fond)
 						}
 						const reponse = await db.EXISTS('utilisateurs:' + donnees.identifiant)
 						if (reponse === 1) {
@@ -5322,9 +5782,9 @@ async function demarrerServeur () {
 						if (donneesQ && donneesQ.hasOwnProperty('rows') && donneesQ.rows[0] && typeof donneesQ.rows[0] === 'object' && Object.keys(donneesQ.rows[0]).length === 1) {
 							const donnees = JSON.parse(donneesQ.rows[0].donnees)
 							if (donnees.hasOwnProperty('identifiant')) {
-								// Pour résoudre le problème de chemin pour les fichiers déplacés
+								// Pour compatibilité avec les anciens chemins
 								if (donnees.hasOwnProperty('fond') && !donnees.fond.includes('/img/') && donnees.fond.substring(0, 1) !== '#' && donnees.fond !== '' && typeof donnees.fond === 'string') {
-									donnees.fond = '/' + definirDossierFichiers(pad) + '/' + pad + '/' + path.basename(donnees.fond)
+									donnees.fond = path.basename(donnees.fond)
 								}
 								const reponse = await db.EXISTS('utilisateurs:' + donnees.identifiant)
 								if (reponse === 1) {
@@ -5374,9 +5834,9 @@ async function demarrerServeur () {
 						let donnees = await db.HGETALL('pads:' + pad)
 						donnees = Object.assign({}, donnees)
 						if (donnees === null) { resolve({}); return false }
-						// Pour résoudre le problème de chemin pour les fichiers déplacés
+						// Pour compatibilité avec les anciens chemins
 						if (donnees.hasOwnProperty('fond') && !donnees.fond.includes('/img/') && donnees.fond.substring(0, 1) !== '#' && donnees.fond !== '' && typeof donnees.fond === 'string') {
-							donnees.fond = '/' + definirDossierFichiers(pad) + '/' + pad + '/' + path.basename(donnees.fond)
+							donnees.fond = path.basename(donnees.fond)
 						}
 						const reponse = await db.EXISTS('utilisateurs:' + donnees.identifiant)
 						if (reponse === null) {
@@ -5409,9 +5869,9 @@ async function demarrerServeur () {
 						if (donneesQ && donneesQ.hasOwnProperty('rows') && donneesQ.rows[0] && typeof donneesQ.rows[0] === 'object' && Object.keys(donneesQ.rows[0]).length === 1) {
 							const donnees = JSON.parse(donneesQ.rows[0].donnees)
 							if (donnees.hasOwnProperty('identifiant')) {
-								// Pour résoudre le problème de chemin pour les fichiers déplacés
+								// Pour compatibilité avec les anciens chemins
 								if (donnees.hasOwnProperty('fond') && !donnees.fond.includes('/img/') && donnees.fond.substring(0, 1) !== '#' && donnees.fond !== '' && typeof donnees.fond === 'string') {
-									donnees.fond = '/' + definirDossierFichiers(pad) + '/' + pad + '/' + path.basename(donnees.fond)
+									donnees.fond = path.basename(donnees.fond)
 								}
 								const reponse = await db.EXISTS('utilisateurs:' + donnees.identifiant)
 								if (reponse === 1) {
@@ -5461,9 +5921,9 @@ async function demarrerServeur () {
 						let donnees = await db.HGETALL('pads:' + pad)
 						donnees = Object.assign({}, donnees)
 						if (donnees === null) { resolve({}) }
-						// Pour résoudre le problème de chemin pour les fichiers déplacés
+						// Pour compatibilité avec les anciens chemins
 						if (donnees.hasOwnProperty('fond') && !donnees.fond.includes('/img/') && donnees.fond.substring(0, 1) !== '#' && donnees.fond !== '' && typeof donnees.fond === 'string') {
-							donnees.fond = '/' + definirDossierFichiers(pad) + '/' + pad + '/' + path.basename(donnees.fond)
+							donnees.fond = path.basename(donnees.fond)
 						}
 						const reponse = await db.EXISTS('utilisateurs:' + donnees.identifiant)
 						if (reponse === 1) {
@@ -5491,9 +5951,9 @@ async function demarrerServeur () {
 						if (donneesQ && donneesQ.hasOwnProperty('rows') && donneesQ.rows[0] && typeof donneesQ.rows[0] === 'object' && Object.keys(donneesQ.rows[0]).length === 1) {
 							const donnees = JSON.parse(donneesQ.rows[0].donnees)
 							if (donnees.hasOwnProperty('identifiant')) {
-								// Pour résoudre le problème de chemin pour les fichiers déplacés
+								// Pour compatibilité avec les anciens chemins
 								if (donnees.hasOwnProperty('fond') && !donnees.fond.includes('/img/') && donnees.fond.substring(0, 1) !== '#' && donnees.fond !== '' && typeof donnees.fond === 'string') {
-									donnees.fond = '/' + definirDossierFichiers(pad) + '/' + pad + '/' + path.basename(donnees.fond)
+									donnees.fond = path.basename(donnees.fond)
 								}
 								const reponse = await db.EXISTS('utilisateurs:' + donnees.identifiant)
 								if (reponse === 1) {
@@ -5543,9 +6003,9 @@ async function demarrerServeur () {
 						let donnees = await db.HGETALL('pads:' + pad)
 						donnees = Object.assign({}, donnees)
 						if (donnees === null) { resolve({}); return false }
-						// Pour résoudre le problème de chemin pour les fichiers déplacés
+						// Pour compatibilité avec les anciens chemins
 						if (donnees.hasOwnProperty('fond') && !donnees.fond.includes('/img/') && donnees.fond.substring(0, 1) !== '#' && donnees.fond !== '' && typeof donnees.fond === 'string') {
-							donnees.fond = '/' + definirDossierFichiers(pad) + '/' + pad + '/' + path.basename(donnees.fond)
+							donnees.fond = path.basename(donnees.fond)
 						}
 						const reponse = await db.EXISTS('utilisateurs:' + donnees.identifiant)
 						if (reponse === 1) {
@@ -5573,9 +6033,9 @@ async function demarrerServeur () {
 						if (donneesQ && donneesQ.hasOwnProperty('rows') && donneesQ.rows[0] && typeof donneesQ.rows[0] === 'object' && Object.keys(donneesQ.rows[0]).length === 1) {
 							const donnees = JSON.parse(donneesQ.rows[0].donnees)
 							if (donnees.hasOwnProperty('identifiant')) {
-								// Pour résoudre le problème de chemin pour les fichiers déplacés
+								// Pour compatibilité avec les anciens chemins
 								if (donnees.hasOwnProperty('fond') && !donnees.fond.includes('/img/') && donnees.fond.substring(0, 1) !== '#' && donnees.fond !== '' && typeof donnees.fond === 'string') {
-									donnees.fond = '/' + definirDossierFichiers(pad) + '/' + pad + '/' + path.basename(donnees.fond)
+									donnees.fond = path.basename(donnees.fond)
 								}
 								const reponse = await db.EXISTS('utilisateurs:' + donnees.identifiant)
 								if (reponse === 1) {
@@ -5737,6 +6197,9 @@ async function demarrerServeur () {
 				}
 			}
 			// Pour homogénéité des paramètres de pad
+			if (!pad.hasOwnProperty('fondRepete')) {
+				pad.fondRepete = 'desactive'
+			}
 			if (!pad.hasOwnProperty('ordre')) {
 				pad.ordre = 'croissant'
 			}
@@ -5766,9 +6229,9 @@ async function demarrerServeur () {
 				}
 				pad.affichageColonnes = affichageColonnes
 			}
-			// Pour résoudre le problème de chemin pour les fichiers déplacés
+			// Pour compatibilité avec les anciens chemins
 			if (pad.hasOwnProperty('fond') && !pad.fond.includes('/img/') && pad.fond.substring(0, 1) !== '#' && pad.fond !== '' && typeof pad.fond === 'string') {
-				pad.fond = '/' + definirDossierFichiers(id) + '/' + id + '/' + path.basename(pad.fond)
+				pad.fond = path.basename(pad.fond)
 			}
 			// Cacher mot de passe front
 			if (pad.hasOwnProperty('motdepasse')) {
@@ -5800,9 +6263,9 @@ async function demarrerServeur () {
 								if (parseInt(donnees.colonne) >= nombreColonnes) {
 									donnees.colonne = nombreColonnes - 1
 								}
-								// Pour résoudre le problème de chemin pour les fichiers déplacés
-								if (donnees.hasOwnProperty('vignette') && donnees.vignette !== '' && typeof donnees.vignette === 'string' && !donnees.vignette.includes('/img/') && !verifierURL(donnees.vignette, ['https', 'http'])) {
-									donnees.vignette = '/' + definirDossierFichiers(id) + '/' + id + '/' + path.basename(donnees.vignette)
+								// Pour compatibilité avec les anciens chemins
+								if (donnees.hasOwnProperty('vignette') && definirVignettePersonnalisee(donnees.vignette) === true) {
+									donnees.vignette = path.basename(donnees.vignette)
 								}
 								// Pour homogénéité des paramètres du bloc avec modération activée
 								if (!donnees.hasOwnProperty('visibilite')) {
@@ -6122,8 +6585,8 @@ async function demarrerServeur () {
 							if (parseInt(donnees.colonne) >= nombreColonnes) {
 								donnees.colonne = nombreColonnes - 1
 							}
-							if (donnees.hasOwnProperty('vignette') && donnees.vignette !== '' && typeof donnees.vignette === 'string' && !donnees.vignette.includes('/img/') && !verifierURL(donnees.vignette, ['https', 'http'])) {
-								donnees.vignette = '/' + definirDossierFichiers(id) + '/' + id + '/' + path.basename(donnees.vignette)
+							if (donnees.hasOwnProperty('vignette') && definirVignettePersonnalisee(donnees.vignette) === true) {
+								donnees.vignette = path.basename(donnees.vignette)
 							}
 							if (!donnees.hasOwnProperty('visibilite')) {
 								donnees.visibilite = 'visible'
@@ -6469,30 +6932,77 @@ async function demarrerServeur () {
 		return regexExp.test(email)
 	}
 
+	function definirNomFichier (fichier) {
+		const info = path.parse(fichier)
+		const extension = info.ext.toLowerCase()
+		let nom = v.latinise(info.name.toLowerCase())
+		nom = nom.replace(/\ /gi, '-')
+		nom = nom.replace(/[^0-9a-z_\-]/gi, '')
+		if (nom.length > 100) {
+			nom = nom.substring(0, 100)
+		}
+		nom = nom + '_' + Math.random().toString(36).substring(2) + extension
+		return nom
+	}
+
+	function definirVignettePersonnalisee (vignette) {
+		if (vignette !== '' && typeof vignette === 'string' && !vignette.includes('/img/') && (!verifierURL(vignette, ['https', 'http']) || (verifierURL(vignette, ['https', 'http']) && vignette.includes(lienPublicS3)))) {
+			return true
+		} else {
+			return false
+		}
+	}
+
+	function definirCheminFichiers () {
+		if (process.env.VITE_STORAGE && process.env.VITE_STORAGE === 's3' && process.env.VITE_S3_PUBLIC_LINK && process.env.VITE_S3_PUBLIC_LINK !== '') {
+			return process.env.VITE_S3_PUBLIC_LINK
+		} else {
+			return '/fichiers'
+		}
+	}
+
+	async function telechargerFichierS3 (cle, fichier) {
+		return new Promise(async function (resolve) {
+			const donnees = await s3Client.send(new GetObjectCommand({ Bucket: bucket, Key: cle }))
+			const writeStream = fs.createWriteStream(fichier)
+			donnees.Body.pipe(writeStream)
+			writeStream.on('finish', function () {
+				resolve('termine')
+			})
+			writeStream.on('error', function () {
+				resolve('erreur')
+			})
+		})
+	}
+
+	async function supprimerFichier (pad, fichier) {
+		return new Promise(async function (resolve) {
+			if (stockage === 'fs') {
+				const chemin = path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + pad + '/' + fichier)
+				await fs.remove(chemin)
+				resolve()
+			} else if (stockage === 's3') {
+				await s3Client.send(new DeleteObjectCommand({ Bucket: bucket, Key: pad + '/' + fichier }))
+				resolve()
+			}
+		})
+	}
+
 	const televerser = multer({
 		storage: multer.diskStorage({
 			destination: function (req, fichier, callback) {
 				const pad = req.body.pad
-				const chemin = path.join(__dirname, '..', '/static/' + definirDossierFichiers(pad) + '/' + pad + '/')
+				const chemin = path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + pad + '/')
 				callback(null, chemin)
 			},
 			filename: function (req, fichier, callback) {
-				const info = path.parse(fichier.originalname)
-				const extension = info.ext.toLowerCase()
-				let nom = v.latinise(info.name.toLowerCase())
-				nom = nom.replace(/\ /gi, '-')
-				nom = nom.replace(/[^0-9a-z_\-]/gi, '')
-				if (nom.length > 100) {
-					nom = nom.substring(0, 100)
-				}
-				nom = nom + '_' + Math.random().toString(36).substring(2) + extension
+				const nom = definirNomFichier(fichier.originalname)
 				callback(null, nom)
 			}
 		}),
 		fileFilter: function (req, fichier, callback) {
 			if (req.body.pad) {
-				const pad = req.body.pad
-				const dossier = path.join(__dirname, '..', '/static/' + definirDossierFichiers(pad))
+				const dossier = path.join(__dirname, '..', '/static' + definirCheminFichiers())
 				checkDiskSpace(dossier).then(function (diskSpace) {
 					const espace = Math.round((diskSpace.free / diskSpace.size) * 100)
 					if (espace < minimumEspaceDisque) {
@@ -6514,22 +7024,13 @@ async function demarrerServeur () {
 				callback(null, chemin)
 			},
 			filename: function (req, fichier, callback) {
-				const info = path.parse(fichier.originalname)
-				const extension = info.ext.toLowerCase()
-				let nom = v.latinise(info.name.toLowerCase())
-				nom = nom.replace(/\ /gi, '-')
-				nom = nom.replace(/[^0-9a-z_\-]/gi, '')
-				if (nom.length > 100) {
-					nom = nom.substring(0, 100)
-				}
-				nom = nom + '_' + Math.random().toString(36).substring(2) + extension
+				const nom = definirNomFichier(fichier.originalname)
 				callback(null, nom)
 			}
 		}),
 		fileFilter: function (req, fichier, callback) {
 			if (req.body.pad) {
-				const pad = req.body.pad
-				const dossier = path.join(__dirname, '..', '/static/' + definirDossierFichiers(pad))
+				const dossier = path.join(__dirname, '..', '/static' + definirCheminFichiers())
 				checkDiskSpace(dossier).then(function (diskSpace) {
 					const espace = Math.round((diskSpace.free / diskSpace.size) * 100)
 					if (espace < minimumEspaceDisque) {
@@ -6543,33 +7044,6 @@ async function demarrerServeur () {
 			}
 		}
 	}).single('fichier')
-
-	async function supprimerFichier (pad, fichier) {
-		const chemin = path.join(__dirname, '..', '/static/' + definirDossierFichiers(pad) + '/' + pad + '/' + fichier)
-		await fs.remove(chemin)
-	}
-
-	function definirDossierFichiers (id) {
-		if (process.env.VITE_NFS8_PAD_NUMBER && process.env.VITE_NFS8_PAD_NUMBER !== '' && process.env.VITE_NFS8_FOLDER && process.env.VITE_NFS8_FOLDER !== '' && parseInt(id) > parseInt(process.env.VITE_NFS8_PAD_NUMBER)) {
-			return process.env.VITE_NFS8_FOLDER
-		} else if (process.env.VITE_NFS7_PAD_NUMBER && process.env.VITE_NFS7_PAD_NUMBER !== '' && process.env.VITE_NFS7_FOLDER && process.env.VITE_NFS7_FOLDER !== '' && parseInt(id) > parseInt(process.env.VITE_NFS7_PAD_NUMBER)) {
-			return process.env.VITE_NFS7_FOLDER
-		} else if (process.env.VITE_NFS6_PAD_NUMBER && process.env.VITE_NFS6_PAD_NUMBER !== '' && process.env.VITE_NFS6_FOLDER && process.env.VITE_NFS6_FOLDER !== '' && parseInt(id) > parseInt(process.env.VITE_NFS6_PAD_NUMBER)) {
-			return process.env.VITE_NFS6_FOLDER
-		} else if (process.env.VITE_NFS5_PAD_NUMBER && process.env.VITE_NFS5_PAD_NUMBER !== '' && process.env.VITE_NFS5_FOLDER && process.env.VITE_NFS5_FOLDER !== '' && parseInt(id) > parseInt(process.env.VITE_NFS5_PAD_NUMBER)) {
-			return process.env.VITE_NFS5_FOLDER
-		} else if (process.env.VITE_NFS4_PAD_NUMBER && process.env.VITE_NFS4_PAD_NUMBER !== '' && process.env.VITE_NFS4_FOLDER && process.env.VITE_NFS4_FOLDER !== '' && parseInt(id) > parseInt(process.env.VITE_NFS4_PAD_NUMBER)) {
-			return process.env.VITE_NFS4_FOLDER
-		} else if (process.env.VITE_NFS3_PAD_NUMBER && process.env.VITE_NFS3_PAD_NUMBER !== '' && process.env.VITE_NFS3_FOLDER && process.env.VITE_NFS3_FOLDER !== '' && parseInt(id) > parseInt(process.env.VITE_NFS3_PAD_NUMBER)) {
-			return process.env.VITE_NFS3_FOLDER
-		} else if (process.env.VITE_NFS2_PAD_NUMBER && process.env.VITE_NFS2_PAD_NUMBER !== '' && process.env.VITE_NFS2_FOLDER && process.env.VITE_NFS2_FOLDER !== '' && parseInt(id) > parseInt(process.env.VITE_NFS2_PAD_NUMBER)) {
-			return process.env.VITE_NFS2_FOLDER
-		} else if (process.env.VITE_NFS_PAD_NUMBER && process.env.VITE_NFS_PAD_NUMBER !== '' && process.env.VITE_NFS_FOLDER && process.env.VITE_NFS_FOLDER !== '' && parseInt(id) > parseInt(process.env.VITE_NFS_PAD_NUMBER)) {
-			return process.env.VITE_NFS_FOLDER
-		} else {
-			return 'fichiers'
-		}
-	}
 
 	function verifierURL (s, protocoles) {
 		try {
@@ -6672,7 +7146,7 @@ async function demarrerServeur () {
 							<span id="titre">{{ pad.titre }}</span>
 						</header>
 
-						<div id="pad" :class="{'fond-personnalise': pad.fond.substring(0, 1) !== '#' && !pad.fond.includes('/img/')}" :style="definirFond(pad.fond)" v-if="!chargement">
+						<div id="pad" :class="{'fond-personnalise': pad.fond.substring(0, 1) !== '#' && !pad.fond.includes('/img/') && (!pad.hasOwnProperty('fondRepete') || pad.fondRepete === 'desactive'), 'fond-personnalise-repete': pad.fond.substring(0, 1) !== '#' && !pad.fond.includes('/img/') && pad.hasOwnProperty('fondRepete') && pad.fondRepete === 'active'}" :style="definirFond(pad.fond)" v-if="!chargement">
 							<!-- Affichage mur -->
 							<masonry id="blocs" class="mur" :cols="definirLargeurCapsules()" :gutter="0" v-if="pad.affichage === 'mur'">
 								<div :id="item.bloc" class="bloc" v-for="(item, indexItem) in blocs" :style="{'border-color': couleurs[item.identifiant]}" :data-bloc="item.bloc" :key="'bloc' + indexItem">

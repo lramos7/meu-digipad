@@ -136,7 +136,10 @@ export default {
 			etherpadApi: import.meta.env.VITE_ETHERPAD_API_KEY,
 			pixabayApi: import.meta.env.VITE_PIXABAY_API_KEY,
 			limite: parseFloat(import.meta.env.VITE_UPLOAD_LIMIT),
-			fichiersAutorises: import.meta.env.VITE_UPLOAD_FILE_TYPES
+			fichiersAutorises: import.meta.env.VITE_UPLOAD_FILE_TYPES,
+			stockage: import.meta.env.VITE_STORAGE,
+			lienPublicS3: import.meta.env.VITE_S3_PUBLIC_LINK,
+			visionneuseDocx: import.meta.env.VITE_DOCX_VIEWER
 		}
 	},
 	computed: {
@@ -404,6 +407,11 @@ export default {
 					document.querySelector('#pad').addEventListener('touchstart', function (event) {
 						if (((event.target.closest('.titre') !== null && event.target.textContent !== '') || (event.target.closest('.texte') !== null && event.target.textContent !== '')) && this.pad.affichage === 'colonnes') {
 							this.desactiverDefilementHorizontal()
+						} else {
+							const selection = document.getSelection()
+							if (selection) {
+								selection.removeAllRanges()
+							}
 						}
 					}.bind(this))
 
@@ -411,13 +419,18 @@ export default {
 						if (this.pad.affichage === 'colonnes') {
 							setTimeout(function () {
 								this.activerDefilementHorizontal()
-							}.bind(this), 200)
+							}.bind(this), 500)
 						}
 					}.bind(this))
 				} else {
 					document.querySelector('#pad').addEventListener('mousedown', function (event) {
 						if (((event.target.closest('.titre') !== null && event.target.textContent !== '') || (event.target.closest('.texte') !== null && event.target.textContent !== '')) && this.pad.affichage === 'colonnes') {
 							this.desactiverDefilementHorizontal()
+						} else {
+							const selection = document.getSelection()
+							if (selection) {
+								selection.removeAllRanges()
+							}
 						}
 					}.bind(this))
 
@@ -425,7 +438,7 @@ export default {
 						if (this.pad.affichage === 'colonnes') {
 							setTimeout(function () {
 								this.activerDefilementHorizontal()
-							}.bind(this), 200)
+							}.bind(this), 500)
 						}
 					}.bind(this))
 				}
@@ -524,8 +537,10 @@ export default {
 		definirFond (fond) {
 			if (fond.substring(0, 1) === '#') {
 				return { backgroundColor: fond }
-			} else {
+			} else if (fond.includes('/img/')) {
 				return { backgroundImage: 'url(' + fond + ')' }
+			} else {
+				return { backgroundImage: 'url(' + this.definirCheminFichiers() + '/' + this.pad.id + '/' + fond + ')' }
 			}
 		},
 		definirUtilisateurs (donnees) {
@@ -587,8 +602,12 @@ export default {
 			if (item.hasOwnProperty('vignetteGeneree')) {
 				vignetteGeneree = item.vignetteGeneree
 			}
-			if (item.vignette && item.vignette !== '' && typeof item.vignette === 'string') {
+			if (item.vignette && item.vignette !== '' && typeof item.vignette === 'string' && (item.vignette.substring(0, 5) === '/img/' || (this.verifierURL(item.vignette) === true && !item.vignette.includes(this.lienPublicS3)))) {
 				vignette = item.vignette
+			} else if (item.vignette && item.vignette !== '' && typeof item.vignette === 'string') {
+				vignette = this.definirCheminFichiers() + '/' + this.pad.id + '/' + this.definirNomLienFichier(item.vignette)
+			} else if (vignetteGeneree === true && this.modale === 'bloc') {
+				vignette = item.fichier.replace(/\.[^/.]+$/, '') + '.jpg'
 			} else if (vignetteGeneree === true) {
 				vignette = this.definirLienVignette(this.pad.id, item.fichier.replace(/\.[^/.]+$/, '') + '.jpg')
 			} else {
@@ -724,6 +743,9 @@ export default {
 			} else {
 				return this.$t('creeeLe') + ' ' + this.$formaterDate(item.date, this.langue) + ' ' + this.$t('par') + ' ' + this.definirNom(item) + '.'
 			}
+		},
+		definirNomLienFichier (fichier) {
+			return fichier.split('\\').pop().split('/').pop()
 		},
 		ouvrirModaleColonne (type, index) {
 			if (type === 'edition') {
@@ -975,12 +997,18 @@ export default {
 						case 'document':
 						case 'office':
 							this.$nextTick(function () {
-								const iframe = document.querySelector('#document')
-								iframe.addEventListener('load', function () {
+								if (this.visionneuseDocx !== '') {
+									const iframe = document.querySelector('#document')
+									iframe.addEventListener('load', function () {
+										imagesLoaded('#vignette', function () {
+											this.chargementMedia = false
+										}.bind(this))
+									}.bind(this))
+								} else {
 									imagesLoaded('#vignette', function () {
 										this.chargementMedia = false
 									}.bind(this))
-								}.bind(this))
+								}
 							}.bind(this))
 							break
 						default:
@@ -1109,7 +1137,7 @@ export default {
 										minutes = '0' + minutes
 									}
 									this.dureeEnregistrement = minutes + ' : ' + secondes
-									if (this.dureeEnregistrement === '01 : 30') {
+									if (this.dureeEnregistrement === '02 : 00') {
 										this.arreterEnregistrementAudio()
 									}
 								}.bind(this), 100)
@@ -1453,7 +1481,7 @@ export default {
 						champ.value = ''
 						this.progressionVignette = 0
 						this.message = this.$t('erreurEspaceDisque')
-					} else if (typeof donnees === 'string' && donnees.includes('/temp/')) {
+					} else if (typeof donnees === 'string') {
 						this.vignette = donnees
 						this.$nextTick(function () {
 							imagesLoaded('#vignette', function () {
@@ -1711,23 +1739,23 @@ export default {
 				let html
 				switch (item.type) {
 				case 'image':
-					html = '<span id="' + imageId + '" class="image"><img src="/' + this.definirDossierFichiers(this.pad.id) + '/' + this.pad.id + '/' + item.media + '" alt="' + item.media + '"></span>'
+					html = '<span id="' + imageId + '" class="image"><img src="' + this.definirCheminFichiers() + '/' + this.pad.id + '/' + item.media + '" alt="' + item.media + '"></span>'
 					break
 				case 'lien-image':
 					html = '<span id="' + imageId + '" class="image"><img src="' + item.media + '" alt="' + item.media + '"></span>'
 					break
 				case 'audio':
-					html = '<audio controls preload="metadata" src="/' + this.definirDossierFichiers(this.pad.id) + '/' + this.pad.id + '/' + item.media + '"></audio>'
+					html = '<audio controls preload="metadata" src="' + this.definirCheminFichiers() + '/' + this.pad.id + '/' + item.media + '"></audio>'
 					break
 				case 'video':
-					html = '<video controls playsinline crossOrigin="anonymous" src="/' + this.definirDossierFichiers(this.pad.id) + '/' + this.pad.id + '/' + item.media + '"></video>'
+					html = '<video controls playsinline crossOrigin="anonymous" src="' + this.definirCheminFichiers() + '/' + this.pad.id + '/' + item.media + '"></video>'
 					break
 				case 'pdf':
-					html = '<iframe src="/pdfjs/web/viewer.html?file=' + this.hote + '/' + this.definirDossierFichiers(this.pad.id) + '/' + this.pad.id + '/' + item.media + '" allowfullscreen></iframe>'
+					html = '<iframe src="/pdfjs/web/viewer.html?file=' + this.definirCheminFichiersHote() + '/' + this.pad.id + '/' + item.media + '" allowfullscreen></iframe>'
 					break
 				case 'document':
 				case 'office':
-					html = '<iframe src="https://view.officeapps.live.com/op/embed.aspx?src=' + this.hote + '/' + this.definirDossierFichiers(this.pad.id) + '/' + this.pad.id + '/' + item.media + '" allowfullscreen></iframe>'
+					html = '<iframe src="' + this.visionneuseDocx + this.definirCheminFichiersHote() + '/' + this.pad.id + '/' + item.media + '" allowfullscreen></iframe>'
 					break
 				case 'embed':
 					if (item.source === 'etherpad') {
@@ -1809,7 +1837,7 @@ export default {
 									height: '150px'
 								}).reposition()
 								panel.addControl({
-									html: '<a class="material-icons telecharger" download href="/' + that.definirDossierFichiers(that.pad.id) + '/' + that.pad.id + '/' + item.media + '" target="_blank">file_download</a>',
+									html: '<a class="material-icons telecharger" download href="' + that.definirCheminFichiers() + '/' + that.pad.id + '/' + item.media + '" target="_blank">file_download</a>',
 									name: 'telecharger',
 									handler: function () {}
 								})
@@ -1838,7 +1866,7 @@ export default {
 								})
 							} else if (item.type === 'pdf' || item.type === 'document' || item.type === 'office') {
 								panel.addControl({
-									html: '<a class="material-icons telecharger" download href="/' + that.definirDossierFichiers(that.pad.id) + '/' + that.pad.id + '/' + item.media + '" target="_blank">file_download</a>',
+									html: '<a class="material-icons telecharger" download href="' + that.definirCheminFichiers() + '/' + that.pad.id + '/' + item.media + '" target="_blank">file_download</a>',
 									name: 'telecharger',
 									handler: function () {}
 								})
@@ -2894,6 +2922,14 @@ export default {
 				champ.value = ''
 			}
 		},
+		modifierFondRepete (event) {
+			if (event.target.checked === true) {
+				this.$socket.emit('modifierfondrepete', this.pad.id, 'active', this.identifiant)
+			} else {
+				this.$socket.emit('modifierfondrepete', this.pad.id, 'desactive', this.identifiant)
+			}
+			this.chargement = true
+		},
 		modifierActivite (event) {
 			if (event.target.checked === true) {
 				this.$socket.emit('modifieractivite', this.pad.id, 'active', this.identifiant)
@@ -3262,37 +3298,55 @@ export default {
 		},
 		definirLienFichier (id, media) {
 			if (this.mode === 'creation' || (this.mode === 'edition' && this.donneesBloc.media !== media)) {
-				return '/temp/' + media
+				if (this.stockage === 'fs') {
+					return '/temp/' + media
+				} else {
+					return this.definirCheminFichiers() + '/temp/' + media
+				}
 			} else if (this.mode === 'edition' && this.donneesBloc.media === media) {
-				return '/' + this.definirDossierFichiers(id) + '/' + id + '/' + media
+				return this.definirCheminFichiers() + '/' + id + '/' + media
+			}
+		},
+		definirLienFichierHote (id, media) {
+			if (this.mode === 'creation' || (this.mode === 'edition' && this.donneesBloc.media !== media)) {
+				if (this.stockage === 'fs') {
+					return this.hote + '/temp/' + media
+				} else {
+					return this.definirCheminFichiers() + '/temp/' + media
+				}
+			} else if (this.mode === 'edition' && this.donneesBloc.media === media) {
+				if (this.stockage === 'fs') {
+					return this.hote + '/fichiers/' + id + '/' + media
+				} else {
+					return this.definirCheminFichiers() + '/' + id + '/' + media
+				}
 			}
 		},
 		definirLienVignette (id, vignette) {
-			if (this.mode === 'creation' || (this.mode === 'edition' && this.donneesBloc.vignette !== '/' + this.definirDossierFichiers(id) + '/' + id + '/' + vignette)) {
-				return '/temp/' + vignette
-			} else if (this.mode === 'edition' && this.donneesBloc.vignette === '/' + this.definirDossierFichiers(id) + '/' + id + '/' + vignette) {
-				return '/' + this.definirDossierFichiers(id) + '/' + id + '/' + vignette
+			if (vignette.substring(0, 5) === '/img/' || (this.verifierURL(vignette) === true && !vignette.includes(this.lienPublicS3))) {
+				return vignette
+			} else if ((this.mode === 'creation') || (this.mode === 'edition' && this.definirNomLienFichier(this.donneesBloc.vignette) !== this.definirNomLienFichier(vignette))) {
+				if (this.stockage === 'fs') {
+					return '/temp/' + vignette
+				} else {
+					return this.definirCheminFichiers() + '/temp/' + vignette
+				}
+			} else if ((this.mode === 'edition' || this.modaleDiaporama) && this.definirNomLienFichier(this.donneesBloc.vignette) === this.definirNomLienFichier(vignette)) {
+				return this.definirCheminFichiers() + '/' + id + '/' + vignette
 			}
 		},
-		definirDossierFichiers (id) {
-			if (import.meta.env.VITE_NFS8_PAD_NUMBER && import.meta.env.VITE_NFS8_PAD_NUMBER !== '' && import.meta.env.VITE_NFS8_FOLDER && import.meta.env.VITE_NFS8_FOLDER !== '' && parseInt(id) > parseInt(import.meta.env.VITE_NFS8_PAD_NUMBER)) {
-				return import.meta.env.VITE_NFS8_FOLDER
-			} else if (import.meta.env.VITE_NFS7_PAD_NUMBER && import.meta.env.VITE_NFS7_PAD_NUMBER !== '' && import.meta.env.VITE_NFS7_FOLDER && import.meta.env.VITE_NFS7_FOLDER !== '' && parseInt(id) > parseInt(import.meta.env.VITE_NFS7_PAD_NUMBER)) {
-				return import.meta.env.VITE_NFS7_FOLDER
-			} else if (import.meta.env.VITE_NFS6_PAD_NUMBER && import.meta.env.VITE_NFS6_PAD_NUMBER !== '' && import.meta.env.VITE_NFS6_FOLDER && import.meta.env.VITE_NFS6_FOLDER !== '' && parseInt(id) > parseInt(import.meta.env.VITE_NFS6_PAD_NUMBER)) {
-				return import.meta.env.VITE_NFS6_FOLDER
-			} else if (import.meta.env.VITE_NFS5_PAD_NUMBER && import.meta.env.VITE_NFS5_PAD_NUMBER !== '' && import.meta.env.VITE_NFS5_FOLDER && import.meta.env.VITE_NFS5_FOLDER !== '' && parseInt(id) > parseInt(import.meta.env.VITE_NFS5_PAD_NUMBER)) {
-				return import.meta.env.VITE_NFS5_FOLDER
-			} else if (import.meta.env.VITE_NFS4_PAD_NUMBER && import.meta.env.VITE_NFS4_PAD_NUMBER !== '' && import.meta.env.VITE_NFS4_FOLDER && import.meta.env.VITE_NFS4_FOLDER !== '' && parseInt(id) > parseInt(import.meta.env.VITE_NFS4_PAD_NUMBER)) {
-				return import.meta.env.VITE_NFS4_FOLDER
-			} else if (import.meta.env.VITE_NFS3_PAD_NUMBER && import.meta.env.VITE_NFS3_PAD_NUMBER !== '' && import.meta.env.VITE_NFS3_FOLDER && import.meta.env.VITE_NFS3_FOLDER !== '' && parseInt(id) > parseInt(import.meta.env.VITE_NFS3_PAD_NUMBER)) {
-				return import.meta.env.VITE_NFS3_FOLDER
-			} else if (import.meta.env.VITE_NFS2_PAD_NUMBER && import.meta.env.VITE_NFS2_PAD_NUMBER !== '' && import.meta.env.VITE_NFS2_FOLDER && import.meta.env.VITE_NFS2_FOLDER !== '' && parseInt(id) > parseInt(import.meta.env.VITE_NFS2_PAD_NUMBER)) {
-				return import.meta.env.VITE_NFS2_FOLDER
-			} else if (import.meta.env.VITE_NFS_PAD_NUMBER && import.meta.env.VITE_NFS_PAD_NUMBER !== '' && import.meta.env.VITE_NFS_FOLDER && import.meta.env.VITE_NFS_FOLDER !== '' && parseInt(id) > parseInt(import.meta.env.VITE_NFS_PAD_NUMBER)) {
-				return import.meta.env.VITE_NFS_FOLDER
+		definirCheminFichiers () {
+			if (this.stockage === 's3' && this.lienPublicS3 && this.lienPublicS3 !== '') {
+				return this.lienPublicS3
 			} else {
-				return 'fichiers'
+				return '/fichiers'
+			}
+		},
+		definirCheminFichiersHote () {
+			if (this.stockage === 's3' && this.lienPublicS3 && this.lienPublicS3 !== '') {
+				return this.lienPublicS3
+			} else {
+				return this.hote + '/fichiers'
 			}
 		},
 		quitterPage () {
@@ -3924,6 +3978,14 @@ export default {
 				this.chargement = false
 				if (this.admin) {
 					this.notification = this.$t('arrierePlanModifie')
+				}
+			}.bind(this))
+
+			this.$socket.on('modifierfondrepete', function (statut) {
+				this.pad.fondRepete = statut
+				this.chargement = false
+				if (this.admin) {
+					this.notification = this.$t('parametreFondModifie')
 				}
 			}.bind(this))
 
