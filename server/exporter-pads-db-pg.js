@@ -2,6 +2,8 @@ import 'dotenv/config'
 import { createClient } from 'redis'
 import pg from 'pg'
 import dayjs from 'dayjs'
+import { fileURLToPath } from 'url'
+
 let db
 let db_port = 6379
 if (process.env.DB_PORT) {
@@ -37,6 +39,8 @@ pool.on('error', function (err) {
 	console.log('pg: ' + err)
 })
 const client = await pool.connect()
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 exporter(10)
 
@@ -113,12 +117,24 @@ async function exporter (jours) {
 						resolveMain(resultat)
 					})
 				})
-				Promise.all([donneesPad, blocsPad, activitePad]).then(function (donnees) {
+				Promise.all([donneesPad, blocsPad, activitePad]).then(async function (donnees) {
 					if (donnees.length === 3 && donnees[0].id) {
 						const date = dayjs().format()
-						const requete = new Query('INSERT INTO pads (pad, donnees, blocs, activite, date) VALUES ($1, $2, $3, $4, $5)', [parseInt(id), JSON.stringify(donnees[0]), JSON.stringify(donnees[1]), JSON.stringify(donnees[2]), date])
+						let requete
+						if ((await client.query('SELECT id FROM pads WHERE pad = $1', [parseInt(id)])).rowCount > 0) {
+							requete = new Query('UPDATE pads SET donnees = $1, blocs = $2, activite = $3, date = $4 WHERE pad = $5', [JSON.stringify(donnees[0]), JSON.stringify(donnees[1]), JSON.stringify(donnees[2]), date, parseInt(id)])
+						} else {
+							requete = new Query('INSERT INTO pads (pad, donnees, blocs, activite, date) VALUES ($1, $2, $3, $4, $5)', [parseInt(id), JSON.stringify(donnees[0]), JSON.stringify(donnees[1]), JSON.stringify(donnees[2]), date])
+						}
 						client.query(requete)
 						requete.on('end', async function () {
+							// Enregistrement dans fichier json
+							const chemin = path.join(__dirname, '..', '/static/pads')
+							const parametres = {}
+							parametres.pad = donnees[0]
+							parametres.blocs = donnees[1]
+							parametres.activite = donnees[2]
+							await fs.writeFile(path.normalize(chemin + '/' + id + '.json'), JSON.stringify(parametres, '', 4), 'utf8')
 							// Suppression données redis
 							const blocs = await db.ZRANGE('blocs:' + id, 0, -1)
 							for (let i = 0; i < blocs.length; i++) {
