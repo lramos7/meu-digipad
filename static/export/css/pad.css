@@ -18,6 +18,10 @@
 	background-repeat: no-repeat;
 }
 
+#pad.fond-personnalise-repete {
+	background-size: contain;
+}
+
 .colonnes #pad {
 	display: flex;
 	min-width: calc(100% - 4rem);
