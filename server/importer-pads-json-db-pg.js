@@ -30,29 +30,19 @@ async function importer () {
 					const date = dayjs().format()
 					if ((await client.query('SELECT id FROM pads WHERE pad = $1', [i])).rowCount > 0) {
 						requete = new Query('UPDATE pads SET donnees = $1, blocs = $2, activite = $3, date = $4 WHERE pad = $5', [JSON.stringify(donnees.pad), JSON.stringify(donnees.blocs), JSON.stringify(donnees.activite), date, i])
-						client.query(requete)
-						requete.on('end', async function () {
-							await fs.remove(path.normalize(chemin + '/' + i + '.json'))
-							await fs.remove(path.normalize(chemin + '/pad-' + i + '.json'))
-							console.log(i)
-						})
-						
-						requete.on('error', function () {
-							console.log('erreur : pad-' + i)
-						})
 					} else {
 						requete = new Query('INSERT INTO pads (pad, donnees, blocs, activite, date) VALUES ($1, $2, $3, $4, $5)', [i, JSON.stringify(donnees.pad), JSON.stringify(donnees.blocs), JSON.stringify(donnees.activite), date])
-						client.query(requete)
-						requete.on('end', async function () {
-							await fs.remove(path.normalize(chemin + '/' + i + '.json'))
-							await fs.remove(path.normalize(chemin + '/pad-' + i + '.json'))
-							console.log(i)
-						})
-						
-						requete.on('error', function () {
-							console.log('erreur : pad-' + i)
-						})
 					}
+					client.query(requete)
+					requete.on('end', async function () {
+						await fs.remove(path.normalize(chemin + '/' + i + '.json'))
+						await fs.remove(path.normalize(chemin + '/pad-' + i + '.json'))
+						console.log(i)
+					})
+					
+					requete.on('error', function () {
+						console.log('erreur : pad-' + i)
+					})
 				}
 			} catch (e) {
 				console.log('erreur : pad-' + i)
