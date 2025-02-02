@@ -3862,10 +3862,10 @@ async function demarrerServeur () {
 								if (objet.hasOwnProperty('media') && objet.media !== media && objet.media !== '' && objet.type !== 'embed' && objet.type !== 'lien') {
 									await supprimerFichier(pad, objet.media)
 								}
-								if (stockage === 'fs' && vignette && objet.hasOwnProperty('vignette') && objet.vignette !== vignette && definirVignettePersonnalisee(vignette) === true && await fs.pathExists(path.join(__dirname, '..', '/static/temp/' + vignette))) {
+								if (stockage === 'fs' && vignette && objet.hasOwnProperty('vignette') && path.basename(objet.vignette) !== vignette && definirVignettePersonnalisee(vignette) === true && await fs.pathExists(path.join(__dirname, '..', '/static/temp/' + vignette))) {
 									await fs.copy(path.join(__dirname, '..', '/static/temp/' + vignette), path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + pad + '/' + vignette))
 									await fs.remove(path.join(__dirname, '..', '/static/temp/' + vignette))
-								} else if (stockage === 's3' && vignette && objet.hasOwnProperty('vignette') && objet.vignette !== vignette && definirVignettePersonnalisee(vignette) === true) {
+								} else if (stockage === 's3' && vignette && objet.hasOwnProperty('vignette') && path.basename(objet.vignette) !== vignette && definirVignettePersonnalisee(vignette) === true) {
 									try {
 										const fichierMeta = await s3Client.send(new HeadObjectCommand({ Bucket: bucket, Key: 'temp/' + vignette }))
 										if (fichierMeta.hasOwnProperty('ContentLength')) {
@@ -3874,7 +3874,7 @@ async function demarrerServeur () {
 										}
 									} catch (e) {}
 								}
-								if (objet.hasOwnProperty('vignette') && objet.vignette !== vignette && definirVignettePersonnalisee(objet.vignette) === true) {
+								if (objet.hasOwnProperty('vignette') && path.basename(objet.vignette) !== vignette && definirVignettePersonnalisee(objet.vignette) === true) {
 									await supprimerFichier(pad, path.basename(objet.vignette))
 								}
 								io.to('pad-' + pad).emit('modifierbloc', { bloc: bloc, titre: titre, texte: texte, media: media, iframe: iframe, type: type, source: source, vignette: vignette, identifiant: identifiant, nom: nom, modifie: date, couleur: couleur, colonne: colonne, visibilite: visibilite, activiteId: activiteId })
@@ -3901,10 +3901,10 @@ async function demarrerServeur () {
 								if (objet.hasOwnProperty('media') && objet.media !== media && objet.media !== '' && objet.type !== 'embed' && objet.type !== 'lien') {
 									await supprimerFichier(pad, objet.media)
 								}
-								if (stockage === 'fs' && vignette && objet.hasOwnProperty('vignette') && objet.vignette !== vignette && definirVignettePersonnalisee(vignette) === true && await fs.pathExists(path.join(__dirname, '..', '/static/temp/' + vignette))) {
+								if (stockage === 'fs' && vignette && objet.hasOwnProperty('vignette') && path.basename(objet.vignette) !== vignette && definirVignettePersonnalisee(vignette) === true && await fs.pathExists(path.join(__dirname, '..', '/static/temp/' + vignette))) {
 									await fs.copy(path.join(__dirname, '..', '/static/temp/' + vignette), path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + pad + '/' + vignette))
 									await fs.remove(path.join(__dirname, '..', '/static/temp/' + vignette))
-								} else if (stockage === 's3' && vignette && objet.hasOwnProperty('vignette') && objet.vignette !== vignette && definirVignettePersonnalisee(vignette) === true) {
+								} else if (stockage === 's3' && vignette && objet.hasOwnProperty('vignette') && path.basename(objet.vignette) !== vignette && definirVignettePersonnalisee(vignette) === true) {
 									try {
 										const fichierMeta = await s3Client.send(new HeadObjectCommand({ Bucket: bucket, Key: 'temp/' + vignette }))
 										if (fichierMeta.hasOwnProperty('ContentLength')) {
@@ -3913,7 +3913,7 @@ async function demarrerServeur () {
 										}
 									} catch (e) {}
 								}
-								if (objet.hasOwnProperty('vignette') && objet.vignette !== vignette && definirVignettePersonnalisee(objet.vignette) === true) {
+								if (objet.hasOwnProperty('vignette') && path.basename(objet.vignette) !== vignette && definirVignettePersonnalisee(objet.vignette) === true) {
 									await supprimerFichier(pad, path.basename(objet.vignette))
 								}
 								io.to('pad-' + pad).emit('modifierbloc', { bloc: bloc, titre: titre, texte: texte, media: media, iframe: iframe, type: type, source: source, vignette: vignette, identifiant: identifiant, nom: nom, modifie: date, couleur: couleur, colonne: colonne, visibilite: visibilite })
@@ -3935,10 +3935,10 @@ async function demarrerServeur () {
 								if (objet.hasOwnProperty('media') && objet.media !== media && objet.media !== '' && objet.type !== 'embed' && objet.type !== 'lien') {
 									await supprimerFichier(pad, objet.media)
 								}
-								if (stockage === 'fs' && vignette && objet.hasOwnProperty('vignette') && objet.vignette !== vignette && definirVignettePersonnalisee(vignette) === true && await fs.pathExists(path.join(__dirname, '..', '/static/temp/' + vignette))) {
+								if (stockage === 'fs' && vignette && objet.hasOwnProperty('vignette') && path.basename(objet.vignette) !== vignette && definirVignettePersonnalisee(vignette) === true && await fs.pathExists(path.join(__dirname, '..', '/static/temp/' + vignette))) {
 									await fs.copy(path.join(__dirname, '..', '/static/temp/' + vignette), path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + pad + '/' + vignette))
 									await fs.remove(path.join(__dirname, '..', '/static/temp/' + vignette))
-								} else if (stockage === 's3' && vignette && objet.hasOwnProperty('vignette') && objet.vignette !== vignette && definirVignettePersonnalisee(vignette) === true) {
+								} else if (stockage === 's3' && vignette && objet.hasOwnProperty('vignette') && path.basename(objet.vignette) !== vignette && definirVignettePersonnalisee(vignette) === true) {
 									try {
 										const fichierMeta = await s3Client.send(new HeadObjectCommand({ Bucket: bucket, Key: 'temp/' + vignette }))
 										if (fichierMeta.hasOwnProperty('ContentLength')) {
@@ -3947,7 +3947,7 @@ async function demarrerServeur () {
 										}
 									} catch (e) {}
 								}
-								if (objet.hasOwnProperty('vignette') && objet.vignette !== vignette && definirVignettePersonnalisee(objet.vignette) === true) {
+								if (objet.hasOwnProperty('vignette') && path.basename(objet.vignette) !== vignette && definirVignettePersonnalisee(objet.vignette) === true) {
 									await supprimerFichier(pad, path.basename(objet.vignette))
 								}
 								io.to('pad-' + pad).emit('modifierbloc', { bloc: bloc, titre: titre, texte: texte, media: media, iframe: iframe, type: type, source: source, vignette: vignette, identifiant: identifiant, nom: nom, modifie: date, couleur: couleur, colonne: colonne, visibilite: visibilite })
