@@ -3834,7 +3834,7 @@ async function demarrerServeur () {
 								visibilite = 'privee'
 							}
 							const date = dayjs().format()
-							if (vignette && objet.hasOwnProperty('vignette') && objet.vignette !== vignette && definirVignettePersonnalisee(vignette) === true) {
+							if (vignette && objet.hasOwnProperty('vignette') && path.basename(objet.vignette) !== path.basename(vignette) && definirVignettePersonnalisee(vignette) === true) {
 								vignette = path.basename(vignette)
 							}
 							if (visibilite === 'visible') {
