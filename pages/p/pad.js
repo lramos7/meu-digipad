@@ -128,7 +128,6 @@ export default {
 			statut: this.$pageContext.pageProps.statut,
 			langue: this.$pageContext.pageProps.langue,
 			pads: this.$pageContext.pageProps.pads,
-			padsDigidrive: this.$pageContext.pageProps.digidrive,
 			pad: this.$pageContext.pageProps.pad,
 			blocs: this.$pageContext.pageProps.blocs,
 			activite: this.$pageContext.pageProps.activite,
@@ -153,8 +152,8 @@ export default {
 				return false
 			}
 		},
-		digidrive () {
-			return this.statut === 'auteur' && this.padsDigidrive.includes(this.pad.id)
+		viaDigidrive () {
+			return this.statut === 'auteur' && parseInt(this.pad.digidrive) === 1
 		},
 		blocsRecherche () {
 			let resultats = []

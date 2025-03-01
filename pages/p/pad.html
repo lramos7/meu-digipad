@@ -125,12 +125,12 @@
 		<div class="contenu ascenseur" tabindex="-1">
 			<div class="conteneur">
 				<label for="titre-pad">{{ $t('titre') }}</label>
-				<input id="titre-pad"  type="text" :disabled="digidrive" :value="pad.titre" @keydown.enter="modifierTitre">
+				<input id="titre-pad"  type="text" :disabled="viaDigidrive" :value="pad.titre" @keydown.enter="modifierTitre">
 			</div>
-			<div class="conteneur conteneur-bouton" v-if="!digidrive">
+			<div class="conteneur conteneur-bouton" v-if="!viaDigidrive">
 				<span class="bouton-vert" role="button" :tabindex="definirTabIndex()" @click="modifierTitre" @keydown.enter="modifierTitre">{{ $t('enregistrer') }}</span>
 			</div>
-			<div class="conteneur conteneur-bouton" v-if="pad.identifiant === identifiant && statut === 'auteur' && !digidrive">
+			<div class="conteneur conteneur-bouton" v-if="pad.identifiant === identifiant && statut === 'auteur' && !viaDigidrive">
 				<span class="bouton-bleu" role="button" :tabindex="definirTabIndex()" @click="afficherModaleModifierMotDePasse" @keydown.enter="afficherModaleModifierMotDePasse">{{ $t('modifierMotDePasse') }}</span>
 			</div>
 			<div class="conteneur">
@@ -357,7 +357,7 @@
 						<span class="barre" />
 					</label>
 				</div>
-				<div class="conteneur-interrupteur" v-if="statut === 'utilisateur' || digidrive">
+				<div class="conteneur-interrupteur" v-if="statut === 'utilisateur' || viaDigidrive">
 					<span>{{ $t('copieCapsule') }}</span>
 					<label class="bouton-interrupteur" :tabindex="definirTabIndex()" @keydown.enter="activerInput('parametre-copie-bloc')">
 						<input id="parametre-copie-bloc" type="checkbox" :checked="pad.copieBloc === 'activee'" @change="modifierCopieBloc">
@@ -368,7 +368,7 @@
 			<div class="conteneur conteneur-bouton" v-if="pad.identifiant === identifiant && statut === 'auteur'">
 				<span class="bouton-bleu" role="button" :tabindex="definirTabIndex()" @click="afficherExporterPad" @keydown.enter="afficherExporterPad">{{ $t('exporterPad') }}</span>
 			</div>
-			<div class="conteneur conteneur-bouton" v-if="pad.identifiant === identifiant && statut === 'auteur' && !digidrive">
+			<div class="conteneur conteneur-bouton" v-if="pad.identifiant === identifiant && statut === 'auteur' && !viaDigidrive">
 				<span class="bouton-rouge" role="button" :tabindex="definirTabIndex()" @click="afficherSupprimerPad" @keydown.enter="afficherSupprimerPad">{{ $t('supprimerPad') }}</span>
 			</div>
 		</div>
@@ -424,25 +424,25 @@
 		<!-- Affichage mur // sans recherche -->
 		<masonry id="blocs" class="mur" :cols="definirLargeurCapsules()" :gutter="0" v-if="pad.affichage === 'mur' && action !== 'organiser' && !recherche">
 			<div :id="item.bloc" class="bloc" :tabindex="definirTabIndex()" :class="{'privee': item.visibilite === 'privee'}" v-for="(item, indexItem) in blocs" :style="{'border-color': item.couleur}" :data-bloc="item.bloc" @focus="definirBlocActif(item.bloc)" :key="'bloc_' + indexItem">
-				<Capsule :admin="admin" :identifiant="identifiant" :item="item" :pad="pad" :couleur="couleur" :statut="statut" :digidrive="digidrive" :indexCol="0" :tabindex="definirTabIndex()" :action="action" />
+				<Capsule :admin="admin" :identifiant="identifiant" :item="item" :pad="pad" :couleur="couleur" :statut="statut" :viaDigidrive="viaDigidrive" :indexCol="0" :tabindex="definirTabIndex()" :action="action" />
 			</div>
 		</masonry>
 		<!-- Affichage mur // avec recherche -->
 		<masonry id="blocs" class="mur" :cols="definirLargeurCapsules()" :gutter="0" v-else-if="pad.affichage === 'mur' && action !== 'organiser' && recherche">
 			<div :id="item.bloc" class="bloc" :tabindex="definirTabIndex()" :class="{'privee': item.visibilite === 'privee'}" v-for="(item, indexItem) in blocsRecherche" :style="{'border-color': item.couleur}" :data-bloc="item.bloc" @focus="definirBlocActif(item.bloc)" :key="'bloc_' + indexItem">
-				<Capsule :admin="admin" :identifiant="identifiant" :item="item" :pad="pad" :couleur="couleur" :statut="statut" :digidrive="digidrive" :indexCol="0" :tabindex="definirTabIndex()" :action="action" />
+				<Capsule :admin="admin" :identifiant="identifiant" :item="item" :pad="pad" :couleur="couleur" :statut="statut" :viaDigidrive="viaDigidrive" :indexCol="0" :tabindex="definirTabIndex()" :action="action" />
 			</div>
 		</masonry>
 		<!-- Affichage flux vertical // sans recherche -->
 		<div id="blocs" class="flux-vertical" :class="{'large': pad.hasOwnProperty('largeur') && pad.largeur === 'large'}" v-else-if="pad.affichage === 'flux-vertical' && action !== 'organiser' && !recherche">
 			<div :id="item.bloc" class="bloc" :tabindex="definirTabIndex()" :class="{'privee': item.visibilite === 'privee'}" v-for="(item, indexItem) in blocs" :style="{'border-color': item.couleur}" :data-bloc="item.bloc" @focus="definirBlocActif(item.bloc)" :key="'bloc_' + indexItem">
-				<CapsuleAlt :admin="admin" :identifiant="identifiant" :item="item" :pad="pad" :couleur="couleur" :statut="statut" :digidrive="digidrive" :indexCol="0" :tabindex="definirTabIndex()" :action="action" />
+				<CapsuleAlt :admin="admin" :identifiant="identifiant" :item="item" :pad="pad" :couleur="couleur" :statut="statut" :viaDigidrive="viaDigidrive" :indexCol="0" :tabindex="definirTabIndex()" :action="action" />
 			</div>
 		</div>
 		<!-- Affichage flux vertical // avec recherche -->
 		<div id="blocs" class="flux-vertical" :class="{'large': pad.hasOwnProperty('largeur') && pad.largeur === 'large'}" v-else-if="pad.affichage === 'flux-vertical' && action !== 'organiser' && recherche">
 			<div :id="item.bloc" class="bloc" :tabindex="definirTabIndex()" :class="{'privee': item.visibilite === 'privee'}" v-for="(item, indexItem) in blocsRecherche" :style="{'border-color': item.couleur}" :data-bloc="item.bloc" @focus="definirBlocActif(item.bloc)" :key="'bloc_' + indexItem">
-				<CapsuleAlt :admin="admin" :identifiant="identifiant" :item="item" :pad="pad" :couleur="couleur" :statut="statut" :digidrive="digidrive" :indexCol="0" :tabindex="definirTabIndex()" :action="action" />
+				<CapsuleAlt :admin="admin" :identifiant="identifiant" :item="item" :pad="pad" :couleur="couleur" :statut="statut" :viaDigidrive="viaDigidrive" :indexCol="0" :tabindex="definirTabIndex()" :action="action" />
 			</div>
 		</div>
 		<!-- Affichage colonne // sans recherche -->
@@ -462,7 +462,7 @@
 					</div>
 					<div class="conteneur-colonne ascenseur" v-if="colonnes[indexCol].length > 0">
 						<div :id="item.bloc" class="bloc" :tabindex="definirTabIndex()" :class="{'privee': item.visibilite === 'privee'}" v-for="(item, indexItem) in colonnes[indexCol]" :style="{'border-color': item.couleur}" :data-bloc="item.bloc" @focus="definirBlocActif(item.bloc)" :key="'bloc_' + indexItem">
-							<CapsuleAlt :admin="admin" :identifiant="identifiant" :item="item" :pad="pad" :couleur="couleur" :statut="statut" :digidrive="digidrive" :indexCol="indexCol" :tabindex="definirTabIndex()" :action="action" />
+							<CapsuleAlt :admin="admin" :identifiant="identifiant" :item="item" :pad="pad" :couleur="couleur" :statut="statut" :viaDigidrive="viaDigidrive" :indexCol="indexCol" :tabindex="definirTabIndex()" :action="action" />
 						</div>
 					</div>
 					<div class="ajouter" v-if="accesAutorise && (admin || pad.contributions !== 'fermees')">
@@ -491,7 +491,7 @@
 					</div>
 					<div class="conteneur-colonne ascenseur">
 						<div :id="item.bloc" class="bloc" :tabindex="definirTabIndex()" :class="{'privee': item.visibilite === 'privee'}" v-for="(item, indexItem) in blocsRecherche[indexCol]" :style="{'border-color': item.couleur}" :data-bloc="item.bloc" @focus="definirBlocActif(item.bloc)" :key="'bloc_' + indexItem">
-							<CapsuleAlt :admin="admin" :identifiant="identifiant" :item="item" :pad="pad" :couleur="couleur" :statut="statut" :digidrive="digidrive" :indexCol="indexCol" :tabindex="definirTabIndex()" :action="action" />
+							<CapsuleAlt :admin="admin" :identifiant="identifiant" :item="item" :pad="pad" :couleur="couleur" :statut="statut" :viaDigidrive="viaDigidrive" :indexCol="indexCol" :tabindex="definirTabIndex()" :action="action" />
 						</div>
 					</div>
 				</section>
@@ -500,7 +500,7 @@
 		<!-- Mode Organiser // Affichage mur et flux vertical -->
 		<draggable id="blocs" :class="{'mur': pad.affichage === 'mur', 'flux-vertical': pad.affichage === 'flux-vertical', 'large': pad.hasOwnProperty('largeur') && pad.largeur === 'large'}" v-model="blocs" draggable=".bloc" :sort="true" :animation="250" :swap-threshold="0.5" :force-fallback="true" :fallback-tolerance="10" :scroll-sensitivity="convertirRem(4)" :scroll-speed="convertirRem(4)" @start="demarrerDeplacerBloc" @end="deplacerBloc" v-else-if="(pad.affichage === 'mur' || pad.affichage === 'flux-vertical') && action === 'organiser'">
 			<div :id="item.bloc" class="bloc" :tabindex="definirTabIndex()" :class="{'privee': item.visibilite === 'privee'}" v-for="(item, indexItem) in blocs" :style="{'border-color': item.couleur}" :data-bloc="item.bloc" @focus="definirBlocActif(item.bloc)" :key="'bloc_' + indexItem">
-				<Capsule :admin="admin" :identifiant="identifiant" :item="item" :pad="pad" :couleur="couleur" :statut="statut" :digidrive="digidrive" :indexCol="0" :tabindex="definirTabIndex()" :action="action" />
+				<Capsule :admin="admin" :identifiant="identifiant" :item="item" :pad="pad" :couleur="couleur" :statut="statut" :viaDigidrive="viaDigidrive" :indexCol="0" :tabindex="definirTabIndex()" :action="action" />
 			</div>
 		</draggable>
 		<!-- Mode Organiser // Affichage colonnes -->
@@ -517,7 +517,7 @@
 				</div>
 				<draggable class="conteneur-colonne ascenseur" v-model="colonnes[indexCol]" group="colonne" draggable=".bloc" :sort="true" :animation="250" :swap-threshold="0.5" :force-fallback="true" :fallback-tolerance="10" :scroll-sensitivity="convertirRem(4)" :scroll-speed="convertirRem(4)" :data-index="indexCol" @start="demarrerDeplacerBloc" @end="deplacerBloc">
 					<div :id="item.bloc" class="bloc" :tabindex="definirTabIndex()" :class="{'privee': item.visibilite === 'privee'}" v-for="(item, indexItem) in colonnes[indexCol]" :style="{'border-color': item.couleur}" :data-bloc="item.bloc" @focus="definirBlocActif(item.bloc)" :key="'bloc_' + indexItem">
-						<Capsule :admin="admin" :identifiant="identifiant" :item="item" :pad="pad" :couleur="couleur" :statut="statut" :digidrive="digidrive" :indexCol="indexCol" :tabindex="definirTabIndex()" :action="action" />
+						<Capsule :admin="admin" :identifiant="identifiant" :item="item" :pad="pad" :couleur="couleur" :statut="statut" :viaDigidrive="viaDigidrive" :indexCol="indexCol" :tabindex="definirTabIndex()" :action="action" />
 					</div>
 				</draggable>
 			</section>

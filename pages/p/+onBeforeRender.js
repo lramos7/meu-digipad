@@ -45,16 +45,14 @@ async function onBeforeRender (pageContext) {
 			const langues = pageContext.langues
 			const nom = pageContext.nom
 			const langue = pageContext.langue
-			let digidrive = pageContext.digidrive
 			const pad = reponse.data.pad
 			const blocs = reponse.data.blocs
 			const activite = reponse.data.activite
 			const titre = pad.titre + ' - Digipad by La Digitale'
 			if (!admin) {
-				digidrive = []
 				pads = []
 			}
-			pageProps = { params, hote, userAgent, langues, identifiant, nom, langue, statut, pads, digidrive, pad, blocs, activite, titre }
+			pageProps = { params, hote, userAgent, langues, identifiant, nom, langue, statut, pads, pad, blocs, activite, titre }
 		}
 	}
 	return {

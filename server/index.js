@@ -240,7 +240,7 @@ async function demarrerServeur () {
 			}
 		})
 	)
-	app.use(bodyParser.json({ limit: '300mb' }))
+	app.use(bodyParser.json({ limit: '500mb' }))
 	app.use(sessionMiddleware)
 	app.use(cors({ 'origin': domainesAutorises }))
 	if (parseInt(process.env.REVERSE_PROXY) !== 1 || !production) {
@@ -522,7 +522,6 @@ async function demarrerServeur () {
 			req.session.statut = 'invite'
 			req.session.acces = []
 			req.session.pads = []
-			req.session.digidrive = []
 			req.session.cookie.expires = new Date(Date.now() + dureeSession)
 		}
 		if (!req.query.id && !req.query.mdp && !req.session.hasOwnProperty('acces')) {
@@ -530,9 +529,6 @@ async function demarrerServeur () {
 		}
 		if (!req.query.id && !req.query.mdp && !req.session.hasOwnProperty('pads')) {
 			req.session.pads = []
-		}
-		if (!req.query.id && !req.query.mdp && !req.session.hasOwnProperty('digidrive')) {
-			req.session.digidrive = []
 		}
 		const pageContextInit = {
 			urlOriginal: req.originalUrl,
@@ -545,8 +541,7 @@ async function demarrerServeur () {
 			email: req.session.email,
 			langue: req.session.langue,
 			statut: req.session.statut,
-			pads: req.session.pads,
-			digidrive: req.session.digidrive
+			pads: req.session.pads
 		}
 		const pageContext = await renderPage(pageContextInit)
 		if (pageContext.errorWhileRendering) {
@@ -895,9 +890,6 @@ async function demarrerServeur () {
 		if (!req.session.hasOwnProperty('pads')) {
 			req.session.pads = []
 		}
-		if (!req.session.hasOwnProperty('digidrive')) {
-			req.session.digidrive = []
-		}
 		const titre = req.body.titre
 		const motdepasse = req.body.motdepasse
 		const hash = await bcrypt.hash(motdepasse, 10)
@@ -1137,7 +1129,7 @@ async function demarrerServeur () {
 									await db
 									.multi()
 									.INCR('pad')
-									.HSET('pads:' + id, ['id', id, 'token', token, 'titre', 'Copie de ' + donnees.titre, 'identifiant', identifiant, 'fond', donnees.fond, 'acces', donnees.acces, 'code', code, 'contributions', donnees.contributions, 'affichage', donnees.affichage, 'registreActivite', registreActivite, 'conversation', conversation, 'listeUtilisateurs', listeUtilisateurs, 'editionNom', editionNom, 'fichiers', donnees.fichiers, 'enregistrements', enregistrements, 'liens', donnees.liens, 'documents', donnees.documents, 'commentaires', donnees.commentaires, 'evaluations', donnees.evaluations, 'copieBloc', copieBloc, 'ordre', ordre, 'largeur', largeur, 'date', date, 'colonnes', donnees.colonnes, 'affichageColonnes', JSON.stringify(affichageColonnes), 'bloc', donnees.bloc, 'activite', 0])
+									.HSET('pads:' + id, ['id', id, 'token', token, 'titre', 'Copie de ' + donnees.titre, 'identifiant', identifiant, 'fond', donnees.fond, 'acces', donnees.acces, 'code', code, 'contributions', donnees.contributions, 'affichage', donnees.affichage, 'registreActivite', registreActivite, 'conversation', conversation, 'listeUtilisateurs', listeUtilisateurs, 'editionNom', editionNom, 'fichiers', donnees.fichiers, 'enregistrements', enregistrements, 'liens', donnees.liens, 'documents', donnees.documents, 'commentaires', donnees.commentaires, 'evaluations', donnees.evaluations, 'copieBloc', copieBloc, 'ordre', ordre, 'largeur', largeur, 'date', date, 'colonnes', donnees.colonnes, 'affichageColonnes', JSON.stringify(affichageColonnes), 'bloc', donnees.bloc, 'activite', 0, 'vues', 0, 'digidrive', 0])
 									.SADD('pads-crees:' + identifiant, id.toString())
 									.SADD('utilisateurs-pads:' + id, identifiant)
 									.HSET('couleurs:' + identifiant, 'pad' + id, couleur)
@@ -1146,7 +1138,7 @@ async function demarrerServeur () {
 									await db
 									.multi()
 									.INCR('pad')
-									.HSET('pads:' + id, ['id', id, 'token', token, 'titre', 'Copie de ' + donnees.titre, 'identifiant', identifiant, 'fond', donnees.fond, 'acces', donnees.acces, 'contributions', donnees.contributions, 'affichage', donnees.affichage, 'registreActivite', registreActivite, 'conversation', conversation, 'listeUtilisateurs', listeUtilisateurs, 'editionNom', editionNom, 'fichiers', donnees.fichiers, 'enregistrements', enregistrements, 'liens', donnees.liens, 'documents', donnees.documents, 'commentaires', donnees.commentaires, 'evaluations', donnees.evaluations, 'copieBloc', copieBloc, 'ordre', ordre, 'largeur', largeur, 'date', date, 'colonnes', donnees.colonnes, 'affichageColonnes', JSON.stringify(affichageColonnes), 'bloc', donnees.bloc, 'activite', 0])
+									.HSET('pads:' + id, ['id', id, 'token', token, 'titre', 'Copie de ' + donnees.titre, 'identifiant', identifiant, 'fond', donnees.fond, 'acces', donnees.acces, 'contributions', donnees.contributions, 'affichage', donnees.affichage, 'registreActivite', registreActivite, 'conversation', conversation, 'listeUtilisateurs', listeUtilisateurs, 'editionNom', editionNom, 'fichiers', donnees.fichiers, 'enregistrements', enregistrements, 'liens', donnees.liens, 'documents', donnees.documents, 'commentaires', donnees.commentaires, 'evaluations', donnees.evaluations, 'copieBloc', copieBloc, 'ordre', ordre, 'largeur', largeur, 'date', date, 'colonnes', donnees.colonnes, 'affichageColonnes', JSON.stringify(affichageColonnes), 'bloc', donnees.bloc, 'activite', 0, 'vues', 0, 'digidrive', 0])
 									.SADD('pads-crees:' + identifiant, id.toString())
 									.SADD('utilisateurs-pads:' + id, identifiant)
 									.HSET('couleurs:' + identifiant, 'pad' + id, couleur)
@@ -1258,7 +1250,7 @@ async function demarrerServeur () {
 										await db
 										.multi()
 										.INCR('pad')
-										.HSET('pads:' + id, ['id', id, 'token', token, 'titre', 'Copie de ' + donnees.pad.titre, 'identifiant', identifiant, 'fond', donnees.pad.fond, 'acces', donnees.pad.acces, 'code', code, 'contributions', donnees.pad.contributions, 'affichage', donnees.pad.affichage, 'registreActivite', registreActivite, 'conversation', conversation, 'listeUtilisateurs', listeUtilisateurs, 'editionNom', editionNom, 'fichiers', donnees.pad.fichiers, 'enregistrements', enregistrements, 'liens', donnees.pad.liens, 'documents', donnees.pad.documents, 'commentaires', donnees.pad.commentaires, 'evaluations', donnees.pad.evaluations, 'copieBloc', copieBloc, 'ordre', ordre, 'largeur', largeur, 'date', date, 'colonnes', donnees.pad.colonnes, 'affichageColonnes', JSON.stringify(affichageColonnes), 'bloc', donnees.pad.bloc, 'activite', 0])
+										.HSET('pads:' + id, ['id', id, 'token', token, 'titre', 'Copie de ' + donnees.pad.titre, 'identifiant', identifiant, 'fond', donnees.pad.fond, 'acces', donnees.pad.acces, 'code', code, 'contributions', donnees.pad.contributions, 'affichage', donnees.pad.affichage, 'registreActivite', registreActivite, 'conversation', conversation, 'listeUtilisateurs', listeUtilisateurs, 'editionNom', editionNom, 'fichiers', donnees.pad.fichiers, 'enregistrements', enregistrements, 'liens', donnees.pad.liens, 'documents', donnees.pad.documents, 'commentaires', donnees.pad.commentaires, 'evaluations', donnees.pad.evaluations, 'copieBloc', copieBloc, 'ordre', ordre, 'largeur', largeur, 'date', date, 'colonnes', donnees.pad.colonnes, 'affichageColonnes', JSON.stringify(affichageColonnes), 'bloc', donnees.pad.bloc, 'activite', 0, 'vues', 0, 'digidrive', 0])
 										.SADD('pads-crees:' + identifiant, id.toString())
 										.SADD('utilisateurs-pads:' + id, identifiant)
 										.HSET('couleurs:' + identifiant, 'pad' + id, couleur)
@@ -1267,7 +1259,7 @@ async function demarrerServeur () {
 										await db
 										.multi()
 										.INCR('pad')
-										.HSET('pads:' + id, ['id', id, 'token', token, 'titre', 'Copie de ' + donnees.pad.titre, 'identifiant', identifiant, 'fond', donnees.pad.fond, 'acces', donnees.pad.acces, 'contributions', donnees.pad.contributions, 'affichage', donnees.pad.affichage, 'registreActivite', registreActivite, 'conversation', conversation, 'listeUtilisateurs', listeUtilisateurs, 'editionNom', editionNom, 'fichiers', donnees.pad.fichiers, 'enregistrements', enregistrements, 'liens', donnees.pad.liens, 'documents', donnees.pad.documents, 'commentaires', donnees.pad.commentaires, 'evaluations', donnees.pad.evaluations, 'copieBloc', copieBloc, 'ordre', ordre, 'largeur', largeur, 'date', date, 'colonnes', donnees.pad.colonnes, 'affichageColonnes', JSON.stringify(affichageColonnes), 'bloc', donnees.pad.bloc, 'activite', 0])
+										.HSET('pads:' + id, ['id', id, 'token', token, 'titre', 'Copie de ' + donnees.pad.titre, 'identifiant', identifiant, 'fond', donnees.pad.fond, 'acces', donnees.pad.acces, 'contributions', donnees.pad.contributions, 'affichage', donnees.pad.affichage, 'registreActivite', registreActivite, 'conversation', conversation, 'listeUtilisateurs', listeUtilisateurs, 'editionNom', editionNom, 'fichiers', donnees.pad.fichiers, 'enregistrements', enregistrements, 'liens', donnees.pad.liens, 'documents', donnees.pad.documents, 'commentaires', donnees.pad.commentaires, 'evaluations', donnees.pad.evaluations, 'copieBloc', copieBloc, 'ordre', ordre, 'largeur', largeur, 'date', date, 'colonnes', donnees.pad.colonnes, 'affichageColonnes', JSON.stringify(affichageColonnes), 'bloc', donnees.pad.bloc, 'activite', 0, 'vues', 0, 'digidrive', 0])
 										.SADD('pads-crees:' + identifiant, id.toString())
 										.SADD('utilisateurs-pads:' + id, identifiant)
 										.HSET('couleurs:' + identifiant, 'pad' + id, couleur)
@@ -1313,166 +1305,7 @@ async function demarrerServeur () {
 				if (d === null) { res.send('erreur_export'); return false }
 				const proprietaire = d.identifiant
 				if (proprietaire === identifiant || (admin !== '' && admin === motdepasseAdmin)) {
-					const donneesPad = new Promise(async function (resolveMain) {
-						let resultats = await db.HGETALL('pads:' + id)
-						resultats = Object.assign({}, resultats)
-						if (resultats === null) { resolveMain({}); return false }
-						resolveMain(resultats)
-					})
-					const blocsPad = new Promise(async function (resolveMain) {
-						const donneesBlocs = []
-						const blocs = await db.ZRANGE('blocs:' + id, 0, -1)
-						if (blocs === null) { resolveMain(donneesBlocs); return false }
-						for (const bloc of blocs) {
-							const donneesBloc = new Promise(async function (resolve) {
-								let donnees = await db.HGETALL('pad-' + id + ':' + bloc)
-								donnees = Object.assign({}, donnees)
-								if (donnees === null) { resolve({}); return false }
-								const donneesCommentaires = []
-								const commentaires = await db.ZRANGE('commentaires:' + bloc, 0, -1)
-								if (commentaires === null) { resolve(donnees); return false }
-								for (let commentaire of commentaires) {
-									donneesCommentaires.push(JSON.parse(commentaire))
-								}
-								donnees.commentaires = donneesCommentaires.length
-								donnees.listeCommentaires = donneesCommentaires
-								const evaluations = await db.ZRANGE('evaluations:' + bloc, 0, -1)
-								if (evaluations === null) { resolve(donnees); return false }
-								const donneesEvaluations = []
-								evaluations.forEach(function (evaluation) {
-									donneesEvaluations.push(JSON.parse(evaluation))
-								})
-								donnees.evaluations = donneesEvaluations.length
-								donnees.listeEvaluations = donneesEvaluations
-								const resultat = await db.EXISTS('noms:' + donnees.identifiant)
-								if (resultat === null) { resolve(donnees); return false }
-								if (resultat === 1) {
-									const nom = await db.HGET('noms:' + donnees.identifiant, 'nom')
-									if (nom === null) { resolve(donnees); return false }
-									donnees.nom = nom
-									donnees.info = formaterDate(donnees, req.session.langue)
-									resolve(donnees)
-								} else {
-									donnees.nom = genererPseudo()
-									donnees.info = formaterDate(donnees, req.session.langue)
-									resolve(donnees)
-								}
-							})
-							donneesBlocs.push(donneesBloc)
-						}
-						Promise.all(donneesBlocs).then(function (resultat) {
-							resultat = resultat.filter(function (element) {
-								return Object.keys(element).length > 0
-							})
-							resolveMain(resultat)
-						})
-					})
-					const activitePad = new Promise(async function (resolveMain) {
-						const donneesEntrees = []
-						const entrees = await db.ZRANGE('activite:' + id, 0, -1)
-						if (entrees === null) { resolveMain(donneesEntrees); return false }
-						for (let entree of entrees) {
-							entree = JSON.parse(entree)
-							const donneesEntree = new Promise(async function (resolve) {
-								const resultat = await db.EXISTS('utilisateurs:' + entree.identifiant)
-								if (resultat === null) { resolve({}) }
-								if (resultat === 1) {
-									resolve(entree)
-								} else {
-									resolve({})
-								}
-							})
-							donneesEntrees.push(donneesEntree)
-						}
-						Promise.all(donneesEntrees).then(function (resultat) {
-							resultat = resultat.filter(function (element) {
-								return Object.keys(element).length > 0
-							})
-							resolveMain(resultat)
-						})
-					})
-					Promise.all([donneesPad, blocsPad, activitePad]).then(async function (donnees) {
-						if (donnees.length > 0 && donnees[0].hasOwnProperty('id')) {
-							const parametres = {}
-							parametres.pad = donnees[0]
-							parametres.blocs = donnees[1]
-							parametres.activite = donnees[2]
-							const html = genererHTML(donnees[0], donnees[1])
-							const chemin = path.join(__dirname, '..', '/static/temp')
-							await fs.mkdirp(path.normalize(chemin + '/' + id))
-							await fs.mkdirp(path.normalize(chemin + '/' + id + '/fichiers'))
-							await fs.mkdirp(path.normalize(chemin + '/' + id + '/static'))
-							await fs.writeFile(path.normalize(chemin + '/' + id + '/donnees.json'), JSON.stringify(parametres, '', 4), 'utf8')
-							await fs.writeFile(path.normalize(chemin + '/' + id + '/index.html'), html, 'utf8')
-							if (!parametres.pad.fond.includes('/img/') && parametres.pad.fond.substring(0, 1) !== '#' && parametres.pad.fond !== '' && typeof parametres.pad.fond === 'string') {
-								const fichierFond = path.basename(parametres.pad.fond)
-								if (stockage === 'fs' && await fs.pathExists(path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + id + '/' + fichierFond))) {
-									await fs.copy(path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + id + '/' + fichierFond), path.normalize(chemin + '/' + id + '/fichiers/' + fichierFond, { overwrite: true }))
-								} else if (stockage === 's3') {
-									try {
-										const fichierMeta = await s3Client.send(new HeadObjectCommand({ Bucket: bucket, Key: id + '/' + fichierFond }))
-										if (fichierMeta.hasOwnProperty('ContentLength')) {
-											await telechargerFichierS3(id + '/' + fichierFond, path.normalize(chemin + '/' + id + '/fichiers/' + fichierFond))
-										}
-									} catch (e) {}
-								}
-							} else if (parametres.pad.fond.includes('/img/') && await fs.pathExists(path.join(__dirname, '..', '/public' + parametres.pad.fond))) {
-								await fs.copy(path.join(__dirname, '..', '/public' + parametres.pad.fond), path.normalize(chemin + '/' + id + '/static' + parametres.pad.fond, { overwrite: true }))
-							}
-							if (await fs.pathExists(path.join(__dirname, '..', '/static/export/css'))) {
-								await fs.copy(path.join(__dirname, '..', '/static/export/css'), path.normalize(chemin + '/' + id + '/static/css'))
-							}
-							if (await fs.pathExists(path.join(__dirname, '..', '/static/export/js'))) {
-								await fs.copy(path.join(__dirname, '..', '/static/export/js'), path.normalize(chemin + '/' + id + '/static/js'))
-							}
-							await fs.copy(path.join(__dirname, '..', '/public/fonts/MaterialIcons-Regular.woff2'), path.normalize(chemin + '/' + id + '/static/fonts/MaterialIcons-Regular.woff2'))
-							await fs.copy(path.join(__dirname, '..', '/public/fonts/Roboto-Slab-Medium.woff2'), path.normalize(chemin + '/' + id + '/static/fonts/Roboto-Slab-Medium.woff2'))
-							await fs.copy(path.join(__dirname, '..', '/public/img/favicon.png'), path.normalize(chemin + '/' + id + '/static/img/favicon.png'))
-							for (const bloc of parametres.blocs) {
-								if (stockage === 'fs' && Object.keys(bloc).length > 0 && bloc.hasOwnProperty('media') && bloc.media !== '' && bloc.type !== 'embed' && bloc.type !== 'lien' && await fs.pathExists(path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + id + '/' + bloc.media))) {
-									await fs.copy(path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + id + '/' + bloc.media), path.normalize(chemin + '/' + id + '/fichiers/' + bloc.media, { overwrite: true }))
-								} else if (stockage === 's3' && Object.keys(bloc).length > 0 && bloc.hasOwnProperty('media') && bloc.media !== '' && bloc.type !== 'embed' && bloc.type !== 'lien') {
-									try {
-										const fichierMeta = await s3Client.send(new HeadObjectCommand({ Bucket: bucket, Key: id + '/' + bloc.media }))
-										if (fichierMeta.hasOwnProperty('ContentLength')) {
-											await telechargerFichierS3(id + '/' + bloc.media, path.normalize(chemin + '/' + id + '/fichiers/' + bloc.media))
-										}
-									} catch (e) {}
-								}
-								if (Object.keys(bloc).length > 0 && bloc.hasOwnProperty('vignette') && bloc.vignette !== '') {
-									if (typeof bloc.vignette === 'string' && bloc.vignette.includes('/img/') && !verifierURL(bloc.vignette, ['https', 'http']) && await fs.pathExists(path.join(__dirname, '..', '/public' + bloc.vignette))) {
-										await fs.copy(path.join(__dirname, '..', '/public' + bloc.vignette), path.normalize(chemin + '/' + id + '/static' + bloc.vignette, { overwrite: true }))
-									} else if (definirVignettePersonnalisee(bloc.vignette) === true) {
-										const fichierVignette = path.basename(bloc.vignette)
-										if (stockage === 'fs' && await fs.pathExists(path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + id + '/' + fichierVignette))) {
-											await fs.copy(path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + id + '/' + fichierVignette), path.normalize(chemin + '/' + id + '/fichiers/' + fichierVignette, { overwrite: true }))
-										} else if (stockage === 's3') {
-											try {
-												const fichierMeta = await s3Client.send(new HeadObjectCommand({ Bucket: bucket, Key: id + '/' + fichierVignette }))
-												if (fichierMeta.hasOwnProperty('ContentLength')) {
-													await telechargerFichierS3(id + '/' + fichierVignette, path.normalize(chemin + '/' + id + '/fichiers/' + fichierVignette))
-												}
-											} catch (e) {}
-										}
-									}
-								}
-							}
-							const archiveId = Math.floor((Math.random() * 100000) + 1)
-							const sortie = fs.createWriteStream(path.normalize(chemin + '/pad-' + id + '_' + archiveId + '.zip'))
-							const archive = archiver('zip', {
-								zlib: { level: 9 }
-							})
-							sortie.on('finish', async function () {
-								await fs.remove(path.normalize(chemin + '/' + id))
-								res.send('pad-' + id + '_' + archiveId + '.zip')
-							})
-							archive.pipe(sortie)
-							archive.directory(path.normalize(chemin + '/' + id), false)
-							archive.finalize()
-						} else {
-							res.send('erreur_export')
-						}
-					})
+					exporterPad(req, res, id, 'erreur_export')
 				} else {
 					res.send('non_autorise')
 				}
@@ -1483,78 +1316,7 @@ async function demarrerServeur () {
 				if (donneesQ && donneesQ.hasOwnProperty('rows') && donneesQ.rows[0] && typeof donneesQ.rows[0] === 'object' && Object.keys(donneesQ.rows[0]).length === 3) {
 					const donnees = { pad: JSON.parse(donneesQ.rows[0].donnees), blocs: JSON.parse(donneesQ.rows[0].blocs), activite: JSON.parse(donneesQ.rows[0].activite) }
 					if (donnees.pad.identifiant === identifiant || (admin !== '' && admin === motdepasseAdmin)) {
-						const html = genererHTML(donnees.pad, donnees.blocs)
-						const chemin = path.join(__dirname, '..', '/static/temp')
-						await fs.mkdirp(path.normalize(chemin + '/' + id))
-						await fs.mkdirp(path.normalize(chemin + '/' + id + '/fichiers'))
-						await fs.mkdirp(path.normalize(chemin + '/' + id + '/static'))
-						await fs.writeFile(path.normalize(chemin + '/' + id + '/donnees.json'), JSON.stringify(donnees, '', 4), 'utf8')
-						await fs.writeFile(path.normalize(chemin + '/' + id + '/index.html'), html, 'utf8')
-						if (!donnees.pad.fond.includes('/img/') && donnees.pad.fond.substring(0, 1) !== '#' && donnees.pad.fond !== '' && typeof donnees.pad.fond === 'string') {
-							const fichierFond = path.basename(donnees.pad.fond)
-							if (stockage === 'fs' && await fs.pathExists(path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + id + '/' + fichierFond))) {
-								await fs.copy(path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + id + '/' + fichierFond), path.normalize(chemin + '/' + id + '/fichiers/' + fichierFond, { overwrite: true }))
-							} else if (stockage === 's3') {
-								try {
-									const fichierMeta = await s3Client.send(new HeadObjectCommand({ Bucket: bucket, Key: id + '/' + fichierFond }))
-									if (fichierMeta.hasOwnProperty('ContentLength')) {
-										await telechargerFichierS3(id + '/' + fichierFond, path.normalize(chemin + '/' + id + '/fichiers/' + fichierFond))
-									}
-								} catch (e) {}
-							}
-						} else if (donnees.pad.fond.includes('/img/') && await fs.pathExists(path.join(__dirname, '..', '/public' + donnees.pad.fond))) {
-							await fs.copy(path.join(__dirname, '..', '/public' + donnees.pad.fond), path.normalize(chemin + '/' + id + '/static' + donnees.pad.fond, { overwrite: true }))
-						}
-						if (await fs.pathExists(path.join(__dirname, '..', '/static/export/css'))) {
-							await fs.copy(path.join(__dirname, '..', '/static/export/css'), path.normalize(chemin + '/' + id + '/static/css'))
-						}
-						if (await fs.pathExists(path.join(__dirname, '..', '/static/export/js'))) {
-							await fs.copy(path.join(__dirname, '..', '/static/export/js'), path.normalize(chemin + '/' + id + '/static/js'))
-						}
-						await fs.copy(path.join(__dirname, '..', '/public/fonts/MaterialIcons-Regular.woff2'), path.normalize(chemin + '/' + id + '/static/fonts/MaterialIcons-Regular.woff2'))
-						await fs.copy(path.join(__dirname, '..', '/public/fonts/Roboto-Slab-Medium.woff2'), path.normalize(chemin + '/' + id + '/static/fonts/Roboto-Slab-Medium.woff2'))
-						await fs.copy(path.join(__dirname, '..', '/public/img/favicon.png'), path.normalize(chemin + '/' + id + '/static/img/favicon.png'))
-						for (const bloc of donnees.blocs) {
-							if (stockage === 'fs' && Object.keys(bloc).length > 0 && bloc.hasOwnProperty('media') && bloc.media !== '' && bloc.type !== 'embed' && bloc.type !== 'lien' && await fs.pathExists(path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + id + '/' + bloc.media))) {
-								await fs.copy(path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + id + '/' + bloc.media), path.normalize(chemin + '/' + id + '/fichiers/' + bloc.media, { overwrite: true }))
-							} else if (stockage === 's3' && Object.keys(bloc).length > 0 && bloc.hasOwnProperty('media') && bloc.media !== '' && bloc.type !== 'embed' && bloc.type !== 'lien') {
-								try {
-									const fichierMeta = await s3Client.send(new HeadObjectCommand({ Bucket: bucket, Key: id + '/' + bloc.media }))
-									if (fichierMeta.hasOwnProperty('ContentLength')) {
-										await telechargerFichierS3(id + '/' + bloc.media, path.normalize(chemin + '/' + id + '/fichiers/' + bloc.media))
-									}
-								} catch (e) {}
-							}
-							if (Object.keys(bloc).length > 0 && bloc.hasOwnProperty('vignette') && bloc.vignette !== '') {
-								if (typeof bloc.vignette === 'string' && bloc.vignette.includes('/img/') && !verifierURL(bloc.vignette, ['https', 'http']) && await fs.pathExists(path.join(__dirname, '..', '/public' + bloc.vignette))) {
-									await fs.copy(path.join(__dirname, '..', '/public' + bloc.vignette), path.normalize(chemin + '/' + id + '/static' + bloc.vignette, { overwrite: true }))
-								} else if (definirVignettePersonnalisee(bloc.vignette) === true) {
-									const fichierVignette = path.basename(bloc.vignette)
-									if (stockage === 'fs' && await fs.pathExists(path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + id + '/' + fichierVignette))) {
-										await fs.copy(path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + id + '/' + fichierVignette), path.normalize(chemin + '/' + id + '/fichiers/' + fichierVignette, { overwrite: true }))
-									} else if (stockage === 's3') {
-										try {
-											const fichierMeta = await s3Client.send(new HeadObjectCommand({ Bucket: bucket, Key: id + '/' + fichierVignette }))
-											if (fichierMeta.hasOwnProperty('ContentLength')) {
-												await telechargerFichierS3(id + '/' + fichierVignette, path.normalize(chemin + '/' + id + '/fichiers/' + fichierVignette))
-											}
-										} catch (e) {}
-									}
-								}
-							}
-						}
-						const archiveId = Math.floor((Math.random() * 100000) + 1)
-						const sortie = fs.createWriteStream(path.normalize(chemin + '/pad-' + id + '_' + archiveId + '.zip'))
-						const archive = archiver('zip', {
-							zlib: { level: 9 }
-						})
-						sortie.on('finish', async function () {
-							await fs.remove(path.normalize(chemin + '/' + id))
-							res.send('pad-' + id + '_' + archiveId + '.zip')
-						})
-						archive.pipe(sortie)
-						archive.directory(path.normalize(chemin + '/' + id), false)
-						archive.finalize()
+						exporterPadPg(res, id, donnees)
 					} else {
 						res.send('non_autorise')
 					}
@@ -1718,7 +1480,7 @@ async function demarrerServeur () {
 									await db
 									.multi()
 									.INCR('pad')
-									.HSET('pads:' + id, ['id', id, 'token', token, 'titre', donnees.pad.titre, 'identifiant', identifiant, 'fond', donnees.pad.fond, 'acces', donnees.pad.acces, 'code', code, 'contributions', donnees.pad.contributions, 'affichage', donnees.pad.affichage, 'registreActivite', registreActivite, 'conversation', conversation, 'listeUtilisateurs', listeUtilisateurs, 'editionNom', editionNom, 'fichiers', donnees.pad.fichiers, 'enregistrements', enregistrements, 'liens', donnees.pad.liens, 'documents', donnees.pad.documents, 'commentaires', donnees.pad.commentaires, 'evaluations', donnees.pad.evaluations, 'copieBloc', copieBloc, 'ordre', ordre, 'largeur', largeur, 'date', date, 'colonnes', donnees.pad.colonnes, 'affichageColonnes', JSON.stringify(affichageColonnes), 'bloc', donnees.pad.bloc, 'activite', activiteId, 'admins', JSON.stringify([])])
+									.HSET('pads:' + id, ['id', id, 'token', token, 'titre', donnees.pad.titre, 'identifiant', identifiant, 'fond', donnees.pad.fond, 'acces', donnees.pad.acces, 'code', code, 'contributions', donnees.pad.contributions, 'affichage', donnees.pad.affichage, 'registreActivite', registreActivite, 'conversation', conversation, 'listeUtilisateurs', listeUtilisateurs, 'editionNom', editionNom, 'fichiers', donnees.pad.fichiers, 'enregistrements', enregistrements, 'liens', donnees.pad.liens, 'documents', donnees.pad.documents, 'commentaires', donnees.pad.commentaires, 'evaluations', donnees.pad.evaluations, 'copieBloc', copieBloc, 'ordre', ordre, 'largeur', largeur, 'date', date, 'colonnes', donnees.pad.colonnes, 'affichageColonnes', JSON.stringify(affichageColonnes), 'bloc', donnees.pad.bloc, 'activite', activiteId, 'admins', JSON.stringify([]), 'vues', 0, 'digidrive', 0])
 									.SADD('pads-crees:' + identifiant, id.toString())
 									.SADD('utilisateurs-pads:' + id, identifiant)
 									.HSET('couleurs:' + identifiant, 'pad' + id, couleur)
@@ -1807,7 +1569,8 @@ async function demarrerServeur () {
 					const utilisateurs = await db.SMEMBERS('utilisateurs-pads:' + pad)
 					if (utilisateurs === null) { res.send('erreur_suppression'); return false }
 					for (let j = 0; j < utilisateurs.length; j++) {
-						await db.multi()
+						await db
+						.multi()
 						.SREM('pads-rejoints:' + utilisateurs[j], pad.toString())
 						.SREM('pads-utilisateurs:' + utilisateurs[j], pad.toString())
 						.SREM('pads-admins:' + utilisateurs[j], pad.toString())
@@ -2823,25 +2586,33 @@ async function demarrerServeur () {
 					if (mimetype.split('/')[0] === 'image') {
 						const extension = path.parse(nom).ext
 						if (extension.toLowerCase() === '.jpg' || extension.toLowerCase() === '.jpeg') {
-							const buffer = await sharp(bufferFichier).withMetadata().rotate().jpeg().resize(1200, 1200, {
-								fit: sharp.fit.inside,
-								withoutEnlargement: true
-							}).toBuffer()
-							if (buffer !== null) {
-								await s3Client.send(new PutObjectCommand({ Bucket: bucket, Key: 'temp/' + nom, Body: buffer, ACL: 'public-read' }))
-								res.json({ fichier: nom, mimetype: mimetype })
-							} else {
+							try {
+								const buffer = await sharp(bufferFichier, { failOnError: false }).withMetadata().rotate().jpeg().resize(1200, 1200, {
+									fit: sharp.fit.inside,
+									withoutEnlargement: true
+								}).toBuffer()
+								if (buffer !== null) {
+									await s3Client.send(new PutObjectCommand({ Bucket: bucket, Key: 'temp/' + nom, Body: buffer, ACL: 'public-read' }))
+									res.json({ fichier: nom, mimetype: mimetype })
+								} else {
+									res.send('erreur_televersement')
+								}
+							} catch (e) {
 								res.send('erreur_televersement')
 							}
 						} else if (extension.toLowerCase() !== '.gif') {
-							const buffer = await sharp(bufferFichier).withMetadata().resize(1200, 1200, {
-								fit: sharp.fit.inside,
-								withoutEnlargement: true
-							}).toBuffer()
-							if (buffer !== null) {
-								await s3Client.send(new PutObjectCommand({ Bucket: bucket, Key: 'temp/' + nom, Body: buffer, ACL: 'public-read' }))
-								res.json({ fichier: nom, mimetype: mimetype })
-							} else {
+							try {
+								const buffer = await sharp(bufferFichier, { failOnError: false }).withMetadata().resize(1200, 1200, {
+									fit: sharp.fit.inside,
+									withoutEnlargement: true
+								}).toBuffer()
+								if (buffer !== null) {
+									await s3Client.send(new PutObjectCommand({ Bucket: bucket, Key: 'temp/' + nom, Body: buffer, ACL: 'public-read' }))
+									res.json({ fichier: nom, mimetype: mimetype })
+								} else {
+									res.send('erreur_televersement')
+								}
+							} catch (e) {
 								res.send('erreur_televersement')
 							}
 						} else {
@@ -2926,25 +2697,33 @@ async function demarrerServeur () {
 					if (mimetype.split('/')[0] === 'image') {
 						const extension = path.parse(fichier.filename).ext
 						if (extension.toLowerCase() === '.jpg' || extension.toLowerCase() === '.jpeg') {
-							const buffer = await sharp(chemin).withMetadata().rotate().jpeg().resize(1200, 1200, {
-								fit: sharp.fit.inside,
-								withoutEnlargement: true
-							}).toBuffer()
-							if (buffer !== null) {
-								await fs.writeFile(chemin, buffer)
-								res.json({ fichier: fichier.filename, mimetype: mimetype })
-							} else {
+							try {
+								const buffer = await sharp(chemin, { failOnError: false }).withMetadata().rotate().jpeg().resize(1200, 1200, {
+									fit: sharp.fit.inside,
+									withoutEnlargement: true
+								}).toBuffer()
+								if (buffer !== null) {
+									await fs.writeFile(chemin, buffer)
+									res.json({ fichier: fichier.filename, mimetype: mimetype })
+								} else {
+									res.send('erreur_televersement')
+								}
+							} catch (e) {
 								res.send('erreur_televersement')
 							}
 						} else if (extension.toLowerCase() !== '.gif') {
-							const buffer = await sharp(chemin).withMetadata().resize(1200, 1200, {
-								fit: sharp.fit.inside,
-								withoutEnlargement: true
-							}).toBuffer()
-							if (buffer !== null) {
-								await fs.writeFile(chemin, buffer)
-								res.json({ fichier: fichier.filename, mimetype: mimetype })
-							} else {
+							try {
+								const buffer = await sharp(chemin, { failOnError: false }).withMetadata().resize(1200, 1200, {
+									fit: sharp.fit.inside,
+									withoutEnlargement: true
+								}).toBuffer()
+								if (buffer !== null) {
+									await fs.writeFile(chemin, buffer)
+									res.json({ fichier: fichier.filename, mimetype: mimetype })
+								} else {
+									res.send('erreur_televersement')
+								}
+							} catch (e) {
 								res.send('erreur_televersement')
 							}
 						} else {
@@ -3066,25 +2845,33 @@ async function demarrerServeur () {
 				if (bufferFichier !== null && nom !== null) {
 					const extension = path.parse(nom).ext
 					if (extension.toLowerCase() === '.jpg' || extension.toLowerCase() === '.jpeg') {
-						const buffer = await sharp(bufferFichier).withMetadata().rotate().jpeg().resize(400, 400, {
-							fit: sharp.fit.inside,
-							withoutEnlargement: true
-						}).toBuffer()
-						if (buffer !== null) {
-							await s3Client.send(new PutObjectCommand({ Bucket: bucket, Key: 'temp/' + nom, Body: buffer, ACL: 'public-read' }))
-							res.send(nom)
-						} else {
+						try {
+							const buffer = await sharp(bufferFichier, { failOnError: false }).withMetadata().rotate().jpeg().resize(400, 400, {
+								fit: sharp.fit.inside,
+								withoutEnlargement: true
+							}).toBuffer()
+							if (buffer !== null) {
+								await s3Client.send(new PutObjectCommand({ Bucket: bucket, Key: 'temp/' + nom, Body: buffer, ACL: 'public-read' }))
+								res.send(nom)
+							} else {
+								res.send('erreur_televersement')
+							}
+						} catch (e) {
 							res.send('erreur_televersement')
 						}
 					} else {
-						const buffer = await sharp(bufferFichier).withMetadata().resize(400, 400, {
-							fit: sharp.fit.inside,
-							withoutEnlargement: true
-						}).toBuffer()
-						if (buffer !== null) {
-							await s3Client.send(new PutObjectCommand({ Bucket: bucket, Key: 'temp/' + nom, Body: buffer, ACL: 'public-read' }))
-							res.send(nom)
-						} else {
+						try {
+							const buffer = await sharp(bufferFichier, { failOnError: false }).withMetadata().resize(400, 400, {
+								fit: sharp.fit.inside,
+								withoutEnlargement: true
+							}).toBuffer()
+							if (buffer !== null) {
+								await s3Client.send(new PutObjectCommand({ Bucket: bucket, Key: 'temp/' + nom, Body: buffer, ACL: 'public-read' }))
+								res.send(nom)
+							} else {
+								res.send('erreur_televersement')
+							}
+						} catch (e) {
 							res.send('erreur_televersement')
 						}
 					}
@@ -3101,25 +2888,33 @@ async function demarrerServeur () {
 				const chemin = path.join(__dirname, '..', '/static/temp/' + fichier.filename)
 				const extension = path.parse(fichier.filename).ext
 				if (extension.toLowerCase() === '.jpg' || extension.toLowerCase() === '.jpeg') {
-					const buffer = await sharp(chemin).withMetadata().rotate().jpeg().resize(400, 400, {
-						fit: sharp.fit.inside,
-						withoutEnlargement: true
-					}).toBuffer()
-					if (buffer !== null) {
-						await fs.writeFile(chemin, buffer)
-						res.send(fichier.filename)
-					} else {
+					try {
+						const buffer = await sharp(chemin, { failOnError: false }).withMetadata().rotate().jpeg().resize(400, 400, {
+							fit: sharp.fit.inside,
+							withoutEnlargement: true
+						}).toBuffer()
+						if (buffer !== null) {
+							await fs.writeFile(chemin, buffer)
+							res.send(fichier.filename)
+						} else {
+							res.send('erreur_televersement')
+						}
+					} catch (e) {
 						res.send('erreur_televersement')
 					}
 				} else {
-					const buffer = await sharp(chemin).withMetadata().resize(400, 400, {
-						fit: sharp.fit.inside,
-						withoutEnlargement: true
-					}).toBuffer()
-					if (buffer !== null) {
-						await fs.writeFile(chemin, buffer)
-						res.send(fichier.filename)
-					} else {
+					try {
+						const buffer = await sharp(chemin, { failOnError: false }).withMetadata().resize(400, 400, {
+							fit: sharp.fit.inside,
+							withoutEnlargement: true
+						}).toBuffer()
+						if (buffer !== null) {
+							await fs.writeFile(chemin, buffer)
+							res.send(fichier.filename)
+						} else {
+							res.send('erreur_televersement')
+						}
+					} catch (e) {
 						res.send('erreur_televersement')
 					}
 				}
@@ -3151,25 +2946,33 @@ async function demarrerServeur () {
 					const pad = formData.get('pad')
 					const extension = path.parse(nom).ext
 					if (extension.toLowerCase() === '.jpg' || extension.toLowerCase() === '.jpeg') {
-						const buffer = await sharp(bufferFichier).withMetadata().rotate().jpeg().resize(1200, 1200, {
-							fit: sharp.fit.inside,
-							withoutEnlargement: true
-						}).toBuffer()
-						if (buffer !== null) {
-							await s3Client.send(new PutObjectCommand({ Bucket: bucket, Key: pad + '/' + nom, Body: buffer, ACL: 'public-read' }))
-							res.send(nom)
-						} else {
+						try {
+							const buffer = await sharp(bufferFichier, { failOnError: false }).withMetadata().rotate().jpeg().resize(1200, 1200, {
+								fit: sharp.fit.inside,
+								withoutEnlargement: true
+							}).toBuffer()
+							if (buffer !== null) {
+								await s3Client.send(new PutObjectCommand({ Bucket: bucket, Key: pad + '/' + nom, Body: buffer, ACL: 'public-read' }))
+								res.send(nom)
+							} else {
+								res.send('erreur_televersement')
+							}
+						} catch (e) {
 							res.send('erreur_televersement')
 						}
 					} else {
-						const buffer = await sharp(bufferFichier).withMetadata().resize(1200, 1200, {
-							fit: sharp.fit.inside,
-							withoutEnlargement: true
-						}).toBuffer()
-						if (buffer !== null) {
-							await s3Client.send(new PutObjectCommand({ Bucket: bucket, Key: pad + '/' + nom, Body: buffer, ACL: 'public-read' }))
-							res.send(nom)
-						} else {
+						try {
+							const buffer = await sharp(bufferFichier, { failOnError: false }).withMetadata().resize(1200, 1200, {
+								fit: sharp.fit.inside,
+								withoutEnlargement: true
+							}).toBuffer()
+							if (buffer !== null) {
+								await s3Client.send(new PutObjectCommand({ Bucket: bucket, Key: pad + '/' + nom, Body: buffer, ACL: 'public-read' }))
+								res.send(nom)
+							} else {
+								res.send('erreur_televersement')
+							}
+						} catch (e) {
 							res.send('erreur_televersement')
 						}
 					}
@@ -3187,25 +2990,33 @@ async function demarrerServeur () {
 				const chemin = path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + pad + '/' + fichier.filename)
 				const extension = path.parse(fichier.filename).ext
 				if (extension.toLowerCase() === '.jpg' || extension.toLowerCase() === '.jpeg') {
-					const buffer = await sharp(chemin).withMetadata().rotate().jpeg().resize(1200, 1200, {
-						fit: sharp.fit.inside,
-						withoutEnlargement: true
-					}).toBuffer()
-					if (buffer !== null) {
-						await fs.writeFile(chemin, buffer)
-						res.send(fichier.filename)
-					} else {
+					try {
+						const buffer = await sharp(chemin, { failOnError: false }).withMetadata().rotate().jpeg().resize(1200, 1200, {
+							fit: sharp.fit.inside,
+							withoutEnlargement: true
+						}).toBuffer()
+						if (buffer !== null) {
+							await fs.writeFile(chemin, buffer)
+							res.send(fichier.filename)
+						} else {
+							res.send('erreur_televersement')
+						}
+					} catch (e) {
 						res.send('erreur_televersement')
 					}
 				} else {
-					const buffer = await sharp(chemin).withMetadata().resize(1200, 1200, {
-						fit: sharp.fit.inside,
-						withoutEnlargement: true
-					}).toBuffer()
-					if (buffer !== null) {
-						await fs.writeFile(chemin, buffer)
-						res.send(fichier.filename)
-					} else {
+					try {
+						const buffer = await sharp(chemin, { failOnError: false }).withMetadata().resize(1200, 1200, {
+							fit: sharp.fit.inside,
+							withoutEnlargement: true
+						}).toBuffer()
+						if (buffer !== null) {
+							await fs.writeFile(chemin, buffer)
+							res.send(fichier.filename)
+						} else {
+							res.send('erreur_televersement')
+						}
+					} catch (e) {
 						res.send('erreur_televersement')
 					}
 				}
@@ -3320,8 +3131,66 @@ async function demarrerServeur () {
 			} else if (reponse.data === 'token_autorise' && req.body.action && req.body.action === 'modifier-titre') {
 				const pad = req.body.id
 				const titre = req.body.titre
-				await db.HSET('pads:' + pad, 'titre', titre)
-				res.send('contenu_modifie')
+				const resultat = await db.EXISTS('pads:' + pad)
+				if (resultat === null) { res.send('erreur'); return false }
+				if (resultat === 1) {
+					await db.HSET('pads:' + pad, 'titre', titre)
+					res.send('contenu_modifie')
+				} else if (resultat !== 1 && pgdb === true) {
+					const client = await pool.connect()
+					const donneesQ = await client.query('SELECT donnees FROM pads WHERE pad = $1', [parseInt(pad)])
+					if (Object.keys(donneesQ.rows[0]).length === 1) {
+						await client.query('UPDATE pads SET titre = $1 WHERE pad = $2', [titre, parseInt(pad)])
+						client.release()
+						res.send('contenu_modifie')
+					} else {
+						client.release()
+						res.send('erreur')
+					}
+				} else {
+					res.send('contenu_inexistant')
+				}
+			} else if (reponse.data === 'token_autorise' && req.body.action && req.body.action === 'modifier') {
+				const pad = req.body.id
+				const titre = req.body.titre
+				const identifiant = req.body.identifiant
+				const ancienmotdepasse = req.body.ancienmotdepasse
+				const resultat = await db.EXISTS('pads:' + pad)
+				if (resultat === null) { res.send('erreur'); return false }
+				if (resultat === 1) {
+					let donneesPad = await db.HGETALL('pads:' + pad)
+					donneesPad = Object.assign({}, donneesPad)
+					if (donneesPad === null) { res.send('erreur'); return false }
+					if (ancienmotdepasse.trim() !== '' && donneesPad.hasOwnProperty('motdepasse') && donneesPad.motdepasse.trim() !== '' && donneesPad.identifiant === identifiant && await bcrypt.compare(ancienmotdepasse, donneesPad.motdepasse)) {
+						const motdepasse = req.body.motdepasse
+						const hash = await bcrypt.hash(motdepasse, 10)
+						await db.HSET('pads:' + pad, ['titre', titre, 'motdepasse', hash])
+						res.send('contenu_modifie')
+					} else {
+						res.send('non_autorise')
+					}
+				} else if (resultat !== 1 && pgdb === true) {
+					const client = await pool.connect()
+					const donneesQ = await client.query('SELECT donnees FROM pads WHERE pad = $1', [parseInt(pad)])
+					if (Object.keys(donneesQ.rows[0]).length === 1) {
+						const donneesPad = JSON.parse(donneesQ.rows[0].donnees)
+						if (ancienmotdepasse.trim() !== '' && donneesPad.hasOwnProperty('motdepasse') && donneesPad.motdepasse.trim() !== '' && donneesPad.identifiant === identifiant && await bcrypt.compare(ancienmotdepasse, donneesPad.motdepasse)) {
+							const motdepasse = req.body.motdepasse
+							const hash = await bcrypt.hash(motdepasse, 10)
+							await client.query('UPDATE pads SET titre = $1, motdepasse = $2 WHERE pad = $3', [titre, hash, parseInt(pad)])
+							client.release()
+							res.send('contenu_modifie')
+						} else {
+							client.release()
+							res.send('non_autorise')
+						}
+					} else {
+						client.release()
+						res.send('erreur')
+					}
+				} else {
+					res.send('contenu_inexistant')
+				}
 			} else if (reponse.data === 'token_autorise' && req.body.action && req.body.action === 'ajouter') {
 				const identifiant = req.body.identifiant
 				const pad = req.body.id
@@ -3343,7 +3212,7 @@ async function demarrerServeur () {
 						await db
 						.multi()
 						.HSET('utilisateurs:' + identifiant, ['id', identifiant, 'date', date, 'nom', nom, 'langue', langue])
-						.HSET('pads:' + pad, 'identifiant', identifiant)
+						.HSET('pads:' + pad, ['identifiant', identifiant, 'digidrive', 1])
 						.exec()
 						res.json({ titre: donneesPad.titre, identifiant: identifiant })
 					} else if (!donneesPad.hasOwnProperty('motdepasse') && token === donneesPad.token) {
@@ -3354,6 +3223,7 @@ async function demarrerServeur () {
 							utilisateur = Object.assign({}, utilisateur)
 							if (utilisateur === null) { res.send('erreur'); return false }
 							if (motdepasse.trim() !== '' && utilisateur.hasOwnProperty('motdepasse') && utilisateur.motdepasse.trim() !== '' && await bcrypt.compare(motdepasse, utilisateur.motdepasse)) {
+								await db.HSET('pads:' + pad, 'digidrive', 1)
 								res.json({ titre: donneesPad.titre, identifiant: donneesPad.identifiant })
 							} else {
 								res.send('non_autorise')
@@ -3377,6 +3247,7 @@ async function demarrerServeur () {
 							}
 							await db.HSET('utilisateurs:' + identifiant, ['id', identifiant, 'date', date, 'nom', nom, 'langue', langue])
 							donneesPad.identifiant = identifiant
+							donneesPad.digidrive = 1
 							await client.query('UPDATE pads SET donnees = $1 WHERE pad = $2', [JSON.stringify(donneesPad), parseInt(pad)])
 							client.release()
 							res.json({ titre: donneesPad.titre, identifiant: identifiant })
@@ -3388,6 +3259,9 @@ async function demarrerServeur () {
 								utilisateur = Object.assign({}, utilisateur)
 								if (utilisateur === null) { res.send('erreur'); return false }
 								if (motdepasse.trim() !== '' && utilisateur.hasOwnProperty('motdepasse') && utilisateur.motdepasse.trim() !== '' && await bcrypt.compare(motdepasse, utilisateur.motdepasse)) {
+									donneesPad.digidrive = 1
+									await client.query('UPDATE pads SET donnees = $1 WHERE pad = $2', [JSON.stringify(donneesPad), parseInt(pad)])
+									client.release()
 									res.json({ titre: donneesPad.titre, identifiant: donneesPad.identifiant })
 								} else {
 									client.release()
@@ -3404,6 +3278,404 @@ async function demarrerServeur () {
 					} else {
 						client.release()
 						res.send('erreur')
+					}
+				} else {
+					res.send('contenu_inexistant')
+				}
+			} else if (reponse.data === 'token_autorise' && req.body.action && req.body.action === 'dupliquer') {
+				const identifiant = req.body.identifiant
+				const motdepasse = req.body.motdepasse
+				const pad = req.body.id
+				const num = await db.GET('pad')
+				if (num === null) { res.send('erreur'); return false }
+				const id = parseInt(num) + 1
+				const dossier = path.join(__dirname, '..', '/static' + definirCheminFichiers())
+				checkDiskSpace(dossier).then(async function (diskSpace) {
+					const espace = Math.round((diskSpace.free / diskSpace.size) * 100)
+					if (stockage === 'fs' && espace < minimumEspaceDisque) {
+						res.send('erreur')
+					} else {
+						const resultat = await db.EXISTS('pads:' + pad)
+						if (resultat === null) { res.send('erreur'); return false }
+						if (resultat === 1) {
+							let donnees = await db.HGETALL('pads:' + pad)
+							donnees = Object.assign({}, donnees)
+							if (donnees === null || !donnees.hasOwnProperty('identifiant')) { res.send('erreur'); return false }
+							let autorisation = false
+							let avecCompte = false
+							const proprietaire = donnees.identifiant
+							if (proprietaire === identifiant && motdepasse.trim() !== '' && donnees.hasOwnProperty('motdepasse') && donnees.motdepasse.trim() !== '' && await bcrypt.compare(motdepasse, donnees.motdepasse)) {
+								autorisation = true
+							} else if (!donnees.hasOwnProperty('motdepasse') && proprietaire === identifiant) {
+								const resultat = await db.EXISTS('utilisateurs:' + identifiant)
+								if (resultat === null) { res.send('erreur'); return false }
+								if (resultat === 1) {
+									let utilisateur = await db.HGETALL('utilisateurs:' + identifiant)
+									utilisateur = Object.assign({}, utilisateur)
+									if (utilisateur === null) { res.send('erreur'); return false }
+									if (motdepasse.trim() !== '' && utilisateur.hasOwnProperty('motdepasse') && utilisateur.motdepasse.trim() !== '' && await bcrypt.compare(motdepasse, utilisateur.motdepasse)) {
+										autorisation = true
+										avecCompte = true
+									}
+								}
+							}
+							if (autorisation === true) {
+								const donneesBlocs = []
+								const blocs = await db.ZRANGE('blocs:' + pad, 0, -1)
+								if (blocs === null) { res.send('erreur'); return false }
+								for (const [indexBloc, bloc] of blocs.entries()) {
+									const donneesBloc = new Promise(async function (resolve) {
+										let infos = await db.HGETALL('pad-' + pad + ':' + bloc)
+										infos = Object.assign({}, infos)
+										if (infos === null) { resolve({}); return false }
+										const date = dayjs().format()
+										if (infos.hasOwnProperty('vignette') && definirVignettePersonnalisee(infos.vignette) === true) {
+											infos.vignette = path.basename(infos.vignette)
+										}
+										let visibilite = 'visible'
+										if (infos.hasOwnProperty('visibilite')) {
+											visibilite = infos.visibilite
+										}
+										if (infos.hasOwnProperty('iframe') && infos.iframe !== '' && infos.iframe.includes(etherpad)) {
+											const etherpadId = infos.iframe.replace(etherpad + '/p/', '')
+											const destinationId = 'pad-' + id + '-' + Math.random().toString(16).slice(2)
+											const url = etherpad + '/api/1.2.14/copyPad?apikey=' + etherpadApi + '&sourceID=' + etherpadId + '&destinationID=' + destinationId
+											axios.get(url)
+											infos.iframe = etherpad + '/p/' + destinationId
+											infos.media = etherpad + '/p/' + destinationId
+										}
+										const blocId = 'bloc-id-' + (new Date()).getTime() + Math.random().toString(16).slice(10)
+										await db
+										.multi()
+										.HSET('pad-' + id + ':' + blocId, ['id', infos.id, 'bloc', blocId, 'titre', infos.titre, 'texte', infos.texte, 'media', infos.media, 'iframe', infos.iframe, 'type', infos.type, 'source', infos.source, 'vignette', infos.vignette, 'date', date, 'identifiant', infos.identifiant, 'commentaires', 0, 'evaluations', 0, 'colonne', infos.colonne, 'visibilite', visibilite])
+										.ZADD('blocs:' + id, [{ score: indexBloc, value: blocId }])
+										.exec()
+										resolve(blocId)
+									})
+									donneesBlocs.push(donneesBloc)
+								}
+								Promise.all(donneesBlocs).then(async function () {
+									const token = Math.random().toString(16).slice(2)
+									const nouveaumotdepasse = req.body.nouveaumotdepasse
+									const hash = await bcrypt.hash(nouveaumotdepasse, 10)
+									const date = dayjs().format()
+									const couleur = choisirCouleur()
+									const code = Math.floor(100000 + Math.random() * 900000)
+									let registreActivite = 'active'
+									let conversation = 'desactivee'
+									let listeUtilisateurs = 'activee'
+									let editionNom = 'desactivee'
+									let ordre = 'croissant'
+									let largeur = 'normale'
+									let enregistrements = 'desactives'
+									let copieBloc = 'desactivee'
+									let affichageColonnes = []
+									if (donnees.hasOwnProperty('registreActivite')) {
+										registreActivite = donnees.registreActivite
+									}
+									if (donnees.hasOwnProperty('conversation')) {
+										conversation = donnees.conversation
+									}
+									if (donnees.hasOwnProperty('listeUtilisateurs')) {
+										listeUtilisateurs = donnees.listeUtilisateurs
+									}
+									if (donnees.hasOwnProperty('editionNom')) {
+										editionNom = donnees.editionNom
+									}
+									if (donnees.hasOwnProperty('ordre')) {
+										ordre = donnees.ordre
+									}
+									if (donnees.hasOwnProperty('largeur')) {
+										largeur = donnees.largeur
+									}
+									if (donnees.hasOwnProperty('enregistrements')) {
+										enregistrements = donnees.enregistrements
+									}
+									if (donnees.hasOwnProperty('copieBloc')) {
+										copieBloc = donnees.copieBloc
+									}
+									if (donnees.hasOwnProperty('affichageColonnes')) {
+										affichageColonnes = JSON.parse(donnees.affichageColonnes)
+									} else {
+										JSON.parse(donnees.colonnes).forEach(function () {
+											affichageColonnes.push(true)
+										})
+									}
+									if (!donnees.fond.includes('/img/') && donnees.fond.substring(0, 1) !== '#' && donnees.fond !== '' && typeof donnees.fond === 'string') {
+										donnees.fond = path.basename(donnees.fond)
+									}
+									if (donnees.hasOwnProperty('code') && avecCompte === false) {
+										await db
+										.multi()
+										.INCR('pad')
+										.HSET('pads:' + id, ['id', id, 'token', token, 'titre', 'Copie de ' + donnees.titre, 'identifiant', identifiant, 'motdepasse', hash, 'fond', donnees.fond, 'acces', donnees.acces, 'code', code, 'contributions', donnees.contributions, 'affichage', donnees.affichage, 'registreActivite', registreActivite, 'conversation', conversation, 'listeUtilisateurs', listeUtilisateurs, 'editionNom', editionNom, 'fichiers', donnees.fichiers, 'enregistrements', enregistrements, 'liens', donnees.liens, 'documents', donnees.documents, 'commentaires', donnees.commentaires, 'evaluations', donnees.evaluations, 'copieBloc', copieBloc, 'ordre', ordre, 'largeur', largeur, 'date', date, 'colonnes', donnees.colonnes, 'affichageColonnes', JSON.stringify(affichageColonnes), 'bloc', donnees.bloc, 'activite', 0, 'vues', 0, 'digidrive', 1])
+										.SADD('pads-crees:' + identifiant, id.toString())
+										.exec()
+									} else if (donnees.hasOwnProperty('code') && avecCompte === true) {
+										const couleur = choisirCouleur()
+										await db
+										.multi()
+										.INCR('pad')
+										.HSET('pads:' + id, ['id', id, 'token', token, 'titre', 'Copie de ' + donnees.titre, 'identifiant', identifiant, 'fond', donnees.fond, 'acces', donnees.acces, 'code', code, 'contributions', donnees.contributions, 'affichage', donnees.affichage, 'registreActivite', registreActivite, 'conversation', conversation, 'listeUtilisateurs', listeUtilisateurs, 'editionNom', editionNom, 'fichiers', donnees.fichiers, 'enregistrements', enregistrements, 'liens', donnees.liens, 'documents', donnees.documents, 'commentaires', donnees.commentaires, 'evaluations', donnees.evaluations, 'copieBloc', copieBloc, 'ordre', ordre, 'largeur', largeur, 'date', date, 'colonnes', donnees.colonnes, 'affichageColonnes', JSON.stringify(affichageColonnes), 'bloc', donnees.bloc, 'activite', 0, 'vues', 0, 'digidrive', 1])
+										.SADD('pads-crees:' + identifiant, id.toString())
+										.SADD('utilisateurs-pads:' + id, identifiant)
+										.HSET('couleurs:' + identifiant, 'pad' + id, couleur)
+										.exec()
+									} else if (!donnees.hasOwnProperty('code') && avecCompte === false) {
+										await db
+										.multi()
+										.INCR('pad')
+										.HSET('pads:' + id, ['id', id, 'token', token, 'titre', 'Copie de ' + donnees.titre, 'identifiant', identifiant, 'motdepasse', hash, 'fond', donnees.fond, 'acces', donnees.acces, 'contributions', donnees.contributions, 'affichage', donnees.affichage, 'registreActivite', registreActivite, 'conversation', conversation, 'listeUtilisateurs', listeUtilisateurs, 'editionNom', editionNom, 'fichiers', donnees.fichiers, 'enregistrements', enregistrements, 'liens', donnees.liens, 'documents', donnees.documents, 'commentaires', donnees.commentaires, 'evaluations', donnees.evaluations, 'copieBloc', copieBloc, 'ordre', ordre, 'largeur', largeur, 'date', date, 'colonnes', donnees.colonnes, 'affichageColonnes', JSON.stringify(affichageColonnes), 'bloc', donnees.bloc, 'activite', 0, 'vues', 0, 'digidrive', 1])
+										.SADD('pads-crees:' + identifiant, id.toString())
+										.exec()
+									} else if (!donnees.hasOwnProperty('code') && avecCompte === true) {
+										const couleur = choisirCouleur()
+										await db
+										.multi()
+										.INCR('pad')
+										.HSET('pads:' + id, ['id', id, 'token', token, 'titre', 'Copie de ' + donnees.titre, 'identifiant', identifiant, 'fond', donnees.fond, 'acces', donnees.acces, 'contributions', donnees.contributions, 'affichage', donnees.affichage, 'registreActivite', registreActivite, 'conversation', conversation, 'listeUtilisateurs', listeUtilisateurs, 'editionNom', editionNom, 'fichiers', donnees.fichiers, 'enregistrements', enregistrements, 'liens', donnees.liens, 'documents', donnees.documents, 'commentaires', donnees.commentaires, 'evaluations', donnees.evaluations, 'copieBloc', copieBloc, 'ordre', ordre, 'largeur', largeur, 'date', date, 'colonnes', donnees.colonnes, 'affichageColonnes', JSON.stringify(affichageColonnes), 'bloc', donnees.bloc, 'activite', 0, 'vues', 0, 'digidrive', 1])
+										.SADD('pads-crees:' + identifiant, id.toString())
+										.SADD('utilisateurs-pads:' + id, identifiant)
+										.HSET('couleurs:' + identifiant, 'pad' + id, couleur)
+										.exec()
+									}
+									if (stockage === 'fs' && await fs.pathExists(path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + pad))) {
+										await fs.copy(path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + pad), path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + id))
+									} else if (stockage === 's3') {
+										const liste = await s3Client.send(new ListObjectsV2Command({ Bucket: bucket, Prefix: pad + '/' }))
+										if (liste.hasOwnProperty('Contents')) {
+											for (let i = 0; i < liste.Contents.length; i++) {
+												await s3Client.send(new CopyObjectCommand({ Bucket: bucket, Key: id + '/' + liste.Contents[i].Key.replace(pad + '/', ''), CopySource: '/' + bucket + '/' + liste.Contents[i].Key, ACL: 'public-read' }))
+											}
+										}
+									}
+									res.send(id + '/' + token)
+								})
+							} else {
+								res.send('non_autorise')
+							}
+						} else if (resultat !== 1 && pgdb === true && isNaN(parseInt(pad)) === false) {
+							const client = await pool.connect()
+							const donneesQ = await client.query('SELECT donnees, blocs, activite FROM pads WHERE pad = $1', [parseInt(pad)])
+							client.release()
+							if (donneesQ && donneesQ.hasOwnProperty('rows') && donneesQ.rows[0] && typeof donneesQ.rows[0] === 'object' && Object.keys(donneesQ.rows[0]).length === 3) {
+								const donnees = { pad: JSON.parse(donneesQ.rows[0].donnees), blocs: JSON.parse(donneesQ.rows[0].blocs), activite: JSON.parse(donneesQ.rows[0].activite) }
+								let autorisation = false
+								let avecCompte = false
+								const proprietaire = donnees.pad.identifiant
+								if (proprietaire === identifiant && motdepasse.trim() !== '' && donnees.pad.hasOwnProperty('motdepasse') && donnees.pad.motdepasse.trim() !== '' && await bcrypt.compare(motdepasse, donnees.pad.motdepasse)) {
+									autorisation = true
+								} else if (!donnees.pad.hasOwnProperty('motdepasse') && proprietaire === identifiant) {
+									const resultat = await db.EXISTS('utilisateurs:' + identifiant)
+									if (resultat === null) { res.send('erreur'); return false }
+									if (resultat === 1) {
+										let utilisateur = await db.HGETALL('utilisateurs:' + identifiant)
+										utilisateur = Object.assign({}, utilisateur)
+										if (utilisateur === null) { res.send('erreur'); return false }
+										if (motdepasse.trim() !== '' && utilisateur.hasOwnProperty('motdepasse') && utilisateur.motdepasse.trim() !== '' && await bcrypt.compare(motdepasse, utilisateur.motdepasse)) {
+											autorisation = true
+											avecCompte = true
+										}
+									}
+								}
+								if (autorisation === true) {
+									const date = dayjs().format()
+									const donneesBlocs = []
+									for (const [indexBloc, bloc] of donnees.blocs.entries()) {
+										const donneesBloc = new Promise(async function (resolve) {
+											if (Object.keys(bloc).length > 0) {
+												if (bloc.hasOwnProperty('vignette') && definirVignettePersonnalisee(bloc.vignette) === true) {
+													bloc.vignette = path.basename(bloc.vignette)
+												}
+												let visibilite = 'visible'
+												if (bloc.hasOwnProperty('visibilite')) {
+													visibilite = bloc.visibilite
+												}
+												if (bloc.hasOwnProperty('iframe') && bloc.iframe !== '' && bloc.iframe.includes(etherpad)) {
+													const etherpadId = bloc.iframe.replace(etherpad + '/p/', '')
+													const destinationId = 'pad-' + id + '-' + Math.random().toString(16).slice(2)
+													const url = etherpad + '/api/1.2.14/copyPad?apikey=' + etherpadApi + '&sourceID=' + etherpadId + '&destinationID=' + destinationId
+													axios.get(url)
+													bloc.iframe = etherpad + '/p/' + destinationId
+													bloc.media = etherpad + '/p/' + destinationId
+												}
+												const blocId = 'bloc-id-' + (new Date()).getTime() + Math.random().toString(16).slice(10)
+												await db
+												.multi()
+												.HSET('pad-' + id + ':' + blocId, ['id', bloc.id, 'bloc', blocId, 'titre', bloc.titre, 'texte', bloc.texte, 'media', bloc.media, 'iframe', bloc.iframe, 'type', bloc.type, 'source', bloc.source, 'vignette', bloc.vignette, 'date', date, 'identifiant', bloc.identifiant, 'commentaires', 0, 'evaluations', 0, 'colonne', bloc.colonne, 'visibilite', visibilite])
+												.ZADD('blocs:' + id, [{ score: indexBloc, value: blocId }])
+												.exec()
+												resolve(blocId)
+											} else {
+												resolve({})
+											}
+										})
+										donneesBlocs.push(donneesBloc)
+									}
+									Promise.all(donneesBlocs).then(async function () {
+										const token = Math.random().toString(16).slice(2)
+										const nouveaumotdepasse = req.body.nouveaumotdepasse
+										const hash = await bcrypt.hash(nouveaumotdepasse, 10)
+										const couleur = choisirCouleur()
+										const code = Math.floor(100000 + Math.random() * 900000)
+										let registreActivite = 'active'
+										let conversation = 'desactivee'
+										let listeUtilisateurs = 'activee'
+										let editionNom = 'desactivee'
+										let ordre = 'croissant'
+										let largeur = 'normale'
+										let enregistrements = 'desactives'
+										let copieBloc = 'desactivee'
+										let affichageColonnes = []
+										if (donnees.pad.hasOwnProperty('registreActivite')) {
+											registreActivite = donnees.pad.registreActivite
+										}
+										if (donnees.pad.hasOwnProperty('conversation')) {
+											conversation = donnees.pad.conversation
+										}
+										if (donnees.pad.hasOwnProperty('listeUtilisateurs')) {
+											listeUtilisateurs = donnees.pad.listeUtilisateurs
+										}
+										if (donnees.pad.hasOwnProperty('editionNom')) {
+											editionNom = donnees.pad.editionNom
+										}
+										if (donnees.pad.hasOwnProperty('ordre')) {
+											ordre = donnees.pad.ordre
+										}
+										if (donnees.pad.hasOwnProperty('largeur')) {
+											largeur = donnees.pad.largeur
+										}
+										if (donnees.pad.hasOwnProperty('enregistrements')) {
+											enregistrements = donnees.pad.enregistrements
+										}
+										if (donnees.pad.hasOwnProperty('copieBloc')) {
+											copieBloc = donnees.pad.copieBloc
+										}
+										if (donnees.pad.hasOwnProperty('affichageColonnes')) {
+											affichageColonnes = JSON.parse(donnees.pad.affichageColonnes)
+										} else {
+											JSON.parse(donnees.pad.colonnes).forEach(function () {
+												affichageColonnes.push(true)
+											})
+										}
+										if (!donnees.pad.fond.includes('/img/') && donnees.pad.fond.substring(0, 1) !== '#' && donnees.pad.fond !== '' && typeof donnees.pad.fond === 'string') {
+											donnees.pad.fond = path.basename(donnees.pad.fond)
+										}
+										if (donnees.pad.hasOwnProperty('code') && avecCompte === false) {
+											await db
+											.multi()
+											.INCR('pad')
+											.HSET('pads:' + id, ['id', id, 'token', token, 'titre', 'Copie de ' + donnees.pad.titre, 'identifiant', identifiant, 'motdepasse', hash, 'fond', donnees.pad.fond, 'acces', donnees.pad.acces, 'code', code, 'contributions', donnees.pad.contributions, 'affichage', donnees.pad.affichage, 'registreActivite', registreActivite, 'conversation', conversation, 'listeUtilisateurs', listeUtilisateurs, 'editionNom', editionNom, 'fichiers', donnees.pad.fichiers, 'enregistrements', enregistrements, 'liens', donnees.pad.liens, 'documents', donnees.pad.documents, 'commentaires', donnees.pad.commentaires, 'evaluations', donnees.pad.evaluations, 'copieBloc', copieBloc, 'ordre', ordre, 'largeur', largeur, 'date', date, 'colonnes', donnees.pad.colonnes, 'affichageColonnes', JSON.stringify(affichageColonnes), 'bloc', donnees.pad.bloc, 'activite', 0, 'vues', 0, 'digidrive', 1])
+											.SADD('pads-crees:' + identifiant, id.toString())
+											.exec()
+										} else if (donnees.pad.hasOwnProperty('code') && avecCompte === true) {
+											const couleur = choisirCouleur()
+											await db
+											.multi()
+											.INCR('pad')
+											.HSET('pads:' + id, ['id', id, 'token', token, 'titre', 'Copie de ' + donnees.pad.titre, 'identifiant', identifiant, 'fond', donnees.pad.fond, 'acces', donnees.pad.acces, 'code', code, 'contributions', donnees.pad.contributions, 'affichage', donnees.pad.affichage, 'registreActivite', registreActivite, 'conversation', conversation, 'listeUtilisateurs', listeUtilisateurs, 'editionNom', editionNom, 'fichiers', donnees.pad.fichiers, 'enregistrements', enregistrements, 'liens', donnees.pad.liens, 'documents', donnees.pad.documents, 'commentaires', donnees.pad.commentaires, 'evaluations', donnees.pad.evaluations, 'copieBloc', copieBloc, 'ordre', ordre, 'largeur', largeur, 'date', date, 'colonnes', donnees.pad.colonnes, 'affichageColonnes', JSON.stringify(affichageColonnes), 'bloc', donnees.pad.bloc, 'activite', 0, 'vues', 0, 'digidrive', 1])
+											.SADD('pads-crees:' + identifiant, id.toString())
+											.SADD('utilisateurs-pads:' + id, identifiant)
+											.HSET('couleurs:' + identifiant, 'pad' + id, couleur)
+											.exec()
+										} else if (!donnees.pad.hasOwnProperty('code') && avecCompte === false) {
+											await db
+											.multi()
+											.INCR('pad')
+											.HSET('pads:' + id, ['id', id, 'token', token, 'titre', 'Copie de ' + donnees.pad.titre, 'identifiant', identifiant, 'motdepasse', hash, 'fond', donnees.pad.fond, 'acces', donnees.pad.acces, 'contributions', donnees.pad.contributions, 'affichage', donnees.pad.affichage, 'registreActivite', registreActivite, 'conversation', conversation, 'listeUtilisateurs', listeUtilisateurs, 'editionNom', editionNom, 'fichiers', donnees.pad.fichiers, 'enregistrements', enregistrements, 'liens', donnees.pad.liens, 'documents', donnees.pad.documents, 'commentaires', donnees.pad.commentaires, 'evaluations', donnees.pad.evaluations, 'copieBloc', copieBloc, 'ordre', ordre, 'largeur', largeur, 'date', date, 'colonnes', donnees.pad.colonnes, 'affichageColonnes', JSON.stringify(affichageColonnes), 'bloc', donnees.pad.bloc, 'activite', 0, 'vues', 0, 'digidrive', 1])
+											.SADD('pads-crees:' + identifiant, id.toString())
+											.exec()
+										} else if (!donnees.pad.hasOwnProperty('code') && avecCompte === true) {
+											const couleur = choisirCouleur()
+											await db
+											.multi()
+											.INCR('pad')
+											.HSET('pads:' + id, ['id', id, 'token', token, 'titre', 'Copie de ' + donnees.pad.titre, 'identifiant', identifiant, 'fond', donnees.pad.fond, 'acces', donnees.pad.acces, 'contributions', donnees.pad.contributions, 'affichage', donnees.pad.affichage, 'registreActivite', registreActivite, 'conversation', conversation, 'listeUtilisateurs', listeUtilisateurs, 'editionNom', editionNom, 'fichiers', donnees.pad.fichiers, 'enregistrements', enregistrements, 'liens', donnees.pad.liens, 'documents', donnees.pad.documents, 'commentaires', donnees.pad.commentaires, 'evaluations', donnees.pad.evaluations, 'copieBloc', copieBloc, 'ordre', ordre, 'largeur', largeur, 'date', date, 'colonnes', donnees.pad.colonnes, 'affichageColonnes', JSON.stringify(affichageColonnes), 'bloc', donnees.pad.bloc, 'activite', 0, 'vues', 0, 'digidrive', 1])
+											.SADD('pads-crees:' + identifiant, id.toString())
+											.SADD('utilisateurs-pads:' + id, identifiant)
+											.HSET('couleurs:' + identifiant, 'pad' + id, couleur)
+											.exec()
+										}
+										if (stockage === 'fs' && await fs.pathExists(path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + pad))) {
+											await fs.copy(path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + pad), path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + id))
+										} else if (stockage === 's3') {
+											const liste = await s3Client.send(new ListObjectsV2Command({ Bucket: bucket, Prefix: pad + '/' }))
+											if (liste.hasOwnProperty('Contents')) {
+												for (let i = 0; i < liste.Contents.length; i++) {
+													await s3Client.send(new CopyObjectCommand({ Bucket: bucket, Key: id + '/' + liste.Contents[i].Key.replace(pad + '/', ''), CopySource: '/' + bucket + '/' + liste.Contents[i].Key, ACL: 'public-read' }))
+												}
+											}
+										}
+										res.send(id + '/' + token)
+									})
+								} else {
+									res.send('non_autorise')
+								}
+							} else {
+								res.send('erreur')
+							}
+						}
+					}
+				})
+			} else if (reponse.data === 'token_autorise' && req.body.action && req.body.action === 'exporter') {
+				const identifiant = req.body.identifiant
+				const motdepasse = req.body.motdepasse
+				const id = req.body.id
+				const resultat = await db.EXISTS('pads:' + id)
+				if (resultat === null) { res.send('erreur'); return false }
+				if (resultat === 1) {
+					let d = await db.HGETALL('pads:' + id)
+					d = Object.assign({}, d)
+					if (d === null) { res.send('erreur'); return false }
+					const proprietaire = d.identifiant
+					if (proprietaire === identifiant && motdepasse.trim() !== '' && d.hasOwnProperty('motdepasse') && d.motdepasse.trim() !== '' && await bcrypt.compare(motdepasse, d.motdepasse)) {
+						exporterPad(req, res, id, 'erreur')
+					} else if (!d.hasOwnProperty('motdepasse') && proprietaire === identifiant) {
+						const resultat = await db.EXISTS('utilisateurs:' + identifiant)
+						if (resultat === null) { res.send('erreur'); return false }
+						if (resultat === 1) {
+							let utilisateur = await db.HGETALL('utilisateurs:' + identifiant)
+							utilisateur = Object.assign({}, utilisateur)
+							if (utilisateur === null) { res.send('erreur'); return false }
+							if (motdepasse.trim() !== '' && utilisateur.hasOwnProperty('motdepasse') && utilisateur.motdepasse.trim() !== '' && await bcrypt.compare(motdepasse, utilisateur.motdepasse)) {
+								exporterPad(req, res, id, 'erreur')
+							} else {
+								res.send('non_autorise')
+							}
+						} else {
+							res.send('erreur')
+						}
+					} else {
+						res.send('non_autorise')
+					}
+				} else if (resultat !== 1 && pgdb === true && isNaN(parseInt(id)) === false) {
+					const client = await pool.connect()
+					const donneesQ = await client.query('SELECT donnees, blocs, activite FROM pads WHERE pad = $1', [parseInt(id)])
+					client.release()
+					if (donneesQ && donneesQ.hasOwnProperty('rows') && donneesQ.rows[0] && typeof donneesQ.rows[0] === 'object' && Object.keys(donneesQ.rows[0]).length === 3) {
+						const donnees = { pad: JSON.parse(donneesQ.rows[0].donnees), blocs: JSON.parse(donneesQ.rows[0].blocs), activite: JSON.parse(donneesQ.rows[0].activite) }
+						if (donnees.pad.identifiant === identifiant && motdepasse.trim() !== '' && donnees.pad.hasOwnProperty('motdepasse') && donnees.pad.motdepasse.trim() !== '' && await bcrypt.compare(motdepasse, donnees.pad.motdepasse)) {
+							exporterPadPg(res, id, donnees)
+						} else if (!donnees.pad.hasOwnProperty('motdepasse') && donnees.pad.identifiant === identifiant) {
+							const resultat = await db.EXISTS('utilisateurs:' + identifiant)
+							if (resultat === null) { res.send('erreur'); return false }
+							if (resultat === 1) {
+								let utilisateur = await db.HGETALL('utilisateurs:' + identifiant)
+								utilisateur = Object.assign({}, utilisateur)
+								if (utilisateur === null) { res.send('erreur'); return false }
+								if (motdepasse.trim() !== '' && utilisateur.hasOwnProperty('motdepasse') && utilisateur.motdepasse.trim() !== '' && await bcrypt.compare(motdepasse, utilisateur.motdepasse)) {
+									exporterPadPg(res, id, donnees)
+								} else {
+									res.send('non_autorise')
+								}
+							} else {
+								res.send('erreur')
+							}
+						} else {
+							res.send('non_autorise')
+						}
+					} else {
+						res.send('contenu_inexistant')
 					}
 				} else {
 					res.send('contenu_inexistant')
@@ -3613,6 +3885,214 @@ async function demarrerServeur () {
 			}
 		}).catch(function () {
 			res.send('erreur')
+		})
+	})
+
+	app.post('/api/ladigitale/importer', function (req, res) {
+		televerserTemp(req, res, async function (err) {
+			if (err) { res.send('erreur'); return false }
+			try {
+				const tokenApi = req.body.token
+				const domaine = req.headers.host
+				const lien = req.body.lien
+				const params = new URLSearchParams()
+				params.append('token', tokenApi)
+				params.append('domaine', domaine)
+				axios.post(lien, params).then(async function (reponse) {
+					if (reponse.data === 'non_autorise' || reponse.data === 'erreur') {
+						res.send('erreur_token')
+					} else if (reponse.data === 'token_autorise' && req.body.action && req.body.action === 'importer') {
+						const identifiant = req.body.identifiant
+						let nom = req.body.nomUtilisateur
+						if (nom === '') {
+							nom = identifiant.toUpperCase()
+						}
+						const titre = req.body.titre
+						const motdepasse = req.body.motdepasse
+						const hash = await bcrypt.hash(motdepasse, 10)
+						let langue = 'fr'
+						if (req.session.hasOwnProperty('langue') && req.session.langue !== '' && req.session.langue !== undefined) {
+							langue = req.session.langue
+						}
+						const source = path.join(__dirname, '..', '/static/temp/' + req.file.filename)
+						const cible = path.join(__dirname, '..', '/static/temp/archive-' + Math.floor((Math.random() * 100000) + 1))
+						await extract(source, { dir: cible })
+						const donnees = await fs.readJson(path.normalize(cible + '/donnees.json'))
+						const parametres = JSON.parse(req.body.parametres)
+						// Vérification des clés des données
+						if (donnees.hasOwnProperty('pad') && donnees.hasOwnProperty('blocs') && donnees.hasOwnProperty('activite') && donnees.pad.hasOwnProperty('id') && donnees.pad.hasOwnProperty('token') && donnees.pad.hasOwnProperty('titre') && donnees.pad.hasOwnProperty('identifiant') && donnees.pad.hasOwnProperty('fond') && donnees.pad.hasOwnProperty('acces') && donnees.pad.hasOwnProperty('contributions') && donnees.pad.hasOwnProperty('affichage') && donnees.pad.hasOwnProperty('fichiers') && donnees.pad.hasOwnProperty('liens') && donnees.pad.hasOwnProperty('documents') && donnees.pad.hasOwnProperty('commentaires') && donnees.pad.hasOwnProperty('evaluations') && donnees.pad.hasOwnProperty('date') && donnees.pad.hasOwnProperty('colonnes') && donnees.pad.hasOwnProperty('bloc') && donnees.pad.hasOwnProperty('activite')) {
+							const resultat = await db.GET('pad')
+							if (resultat === null) { res.send('erreur'); return false }
+							const id = parseInt(resultat) + 1
+							const dossier = path.join(__dirname, '..', '/static' + definirCheminFichiers())
+							checkDiskSpace(dossier).then(async function (diskSpace) {
+								const espace = Math.round((diskSpace.free / diskSpace.size) * 100)
+								if (espace < minimumEspaceDisque) {
+									res.send('erreur')
+								} else {
+									const donneesBlocs = []
+									const chemin = path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + id)
+									if (stockage === 'fs') {
+										await fs.mkdirp(chemin)
+									}
+									for (const [indexBloc, bloc] of donnees.blocs.entries()) {
+										const donneesBloc = new Promise(async function (resolve) {
+											if (bloc.hasOwnProperty('id') && bloc.hasOwnProperty('bloc') && bloc.hasOwnProperty('titre') && bloc.hasOwnProperty('texte') && bloc.hasOwnProperty('media') && bloc.hasOwnProperty('iframe') && bloc.hasOwnProperty('type') && bloc.hasOwnProperty('source') && bloc.hasOwnProperty('vignette') && bloc.hasOwnProperty('identifiant') && bloc.hasOwnProperty('commentaires') && bloc.hasOwnProperty('evaluations') && bloc.hasOwnProperty('colonne') && bloc.hasOwnProperty('listeCommentaires') && bloc.hasOwnProperty('listeEvaluations')) {
+												const date = dayjs().format()
+												let commentaires = 0
+												let evaluations = 0
+												if (parametres.commentaires === true) {
+													commentaires = bloc.commentaires
+												}
+												if (parametres.evaluations === true) {
+													evaluations = bloc.evaluations
+												}
+												if (definirVignettePersonnalisee(bloc.vignette) === true) {
+													bloc.vignette = path.basename(bloc.vignette)
+												}
+												let visibilite = 'visible'
+												if (bloc.hasOwnProperty('visibilite')) {
+													visibilite = bloc.visibilite
+												}
+												const blocId = 'bloc-id-' + (new Date()).getTime() + Math.random().toString(16).slice(10)
+												await db
+												.multi()
+												.HSET('pad-' + id + ':' + blocId, ['id', bloc.id, 'bloc', blocId, 'titre', bloc.titre, 'texte', bloc.texte, 'media', bloc.media, 'iframe', bloc.iframe, 'type', bloc.type, 'source', bloc.source, 'vignette', bloc.vignette, 'date', date, 'identifiant', bloc.identifiant, 'commentaires', commentaires, 'evaluations', evaluations, 'colonne', bloc.colonne, 'visibilite', visibilite])
+												.ZADD('blocs:' + id, [{ score: indexBloc, value: blocId }])
+												.exec()
+												if (parametres.commentaires === true) {
+													for (const commentaire of bloc.listeCommentaires) {
+														if (commentaire.hasOwnProperty('id') && commentaire.hasOwnProperty('identifiant') && commentaire.hasOwnProperty('date') && commentaire.hasOwnProperty('texte')) {
+															await db.ZADD('commentaires:' + blocId, [{ score: commentaire.id, value: JSON.stringify(commentaire) }])
+														}
+													}
+												}
+												if (parametres.evaluations === true) {
+													for (const evaluation of bloc.listeEvaluations) {
+														if (evaluation.hasOwnProperty('id') && evaluation.hasOwnProperty('identifiant') && evaluation.hasOwnProperty('date') && evaluation.hasOwnProperty('etoiles')) {
+															await db.ZADD('evaluations:' + blocId, [{ score: evaluation.id, value: JSON.stringify(evaluation) }])
+														}
+													}
+												}
+												if (stockage === 'fs' && bloc.hasOwnProperty('media') && bloc.media !== '' && bloc.type !== 'embed' && bloc.type !== 'lien' && await fs.pathExists(path.normalize(cible + '/fichiers/' + bloc.media))) {
+													await fs.copy(path.normalize(cible + '/fichiers/' + bloc.media), path.normalize(chemin + '/' + bloc.media, { overwrite: true }))
+												} else if (stockage === 's3' && bloc.hasOwnProperty('media') && bloc.media !== '' && bloc.type !== 'embed' && bloc.type !== 'lien' && await fs.pathExists(path.normalize(cible + '/fichiers/' + bloc.media))) {
+													const buffer = await fs.readFile(path.normalize(cible + '/fichiers/' + bloc.media))
+													await s3Client.send(new PutObjectCommand({ Bucket: bucket, Key: id + '/' + bloc.media, Body: buffer, ACL: 'public-read' }))
+												}
+												if (stockage === 'fs' && bloc.hasOwnProperty('vignette') && definirVignettePersonnalisee(bloc.vignette) === true && await fs.pathExists(path.normalize(cible + '/fichiers/' + bloc.vignette))) {
+													await fs.copy(path.normalize(cible + '/fichiers/' + bloc.vignette), path.normalize(chemin + '/' + bloc.vignette, { overwrite: true }))
+												} else if (stockage === 's3' && bloc.hasOwnProperty('vignette') && definirVignettePersonnalisee(bloc.vignette) === true && await fs.pathExists(path.normalize(cible + '/fichiers/' + bloc.vignette))) {
+													const buffer = await fs.readFile(path.normalize(cible + '/fichiers/' + bloc.vignette))
+													await s3Client.send(new PutObjectCommand({ Bucket: bucket, Key: id + '/' + bloc.vignette, Body: buffer, ACL: 'public-read' }))
+												}
+												resolve({ bloc: bloc.bloc, blocId: blocId })
+											} else {
+												resolve({ bloc: 0, blocId: 0 })
+											}
+										})
+										donneesBlocs.push(donneesBloc)
+									}
+									Promise.all(donneesBlocs).then(async function (blocs) {
+										const token = Math.random().toString(16).slice(2)
+										const date = dayjs().format()
+										const code = Math.floor(100000 + Math.random() * 900000)
+										let registreActivite = 'active'
+										let conversation = 'desactivee'
+										let listeUtilisateurs = 'activee'
+										let editionNom = 'desactivee'
+										let ordre = 'croissant'
+										let largeur = 'normale'
+										let enregistrements = 'desactives'
+										let copieBloc = 'desactivee'
+										let affichageColonnes = []
+										let activiteId = 0
+										if (donnees.pad.hasOwnProperty('registreActivite')) {
+											registreActivite = donnees.pad.registreActivite
+										}
+										if (donnees.pad.hasOwnProperty('conversation')) {
+											conversation = donnees.pad.conversation
+										}
+										if (donnees.pad.hasOwnProperty('listeUtilisateurs')) {
+											listeUtilisateurs = donnees.pad.listeUtilisateurs
+										}
+										if (donnees.pad.hasOwnProperty('editionNom')) {
+											editionNom = donnees.pad.editionNom
+										}
+										if (donnees.pad.hasOwnProperty('ordre')) {
+											ordre = donnees.pad.ordre
+										}
+										if (donnees.pad.hasOwnProperty('largeur')) {
+											largeur = donnees.pad.largeur
+										}
+										if (donnees.pad.hasOwnProperty('enregistrements')) {
+											enregistrements = donnees.pad.enregistrements
+										}
+										if (donnees.pad.hasOwnProperty('copieBloc')) {
+											copieBloc = donnees.pad.copieBloc
+										}
+										if (donnees.pad.hasOwnProperty('affichageColonnes')) {
+											affichageColonnes = JSON.parse(donnees.pad.affichageColonnes)
+										} else {
+											JSON.parse(donnees.pad.colonnes).forEach(function () {
+												affichageColonnes.push(true)
+											})
+										}
+										if (parametres.activite === true) {
+											activiteId = donnees.pad.activite
+										}
+										if (stockage === 'fs' && !donnees.pad.fond.includes('/img/') && donnees.pad.fond.substring(0, 1) !== '#' && donnees.pad.fond !== '' && typeof donnees.pad.fond === 'string' && await fs.pathExists(path.normalize(cible + '/fichiers/' + path.basename(donnees.pad.fond)))) {
+											await fs.copy(path.normalize(cible + '/fichiers/' + path.basename(donnees.pad.fond)), path.normalize(chemin + '/' + path.basename(donnees.pad.fond), { overwrite: true }))
+										} else if (stockage === 's3' && !donnees.pad.fond.includes('/img/') && donnees.pad.fond.substring(0, 1) !== '#' && donnees.pad.fond !== '' && typeof donnees.pad.fond === 'string' && await fs.pathExists(path.normalize(cible + '/fichiers/' + path.basename(donnees.pad.fond)))) {
+											const buffer = await fs.readFile(path.normalize(cible + '/fichiers/' + path.basename(donnees.pad.fond)))
+											await s3Client.send(new PutObjectCommand({ Bucket: bucket, Key: id + '/' + path.basename(donnees.pad.fond), Body: buffer, ACL: 'public-read' }))
+										}
+										await db
+										.multi()
+										.INCR('pad')
+										.HSET('pads:' + id, ['id', id, 'token', token, 'titre', titre, 'identifiant', identifiant, 'motdepasse', hash, 'fond', donnees.pad.fond, 'acces', donnees.pad.acces, 'code', code, 'contributions', donnees.pad.contributions, 'affichage', donnees.pad.affichage, 'registreActivite', registreActivite, 'conversation', conversation, 'listeUtilisateurs', listeUtilisateurs, 'editionNom', editionNom, 'fichiers', donnees.pad.fichiers, 'enregistrements', enregistrements, 'liens', donnees.pad.liens, 'documents', donnees.pad.documents, 'commentaires', donnees.pad.commentaires, 'evaluations', donnees.pad.evaluations, 'copieBloc', copieBloc, 'ordre', ordre, 'largeur', largeur, 'date', date, 'colonnes', donnees.pad.colonnes, 'affichageColonnes', JSON.stringify(affichageColonnes), 'bloc', donnees.pad.bloc, 'activite', activiteId, 'vues', 0, 'digidrive', 1])
+										.HSET('utilisateurs:' + identifiant, ['id', identifiant, 'date', date, 'nom', nom, 'langue', langue])
+										.SADD('pads-crees:' + identifiant, id.toString())
+										.exec()
+										if (parametres.activite === true) {
+											if (parametres.commentaires === false) {
+												donnees.activite = donnees.activite.filter(function (element) {
+													return element.type !== 'bloc-commente'
+												})
+											}
+											if (parametres.evaluations === false) {
+												donnees.activite = donnees.activite.filter(function (element) {
+													return element.type !== 'bloc-evalue'
+												})
+											}
+											for (const activite of donnees.activite) {
+												if (activite.hasOwnProperty('bloc') && activite.hasOwnProperty('identifiant') && activite.hasOwnProperty('titre') && activite.hasOwnProperty('date') && activite.hasOwnProperty('couleur') && activite.hasOwnProperty('type') && activite.hasOwnProperty('id')) {
+													blocs.forEach(function (item) {
+														if (activite.bloc === item.bloc) {
+															activite.bloc = item.blocId
+														}
+													})
+													await db.ZADD('activite:' + id, [{ score: activite.id, value: JSON.stringify(activite) }])
+												}
+											}
+										}
+										await fs.remove(source)
+										await fs.remove(cible)
+										res.send(id + '/' + token)
+									})
+								}
+							})
+						} else {
+							await fs.remove(source)
+							await fs.remove(cible)
+							res.send('donnees_corrompues')
+						}
+					}
+				})
+			} catch (err) {
+				await fs.remove(path.join(__dirname, '..', '/static/temp/' + req.file.filename))
+				res.send('erreur')
+			}
 		})
 	})
 
@@ -5496,9 +5976,6 @@ async function demarrerServeur () {
 				if (!socket.request.session.pads.includes(pad)) {
 					socket.request.session.pads.push(pad)
 				}
-				if (!socket.request.session.hasOwnProperty('digidrive')) {
-					socket.request.session.digidrive = []
-				}
 				socket.request.session.cookie.expires = new Date(Date.now() + dureeSession)
 				socket.request.session.save()
 				if (acces === true) {
@@ -5598,7 +6075,7 @@ async function demarrerServeur () {
 			}
 			await db
 			.multi()
-			.HSET('pads:' + id, ['id', id, 'token', token, 'titre', titre, 'identifiant', identifiant, 'fond', '/img/fond1.png', 'acces', 'public', 'contributions', 'ouvertes', 'affichage', 'mur', 'registreActivite', 'active', 'conversation', 'desactivee', 'listeUtilisateurs', 'activee', 'editionNom', 'desactivee', 'fichiers', 'actives', 'enregistrements', 'desactives', 'liens', 'actives', 'documents', 'desactives', 'commentaires', 'desactives', 'evaluations', 'desactivees', 'copieBloc', 'desactivee', 'ordre', 'croissant', 'largeur', 'normale', 'date', date, 'colonnes', JSON.stringify([]), 'affichageColonnes', JSON.stringify([]), 'bloc', 0, 'activite', 0, 'admins', JSON.stringify([])])
+			.HSET('pads:' + id, ['id', id, 'token', token, 'titre', titre, 'identifiant', identifiant, 'fond', '/img/fond1.png', 'acces', 'public', 'contributions', 'ouvertes', 'affichage', 'mur', 'registreActivite', 'active', 'conversation', 'desactivee', 'listeUtilisateurs', 'activee', 'editionNom', 'desactivee', 'fichiers', 'actives', 'enregistrements', 'desactives', 'liens', 'actives', 'documents', 'desactives', 'commentaires', 'desactives', 'evaluations', 'desactivees', 'copieBloc', 'desactivee', 'ordre', 'croissant', 'largeur', 'normale', 'date', date, 'colonnes', JSON.stringify([]), 'affichageColonnes', JSON.stringify([]), 'bloc', 0, 'activite', 0, 'admins', JSON.stringify([]), 'vues', 0, 'digidrive', 0])
 			.SADD('pads-crees:' + identifiant, id.toString())
 			.SADD('utilisateurs-pads:' + id, identifiant)
 			.HSET('dates-pads:' + id, 'date', date)
@@ -5615,9 +6092,13 @@ async function demarrerServeur () {
 			} else {
 				await db.INCR('pad')
 			}
+			let digidrive = 0
+			if (type === 'api') {
+				digidrive = 1
+			}
 			await db
 			.multi()
-			.HSET('pads:' + id, ['id', id, 'token', token, 'titre', titre, 'identifiant', identifiant, 'motdepasse', hash, 'fond', '/img/fond1.png', 'acces', 'public', 'contributions', 'ouvertes', 'affichage', 'mur', 'registreActivite', 'active', 'conversation', 'desactivee', 'listeUtilisateurs', 'activee', 'editionNom', 'desactivee', 'fichiers', 'actives', 'enregistrements', 'desactives', 'liens', 'actives', 'documents', 'desactives', 'commentaires', 'desactives', 'evaluations', 'desactivees', 'copieBloc', 'desactivee', 'ordre', 'croissant', 'largeur', 'normale', 'date', date, 'colonnes', JSON.stringify([]), 'affichageColonnes', JSON.stringify([]), 'bloc', 0, 'activite', 0])
+			.HSET('pads:' + id, ['id', id, 'token', token, 'titre', titre, 'identifiant', identifiant, 'motdepasse', hash, 'fond', '/img/fond1.png', 'acces', 'public', 'contributions', 'ouvertes', 'affichage', 'mur', 'registreActivite', 'active', 'conversation', 'desactivee', 'listeUtilisateurs', 'activee', 'editionNom', 'desactivee', 'fichiers', 'actives', 'enregistrements', 'desactives', 'liens', 'actives', 'documents', 'desactives', 'commentaires', 'desactives', 'evaluations', 'desactivees', 'copieBloc', 'desactivee', 'ordre', 'croissant', 'largeur', 'normale', 'date', date, 'colonnes', JSON.stringify([]), 'affichageColonnes', JSON.stringify([]), 'bloc', 0, 'activite', 0, 'vues', 0, 'digidrive', digidrive])
 			.HSET('utilisateurs:' + identifiant, ['id', identifiant, 'date', date, 'nom', nom, 'langue', langue])
 			.exec()
 			if (type === 'api') {
@@ -5670,6 +6151,7 @@ async function demarrerServeur () {
 				let copieBloc = 'desactivee'
 				let admins = JSON.stringify([])
 				let vues = 0
+				let digidrive = 0
 				let affichageColonnes = []
 				if (donnees.pad.hasOwnProperty('registreActivite')) {
 					registreActivite = donnees.pad.registreActivite
@@ -5701,6 +6183,9 @@ async function demarrerServeur () {
 				if (donnees.pad.hasOwnProperty('vues')) {
 					vues = donnees.pad.vues
 				}
+				if (donnees.pad.hasOwnProperty('digidrive')) {
+					digidrive = donnees.pad.digidrive
+				}
 				if (donnees.pad.hasOwnProperty('affichageColonnes')) {
 					affichageColonnes = donnees.pad.affichageColonnes
 				} else if (donnees.pad.colonnes.length > 0) {
@@ -5713,13 +6198,13 @@ async function demarrerServeur () {
 					affichageColonnes = JSON.stringify(affichageColonnes)
 				}
 				if (donnees.pad.hasOwnProperty('motdepasse') && donnees.pad.hasOwnProperty('code')) {
-					await db.HSET('pads:' + id, ['id', id, 'token', donnees.pad.token, 'titre', donnees.pad.titre, 'identifiant', donnees.pad.identifiant, 'fond', donnees.pad.fond, 'acces', donnees.pad.acces, 'motdepasse', donnees.pad.motdepasse, 'code', donnees.pad.code, 'contributions', donnees.pad.contributions, 'affichage', donnees.pad.affichage, 'registreActivite', registreActivite, 'conversation', conversation, 'listeUtilisateurs', listeUtilisateurs, 'editionNom', editionNom, 'fichiers', donnees.pad.fichiers, 'enregistrements', enregistrements, 'liens', donnees.pad.liens, 'documents', donnees.pad.documents, 'commentaires', donnees.pad.commentaires, 'evaluations', donnees.pad.evaluations, 'copieBloc', copieBloc, 'ordre', ordre, 'largeur', largeur, 'date', donnees.pad.date, 'colonnes', donnees.pad.colonnes, 'affichageColonnes', affichageColonnes, 'bloc', donnees.pad.bloc, 'activite', donnees.pad.activite, 'admins', admins, 'vues', vues])
+					await db.HSET('pads:' + id, ['id', id, 'token', donnees.pad.token, 'titre', donnees.pad.titre, 'identifiant', donnees.pad.identifiant, 'fond', donnees.pad.fond, 'acces', donnees.pad.acces, 'motdepasse', donnees.pad.motdepasse, 'code', donnees.pad.code, 'contributions', donnees.pad.contributions, 'affichage', donnees.pad.affichage, 'registreActivite', registreActivite, 'conversation', conversation, 'listeUtilisateurs', listeUtilisateurs, 'editionNom', editionNom, 'fichiers', donnees.pad.fichiers, 'enregistrements', enregistrements, 'liens', donnees.pad.liens, 'documents', donnees.pad.documents, 'commentaires', donnees.pad.commentaires, 'evaluations', donnees.pad.evaluations, 'copieBloc', copieBloc, 'ordre', ordre, 'largeur', largeur, 'date', donnees.pad.date, 'colonnes', donnees.pad.colonnes, 'affichageColonnes', affichageColonnes, 'bloc', donnees.pad.bloc, 'activite', donnees.pad.activite, 'admins', admins, 'vues', vues, 'digidrive', digidrive])
 				} else if (donnees.pad.hasOwnProperty('motdepasse') && !donnees.pad.hasOwnProperty('code')) {
-					await db.HSET('pads:' + id, ['id', id, 'token', donnees.pad.token, 'titre', donnees.pad.titre, 'identifiant', donnees.pad.identifiant, 'fond', donnees.pad.fond, 'acces', donnees.pad.acces, 'motdepasse', donnees.pad.motdepasse, 'contributions', donnees.pad.contributions, 'affichage', donnees.pad.affichage, 'registreActivite', registreActivite, 'conversation', conversation, 'listeUtilisateurs', listeUtilisateurs, 'editionNom', editionNom, 'fichiers', donnees.pad.fichiers, 'enregistrements', enregistrements, 'liens', donnees.pad.liens, 'documents', donnees.pad.documents, 'commentaires', donnees.pad.commentaires, 'evaluations', donnees.pad.evaluations, 'copieBloc', copieBloc, 'ordre', ordre, 'largeur', largeur, 'date', donnees.pad.date, 'colonnes', donnees.pad.colonnes, 'affichageColonnes', affichageColonnes, 'bloc', donnees.pad.bloc, 'activite', donnees.pad.activite, 'admins', admins, 'vues', vues])
+					await db.HSET('pads:' + id, ['id', id, 'token', donnees.pad.token, 'titre', donnees.pad.titre, 'identifiant', donnees.pad.identifiant, 'fond', donnees.pad.fond, 'acces', donnees.pad.acces, 'motdepasse', donnees.pad.motdepasse, 'contributions', donnees.pad.contributions, 'affichage', donnees.pad.affichage, 'registreActivite', registreActivite, 'conversation', conversation, 'listeUtilisateurs', listeUtilisateurs, 'editionNom', editionNom, 'fichiers', donnees.pad.fichiers, 'enregistrements', enregistrements, 'liens', donnees.pad.liens, 'documents', donnees.pad.documents, 'commentaires', donnees.pad.commentaires, 'evaluations', donnees.pad.evaluations, 'copieBloc', copieBloc, 'ordre', ordre, 'largeur', largeur, 'date', donnees.pad.date, 'colonnes', donnees.pad.colonnes, 'affichageColonnes', affichageColonnes, 'bloc', donnees.pad.bloc, 'activite', donnees.pad.activite, 'admins', admins, 'vues', vues, 'digidrive', digidrive])
 				} else if (donnees.pad.hasOwnProperty('code')) {
-					await db.HSET('pads:' + id, ['id', id, 'token', donnees.pad.token, 'titre', donnees.pad.titre, 'identifiant', donnees.pad.identifiant, 'fond', donnees.pad.fond, 'acces', donnees.pad.acces, 'code', donnees.pad.code, 'contributions', donnees.pad.contributions, 'affichage', donnees.pad.affichage, 'registreActivite', registreActivite, 'conversation', conversation, 'listeUtilisateurs', listeUtilisateurs, 'editionNom', editionNom, 'fichiers', donnees.pad.fichiers, 'enregistrements', enregistrements, 'liens', donnees.pad.liens, 'documents', donnees.pad.documents, 'commentaires', donnees.pad.commentaires, 'evaluations', donnees.pad.evaluations, 'copieBloc', copieBloc, 'ordre', ordre, 'largeur', largeur, 'date', donnees.pad.date, 'colonnes', donnees.pad.colonnes, 'affichageColonnes', affichageColonnes, 'bloc', donnees.pad.bloc, 'activite', donnees.pad.activite, 'admins', admins, 'vues', vues])
+					await db.HSET('pads:' + id, ['id', id, 'token', donnees.pad.token, 'titre', donnees.pad.titre, 'identifiant', donnees.pad.identifiant, 'fond', donnees.pad.fond, 'acces', donnees.pad.acces, 'code', donnees.pad.code, 'contributions', donnees.pad.contributions, 'affichage', donnees.pad.affichage, 'registreActivite', registreActivite, 'conversation', conversation, 'listeUtilisateurs', listeUtilisateurs, 'editionNom', editionNom, 'fichiers', donnees.pad.fichiers, 'enregistrements', enregistrements, 'liens', donnees.pad.liens, 'documents', donnees.pad.documents, 'commentaires', donnees.pad.commentaires, 'evaluations', donnees.pad.evaluations, 'copieBloc', copieBloc, 'ordre', ordre, 'largeur', largeur, 'date', donnees.pad.date, 'colonnes', donnees.pad.colonnes, 'affichageColonnes', affichageColonnes, 'bloc', donnees.pad.bloc, 'activite', donnees.pad.activite, 'admins', admins, 'vues', vues, 'digidrive', digidrive])
 				} else {
-					await db.HSET('pads:' + id, ['id', id, 'token', donnees.pad.token, 'titre', donnees.pad.titre, 'identifiant', donnees.pad.identifiant, 'fond', donnees.pad.fond, 'acces', donnees.pad.acces, 'contributions', donnees.pad.contributions, 'affichage', donnees.pad.affichage, 'registreActivite', registreActivite, 'conversation', conversation, 'listeUtilisateurs', listeUtilisateurs, 'editionNom', editionNom, 'fichiers', donnees.pad.fichiers, 'enregistrements', enregistrements, 'liens', donnees.pad.liens, 'documents', donnees.pad.documents, 'commentaires', donnees.pad.commentaires, 'evaluations', donnees.pad.evaluations, 'copieBloc', copieBloc, 'ordre', ordre, 'largeur', largeur, 'date', donnees.pad.date, 'colonnes', donnees.pad.colonnes, 'affichageColonnes', affichageColonnes, 'bloc', donnees.pad.bloc, 'activite', donnees.pad.activite, 'admins', admins, 'vues', vues])
+					await db.HSET('pads:' + id, ['id', id, 'token', donnees.pad.token, 'titre', donnees.pad.titre, 'identifiant', donnees.pad.identifiant, 'fond', donnees.pad.fond, 'acces', donnees.pad.acces, 'contributions', donnees.pad.contributions, 'affichage', donnees.pad.affichage, 'registreActivite', registreActivite, 'conversation', conversation, 'listeUtilisateurs', listeUtilisateurs, 'editionNom', editionNom, 'fichiers', donnees.pad.fichiers, 'enregistrements', enregistrements, 'liens', donnees.pad.liens, 'documents', donnees.pad.documents, 'commentaires', donnees.pad.commentaires, 'evaluations', donnees.pad.evaluations, 'copieBloc', copieBloc, 'ordre', ordre, 'largeur', largeur, 'date', donnees.pad.date, 'colonnes', donnees.pad.colonnes, 'affichageColonnes', affichageColonnes, 'bloc', donnees.pad.bloc, 'activite', donnees.pad.activite, 'admins', admins, 'vues', vues, 'digidrive', digidrive])
 				}
 				for (const activite of donnees.activite) {
 					if (activite.hasOwnProperty('bloc') && activite.hasOwnProperty('identifiant') && activite.hasOwnProperty('titre') && activite.hasOwnProperty('date') && activite.hasOwnProperty('couleur') && activite.hasOwnProperty('type') && activite.hasOwnProperty('id')) {
@@ -6195,6 +6680,9 @@ async function demarrerServeur () {
 				if (!admin && !accesPrive) {
 					vues = vues + 1
 				}
+			}
+			if (!pad.hasOwnProperty('digidrive')) {
+				pad.digidrive = 0
 			}
 			// Pour homogénéité des paramètres de pad
 			if (!pad.hasOwnProperty('fondRepete')) {
@@ -6837,11 +7325,8 @@ async function demarrerServeur () {
 				if (!req.session.hasOwnProperty('pads')) {
 					req.session.pads = []
 				}
-				if (!req.session.hasOwnProperty('digidrive')) {
-					req.session.digidrive = []
-				}
-				if (!req.session.digidrive.includes(pad)) {
-					req.session.digidrive.push(pad)
+				if (!donnees.hasOwnProperty('digidrive') || (donnees.hasOwnProperty('digidrive') && parseInt(donnees.digidrive) === 0)) {
+					await db.HSET('pads:' + pad, 'digidrive', 1)
 				}
 				req.session.cookie.expires = new Date(Date.now() + dureeSession)
 				resolve('pad_debloque')
@@ -6863,11 +7348,8 @@ async function demarrerServeur () {
 						if (!req.session.hasOwnProperty('pads')) {
 							req.session.pads = []
 						}
-						if (!req.session.hasOwnProperty('digidrive')) {
-							req.session.digidrive = []
-						}
-						if (!req.session.digidrive.includes(pad)) {
-							req.session.digidrive.push(pad)
+						if (!donnees.hasOwnProperty('digidrive') || (donnees.hasOwnProperty('digidrive') && parseInt(donnees.digidrive) === 0)) {
+							await db.HSET('pads:' + pad, 'digidrive', 1)
 						}
 						req.session.cookie.expires = new Date(Date.now() + dureeSession)
 						resolve('pad_debloque')
@@ -6881,6 +7363,244 @@ async function demarrerServeur () {
 				resolve('erreur')
 			}
 		})
+	}
+
+	function exporterPad (req, res, id, erreur) {
+		const donneesPad = new Promise(async function (resolveMain) {
+			let resultats = await db.HGETALL('pads:' + id)
+			resultats = Object.assign({}, resultats)
+			if (resultats === null) { resolveMain({}); return false }
+			resolveMain(resultats)
+		})
+		const blocsPad = new Promise(async function (resolveMain) {
+			const donneesBlocs = []
+			const blocs = await db.ZRANGE('blocs:' + id, 0, -1)
+			if (blocs === null) { resolveMain(donneesBlocs); return false }
+			for (const bloc of blocs) {
+				const donneesBloc = new Promise(async function (resolve) {
+					let donnees = await db.HGETALL('pad-' + id + ':' + bloc)
+					donnees = Object.assign({}, donnees)
+					if (donnees === null) { resolve({}); return false }
+					const donneesCommentaires = []
+					const commentaires = await db.ZRANGE('commentaires:' + bloc, 0, -1)
+					if (commentaires === null) { resolve(donnees); return false }
+					for (let commentaire of commentaires) {
+						donneesCommentaires.push(JSON.parse(commentaire))
+					}
+					donnees.commentaires = donneesCommentaires.length
+					donnees.listeCommentaires = donneesCommentaires
+					const evaluations = await db.ZRANGE('evaluations:' + bloc, 0, -1)
+					if (evaluations === null) { resolve(donnees); return false }
+					const donneesEvaluations = []
+					evaluations.forEach(function (evaluation) {
+						donneesEvaluations.push(JSON.parse(evaluation))
+					})
+					donnees.evaluations = donneesEvaluations.length
+					donnees.listeEvaluations = donneesEvaluations
+					const resultat = await db.EXISTS('noms:' + donnees.identifiant)
+					if (resultat === null) { resolve(donnees); return false }
+					if (resultat === 1) {
+						const nom = await db.HGET('noms:' + donnees.identifiant, 'nom')
+						if (nom === null) { resolve(donnees); return false }
+						donnees.nom = nom
+						donnees.info = formaterDate(donnees, req.session.langue)
+						resolve(donnees)
+					} else {
+						donnees.nom = genererPseudo()
+						donnees.info = formaterDate(donnees, req.session.langue)
+						resolve(donnees)
+					}
+				})
+				donneesBlocs.push(donneesBloc)
+			}
+			Promise.all(donneesBlocs).then(function (resultat) {
+				resultat = resultat.filter(function (element) {
+					return Object.keys(element).length > 0
+				})
+				resolveMain(resultat)
+			})
+		})
+		const activitePad = new Promise(async function (resolveMain) {
+			const donneesEntrees = []
+			const entrees = await db.ZRANGE('activite:' + id, 0, -1)
+			if (entrees === null) { resolveMain(donneesEntrees); return false }
+			for (let entree of entrees) {
+				entree = JSON.parse(entree)
+				const donneesEntree = new Promise(async function (resolve) {
+					const resultat = await db.EXISTS('utilisateurs:' + entree.identifiant)
+					if (resultat === null) { resolve({}) }
+					if (resultat === 1) {
+						resolve(entree)
+					} else {
+						resolve({})
+					}
+				})
+				donneesEntrees.push(donneesEntree)
+			}
+			Promise.all(donneesEntrees).then(function (resultat) {
+				resultat = resultat.filter(function (element) {
+					return Object.keys(element).length > 0
+				})
+				resolveMain(resultat)
+			})
+		})
+		Promise.all([donneesPad, blocsPad, activitePad]).then(async function (donnees) {
+			if (donnees.length > 0 && donnees[0].hasOwnProperty('id')) {
+				const parametres = {}
+				parametres.pad = donnees[0]
+				parametres.blocs = donnees[1]
+				parametres.activite = donnees[2]
+				const html = genererHTML(donnees[0], donnees[1])
+				const chemin = path.join(__dirname, '..', '/static/temp')
+				await fs.mkdirp(path.normalize(chemin + '/' + id))
+				await fs.mkdirp(path.normalize(chemin + '/' + id + '/fichiers'))
+				await fs.mkdirp(path.normalize(chemin + '/' + id + '/static'))
+				await fs.writeFile(path.normalize(chemin + '/' + id + '/donnees.json'), JSON.stringify(parametres, '', 4), 'utf8')
+				await fs.writeFile(path.normalize(chemin + '/' + id + '/index.html'), html, 'utf8')
+				if (!parametres.pad.fond.includes('/img/') && parametres.pad.fond.substring(0, 1) !== '#' && parametres.pad.fond !== '' && typeof parametres.pad.fond === 'string') {
+					const fichierFond = path.basename(parametres.pad.fond)
+					if (stockage === 'fs' && await fs.pathExists(path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + id + '/' + fichierFond))) {
+						await fs.copy(path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + id + '/' + fichierFond), path.normalize(chemin + '/' + id + '/fichiers/' + fichierFond, { overwrite: true }))
+					} else if (stockage === 's3') {
+						try {
+							const fichierMeta = await s3Client.send(new HeadObjectCommand({ Bucket: bucket, Key: id + '/' + fichierFond }))
+							if (fichierMeta.hasOwnProperty('ContentLength')) {
+								await telechargerFichierS3(id + '/' + fichierFond, path.normalize(chemin + '/' + id + '/fichiers/' + fichierFond))
+							}
+						} catch (e) {}
+					}
+				} else if (parametres.pad.fond.includes('/img/') && await fs.pathExists(path.join(__dirname, '..', '/public' + parametres.pad.fond))) {
+					await fs.copy(path.join(__dirname, '..', '/public' + parametres.pad.fond), path.normalize(chemin + '/' + id + '/static' + parametres.pad.fond, { overwrite: true }))
+				}
+				if (await fs.pathExists(path.join(__dirname, '..', '/static/export/css'))) {
+					await fs.copy(path.join(__dirname, '..', '/static/export/css'), path.normalize(chemin + '/' + id + '/static/css'))
+				}
+				if (await fs.pathExists(path.join(__dirname, '..', '/static/export/js'))) {
+					await fs.copy(path.join(__dirname, '..', '/static/export/js'), path.normalize(chemin + '/' + id + '/static/js'))
+				}
+				await fs.copy(path.join(__dirname, '..', '/public/fonts/MaterialIcons-Regular.woff2'), path.normalize(chemin + '/' + id + '/static/fonts/MaterialIcons-Regular.woff2'))
+				await fs.copy(path.join(__dirname, '..', '/public/fonts/Roboto-Slab-Medium.woff2'), path.normalize(chemin + '/' + id + '/static/fonts/Roboto-Slab-Medium.woff2'))
+				await fs.copy(path.join(__dirname, '..', '/public/img/favicon.png'), path.normalize(chemin + '/' + id + '/static/img/favicon.png'))
+				for (const bloc of parametres.blocs) {
+					if (stockage === 'fs' && Object.keys(bloc).length > 0 && bloc.hasOwnProperty('media') && bloc.media !== '' && bloc.type !== 'embed' && bloc.type !== 'lien' && await fs.pathExists(path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + id + '/' + bloc.media))) {
+						await fs.copy(path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + id + '/' + bloc.media), path.normalize(chemin + '/' + id + '/fichiers/' + bloc.media, { overwrite: true }))
+					} else if (stockage === 's3' && Object.keys(bloc).length > 0 && bloc.hasOwnProperty('media') && bloc.media !== '' && bloc.type !== 'embed' && bloc.type !== 'lien') {
+						try {
+							const fichierMeta = await s3Client.send(new HeadObjectCommand({ Bucket: bucket, Key: id + '/' + bloc.media }))
+							if (fichierMeta.hasOwnProperty('ContentLength')) {
+								await telechargerFichierS3(id + '/' + bloc.media, path.normalize(chemin + '/' + id + '/fichiers/' + bloc.media))
+							}
+						} catch (e) {}
+					}
+					if (Object.keys(bloc).length > 0 && bloc.hasOwnProperty('vignette') && bloc.vignette !== '') {
+						if (typeof bloc.vignette === 'string' && bloc.vignette.includes('/img/') && !verifierURL(bloc.vignette, ['https', 'http']) && await fs.pathExists(path.join(__dirname, '..', '/public' + bloc.vignette))) {
+							await fs.copy(path.join(__dirname, '..', '/public' + bloc.vignette), path.normalize(chemin + '/' + id + '/static' + bloc.vignette, { overwrite: true }))
+						} else if (definirVignettePersonnalisee(bloc.vignette) === true) {
+							const fichierVignette = path.basename(bloc.vignette)
+							if (stockage === 'fs' && await fs.pathExists(path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + id + '/' + fichierVignette))) {
+								await fs.copy(path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + id + '/' + fichierVignette), path.normalize(chemin + '/' + id + '/fichiers/' + fichierVignette, { overwrite: true }))
+							} else if (stockage === 's3') {
+								try {
+									const fichierMeta = await s3Client.send(new HeadObjectCommand({ Bucket: bucket, Key: id + '/' + fichierVignette }))
+									if (fichierMeta.hasOwnProperty('ContentLength')) {
+										await telechargerFichierS3(id + '/' + fichierVignette, path.normalize(chemin + '/' + id + '/fichiers/' + fichierVignette))
+									}
+								} catch (e) {}
+							}
+						}
+					}
+				}
+				const archiveId = Math.floor((Math.random() * 100000) + 1)
+				const sortie = fs.createWriteStream(path.normalize(chemin + '/pad-' + id + '_' + archiveId + '.zip'))
+				const archive = archiver('zip', {
+					zlib: { level: 9 }
+				})
+				sortie.on('finish', async function () {
+					await fs.remove(path.normalize(chemin + '/' + id))
+					res.send('pad-' + id + '_' + archiveId + '.zip')
+				})
+				archive.pipe(sortie)
+				archive.directory(path.normalize(chemin + '/' + id), false)
+				archive.finalize()
+			} else {
+				res.send(erreur)
+			}
+		})
+	}
+
+	async function exporterPadPg (res, id, donnees) {
+		const html = genererHTML(donnees.pad, donnees.blocs)
+		const chemin = path.join(__dirname, '..', '/static/temp')
+		await fs.mkdirp(path.normalize(chemin + '/' + id))
+		await fs.mkdirp(path.normalize(chemin + '/' + id + '/fichiers'))
+		await fs.mkdirp(path.normalize(chemin + '/' + id + '/static'))
+		await fs.writeFile(path.normalize(chemin + '/' + id + '/donnees.json'), JSON.stringify(donnees, '', 4), 'utf8')
+		await fs.writeFile(path.normalize(chemin + '/' + id + '/index.html'), html, 'utf8')
+		if (!donnees.pad.fond.includes('/img/') && donnees.pad.fond.substring(0, 1) !== '#' && donnees.pad.fond !== '' && typeof donnees.pad.fond === 'string') {
+			const fichierFond = path.basename(donnees.pad.fond)
+			if (stockage === 'fs' && await fs.pathExists(path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + id + '/' + fichierFond))) {
+				await fs.copy(path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + id + '/' + fichierFond), path.normalize(chemin + '/' + id + '/fichiers/' + fichierFond, { overwrite: true }))
+			} else if (stockage === 's3') {
+				try {
+					const fichierMeta = await s3Client.send(new HeadObjectCommand({ Bucket: bucket, Key: id + '/' + fichierFond }))
+					if (fichierMeta.hasOwnProperty('ContentLength')) {
+						await telechargerFichierS3(id + '/' + fichierFond, path.normalize(chemin + '/' + id + '/fichiers/' + fichierFond))
+					}
+				} catch (e) {}
+			}
+		} else if (donnees.pad.fond.includes('/img/') && await fs.pathExists(path.join(__dirname, '..', '/public' + donnees.pad.fond))) {
+			await fs.copy(path.join(__dirname, '..', '/public' + donnees.pad.fond), path.normalize(chemin + '/' + id + '/static' + donnees.pad.fond, { overwrite: true }))
+		}
+		if (await fs.pathExists(path.join(__dirname, '..', '/static/export/css'))) {
+			await fs.copy(path.join(__dirname, '..', '/static/export/css'), path.normalize(chemin + '/' + id + '/static/css'))
+		}
+		if (await fs.pathExists(path.join(__dirname, '..', '/static/export/js'))) {
+			await fs.copy(path.join(__dirname, '..', '/static/export/js'), path.normalize(chemin + '/' + id + '/static/js'))
+		}
+		await fs.copy(path.join(__dirname, '..', '/public/fonts/MaterialIcons-Regular.woff2'), path.normalize(chemin + '/' + id + '/static/fonts/MaterialIcons-Regular.woff2'))
+		await fs.copy(path.join(__dirname, '..', '/public/fonts/Roboto-Slab-Medium.woff2'), path.normalize(chemin + '/' + id + '/static/fonts/Roboto-Slab-Medium.woff2'))
+		await fs.copy(path.join(__dirname, '..', '/public/img/favicon.png'), path.normalize(chemin + '/' + id + '/static/img/favicon.png'))
+		for (const bloc of donnees.blocs) {
+			if (stockage === 'fs' && Object.keys(bloc).length > 0 && bloc.hasOwnProperty('media') && bloc.media !== '' && bloc.type !== 'embed' && bloc.type !== 'lien' && await fs.pathExists(path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + id + '/' + bloc.media))) {
+				await fs.copy(path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + id + '/' + bloc.media), path.normalize(chemin + '/' + id + '/fichiers/' + bloc.media, { overwrite: true }))
+			} else if (stockage === 's3' && Object.keys(bloc).length > 0 && bloc.hasOwnProperty('media') && bloc.media !== '' && bloc.type !== 'embed' && bloc.type !== 'lien') {
+				try {
+					const fichierMeta = await s3Client.send(new HeadObjectCommand({ Bucket: bucket, Key: id + '/' + bloc.media }))
+					if (fichierMeta.hasOwnProperty('ContentLength')) {
+						await telechargerFichierS3(id + '/' + bloc.media, path.normalize(chemin + '/' + id + '/fichiers/' + bloc.media))
+					}
+				} catch (e) {}
+			}
+			if (Object.keys(bloc).length > 0 && bloc.hasOwnProperty('vignette') && bloc.vignette !== '') {
+				if (typeof bloc.vignette === 'string' && bloc.vignette.includes('/img/') && !verifierURL(bloc.vignette, ['https', 'http']) && await fs.pathExists(path.join(__dirname, '..', '/public' + bloc.vignette))) {
+					await fs.copy(path.join(__dirname, '..', '/public' + bloc.vignette), path.normalize(chemin + '/' + id + '/static' + bloc.vignette, { overwrite: true }))
+				} else if (definirVignettePersonnalisee(bloc.vignette) === true) {
+					const fichierVignette = path.basename(bloc.vignette)
+					if (stockage === 'fs' && await fs.pathExists(path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + id + '/' + fichierVignette))) {
+						await fs.copy(path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + id + '/' + fichierVignette), path.normalize(chemin + '/' + id + '/fichiers/' + fichierVignette, { overwrite: true }))
+					} else if (stockage === 's3') {
+						try {
+							const fichierMeta = await s3Client.send(new HeadObjectCommand({ Bucket: bucket, Key: id + '/' + fichierVignette }))
+							if (fichierMeta.hasOwnProperty('ContentLength')) {
+								await telechargerFichierS3(id + '/' + fichierVignette, path.normalize(chemin + '/' + id + '/fichiers/' + fichierVignette))
+							}
+						} catch (e) {}
+					}
+				}
+			}
+		}
+		const archiveId = Math.floor((Math.random() * 100000) + 1)
+		const sortie = fs.createWriteStream(path.normalize(chemin + '/pad-' + id + '_' + archiveId + '.zip'))
+		const archive = archiver('zip', {
+			zlib: { level: 9 }
+		})
+		sortie.on('finish', async function () {
+			await fs.remove(path.normalize(chemin + '/' + id))
+			res.send('pad-' + id + '_' + archiveId + '.zip')
+		})
+		archive.pipe(sortie)
+		archive.directory(path.normalize(chemin + '/' + id), false)
+		archive.finalize()
 	}
 
 	function choisirCouleur () {
