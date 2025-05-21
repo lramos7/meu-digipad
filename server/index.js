@@ -39,8 +39,8 @@ import session from 'express-session'
 import events from 'events'
 import base64 from 'base-64'
 import checkDiskSpace from 'check-disk-space'
-import pg from 'pg'
 import { S3Client, CopyObjectCommand, PutObjectCommand, ListObjectsV2Command, GetObjectCommand, HeadObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3'
+import DOMPurify from 'isomorphic-dompurify'
 import { renderPage, createDevMiddleware } from 'vike/server'
 
 const production = process.env.NODE_ENV === 'production'
@@ -92,6 +92,10 @@ async function demarrerServeur () {
 			credentials: {
 				accessKeyId: process.env.S3_ACCESS_KEY,
 				secretAccessKey: process.env.S3_SECRET_KEY
+			},
+			requestHandler: {
+				requestTimeout: 30_000,
+				httpAgent: { maxSockets: 500 },
 			}
 		})
 	}
@@ -159,34 +163,6 @@ async function demarrerServeur () {
 		domainesAutorises = process.env.AUTHORIZED_DOMAINS.split(',')
 	} else {
 		domainesAutorises = '*'
-	}
-
-	let pgdb = false
-	let pool = null
-	if (production && process.env.PG_DB && parseInt(process.env.PG_DB) === 1) {
-		const { Pool } = pg
-		pgdb = true
-		let maxCon = 240
-		if (cluster === true) {
-			maxCon = 15
-		}
-		pool = new Pool({
-			user: process.env.PG_DB_USER,
-			password: process.env.PG_DB_PWD,
-			host: process.env.PG_DB_HOST,
-			port: process.env.PG_DB_PORT,
-			database: process.env.PG_DB_NAME,
-			max: maxCon,
-			idleTimeoutMillis: 30000,
-			connectionTimeoutMillis: 360000,
-			allowExitOnIdle: true
-		})
-		pool.on('error', function (err) {
-			console.log('pg: ' + err)
-		})
-		const client = await pool.connect()
-		await client.query('CREATE TABLE IF NOT EXISTS pads (id BIGSERIAL PRIMARY KEY, pad INTEGER NOT NULL, donnees TEXT NOT NULL, blocs TEXT NOT NULL, activite TEXT NOT NULL, date TEXT NOT NULL)')
-		client.release()
 	}
 
 	let earlyHints103 = false
@@ -421,14 +397,8 @@ async function demarrerServeur () {
 							const resultat = await db.EXISTS('pads:' + pad)
 							if (resultat === null || resultat === 1) {
 								resolve()
-							} else if (resultat !== 1 && pgdb === true && isNaN(parseInt(pad)) === false) {
-								const client = await pool.connect()
-								if ((await client.query('SELECT id FROM pads WHERE pad = $1', [parseInt(pad)])).rowCount > 0) {
-									resolve()
-								} else {
-									resolve(parseInt(pad))
-								}
-								client.release()
+							} else if (resultat !== 1 && isNaN(parseInt(pad)) === false && await fs.pathExists(path.join(__dirname, '..', '/static/pads/pad-' + pad + '.json'))) {
+								resolve()
 							} else {
 								resolve(parseInt(pad))
 							}
@@ -809,12 +779,9 @@ async function demarrerServeur () {
 		pad = Object.assign({}, pad)
 		if (resultat === 1 && pad !== null) {
 			recupererDonneesPad(id, token, identifiant, statut, res)
-		} else if ((resultat !== 1 || pad === null) && pgdb === true && isNaN(parseInt(id)) === false) {
-			const client = await pool.connect()
-			const donneesQ = await client.query('SELECT donnees, blocs, activite FROM pads WHERE pad = $1', [parseInt(id)])
-			client.release()
-			if (donneesQ && donneesQ.hasOwnProperty('rows') && donneesQ.rows[0] && typeof donneesQ.rows[0] === 'object' && Object.keys(donneesQ.rows[0]).length === 3) {
-				const donnees = { pad: JSON.parse(donneesQ.rows[0].donnees), blocs: JSON.parse(donneesQ.rows[0].blocs), activite: JSON.parse(donneesQ.rows[0].activite) }
+		} else if ((resultat !== 1 || pad === null) && isNaN(parseInt(id)) === false && await fs.pathExists(path.join(__dirname, '..', '/static/pads/' + id + '.json'))) {
+			const donnees = await fs.readJson(path.join(__dirname, '..', '/static/pads/' + id + '.json'))
+			if (typeof donnees === 'object' && donnees !== null && donnees.hasOwnProperty('pad') && donnees.hasOwnProperty('blocs') && donnees.hasOwnProperty('activite')) {
 				await ajouterPadDansDb(id, donnees)
 				recupererDonneesPad(id, token, identifiant, statut, res)
 			} else {
@@ -1159,12 +1126,9 @@ async function demarrerServeur () {
 						} else {
 							res.send('non_autorise')
 						}
-					} else if (resultat !== 1 && pgdb === true && isNaN(parseInt(pad)) === false) {
-						const client = await pool.connect()
-						const donneesQ = await client.query('SELECT donnees, blocs, activite FROM pads WHERE pad = $1', [parseInt(pad)])
-						client.release()
-						if (donneesQ && donneesQ.hasOwnProperty('rows') && donneesQ.rows[0] && typeof donneesQ.rows[0] === 'object' && Object.keys(donneesQ.rows[0]).length === 3) {
-							const donnees = { pad: JSON.parse(donneesQ.rows[0].donnees), blocs: JSON.parse(donneesQ.rows[0].blocs), activite: JSON.parse(donneesQ.rows[0].activite) }
+					} else if (resultat !== 1 && isNaN(parseInt(pad)) === false && await fs.pathExists(path.join(__dirname, '..', '/static/pads/' + pad + '.json'))) {
+						const donnees = await fs.readJson(path.join(__dirname, '..', '/static/pads/' + pad + '.json'))
+						if (typeof donnees === 'object' && donnees !== null && donnees.hasOwnProperty('pad') && donnees.hasOwnProperty('blocs') && donnees.hasOwnProperty('activite')) {
 							if (donnees.pad.identifiant === identifiant) {
 								const date = dayjs().format()
 								const donneesBlocs = []
@@ -1309,14 +1273,11 @@ async function demarrerServeur () {
 				} else {
 					res.send('non_autorise')
 				}
-			} else if (resultat !== 1 && pgdb === true && isNaN(parseInt(id)) === false) {
-				const client = await pool.connect()
-				const donneesQ = await client.query('SELECT donnees, blocs, activite FROM pads WHERE pad = $1', [parseInt(id)])
-				client.release()
-				if (donneesQ && donneesQ.hasOwnProperty('rows') && donneesQ.rows[0] && typeof donneesQ.rows[0] === 'object' && Object.keys(donneesQ.rows[0]).length === 3) {
-					const donnees = { pad: JSON.parse(donneesQ.rows[0].donnees), blocs: JSON.parse(donneesQ.rows[0].blocs), activite: JSON.parse(donneesQ.rows[0].activite) }
+			} else if (resultat !== 1 && isNaN(parseInt(id)) === false) {
+				const donnees = await fs.readJson(path.join(__dirname, '..', '/static/pads/' + id + '.json'))
+				if (typeof donnees === 'object' && donnees !== null && donnees.hasOwnProperty('pad') && donnees.hasOwnProperty('blocs') && donnees.hasOwnProperty('activite')) {
 					if (donnees.pad.identifiant === identifiant || (admin !== '' && admin === motdepasseAdmin)) {
-						exporterPadPg(res, id, donnees)
+						exporterPadJson(res, id, donnees)
 					} else {
 						res.send('non_autorise')
 					}
@@ -1632,12 +1593,9 @@ async function demarrerServeur () {
 						res.send('pad_supprime')
 					}
 				}
-			} else if (resultat !== 1 && pgdb === true && isNaN(parseInt(pad)) === false) {
-				const client = await pool.connect()
-				const donneesQ = await client.query('SELECT donnees FROM pads WHERE pad = $1', [parseInt(pad)])
-				client.release()
-				if (donneesQ && donneesQ.hasOwnProperty('rows') && donneesQ.rows[0] && typeof donneesQ.rows[0] === 'object' && Object.keys(donneesQ.rows[0]).length === 1) {
-					const donneesPad = JSON.parse(donneesQ.rows[0].donnees)
+			} else if (resultat !== 1 && isNaN(parseInt(pad)) === false && await fs.pathExists(path.join(__dirname, '..', '/static/pads/pad-' + pad + '.json'))) {
+				const donneesPad = await fs.readJson(path.join(__dirname, '..', '/static/pads/pad-' + pad + '.json'))
+				if (typeof donneesPad === 'object' && donneesPad !== null) {
 					if (donneesPad.identifiant === identifiant) {
 						await db.SREM('pads-crees:' + identifiant, pad.toString())
 						const utilisateurs = await db.SMEMBERS('utilisateurs-pads:' + pad)
@@ -1663,9 +1621,8 @@ async function demarrerServeur () {
 								}
 							}
 						}
-						const client = await pool.connect()
-						await client.query('DELETE FROM pads WHERE pad = $1', [parseInt(pad)])
-						client.release()
+						await fs.remove(path.join(__dirname, '..', '/static/pads/' + pad + '.json'))
+						await fs.remove(path.join(__dirname, '..', '/static/pads/pad-' + pad + '.json'))
 						res.send('pad_supprime')
 					} else {
 						let donnees = await db.HGETALL('utilisateurs:' + identifiant)
@@ -1828,12 +1785,9 @@ async function demarrerServeur () {
 				donneesPad = Object.assign({}, donneesPad)
 				if (donneesPad === null) { res.send('erreur'); return false }
 				res.json(donneesPad)
-			} else if (resultat !== 1 && pgdb === true && isNaN(parseInt(pad)) === false) {
-				const client = await pool.connect()
-				const donneesQ = await client.query('SELECT donnees FROM pads WHERE pad = $1', [parseInt(pad)])
-				client.release()
-				if (donneesQ && donneesQ.hasOwnProperty('rows') && donneesQ.rows[0] && typeof donneesQ.rows[0] === 'object' && Object.keys(donneesQ.rows[0]).length === 1) {
-					const donneesPad = JSON.parse(donneesQ.rows[0].donnees)
+			} else if (resultat !== 1 && isNaN(parseInt(pad)) === false && await fs.pathExists(path.join(__dirname, '..', '/static/pads/pad-' + pad + '.json'))) {
+				const donneesPad = await fs.readJson(path.join(__dirname, '..', '/static/pads/pad-' + pad + '.json'))
+				if (typeof donneesPad === 'object' && donneesPad !== null) {
 					res.json(donneesPad)
 				} else {
 					res.send('pad_inexistant')
@@ -1862,12 +1816,9 @@ async function demarrerServeur () {
 					await db.HSET('pads:' + pad, champ, valeur)
 				}
 				res.send('donnees_modifiees')
-			} else if (resultat !== 1 && pgdb === true && isNaN(parseInt(pad)) === false) {
-				const client = await pool.connect()
-				const donneesQ = await client.query('SELECT donnees, blocs, activite FROM pads WHERE pad = $1', [parseInt(pad)])
-				client.release()
-				if (donneesQ && donneesQ.hasOwnProperty('rows') && donneesQ.rows[0] && typeof donneesQ.rows[0] === 'object' && Object.keys(donneesQ.rows[0]).length === 3) {
-					const donnees = { pad: JSON.parse(donneesQ.rows[0].donnees), blocs: JSON.parse(donneesQ.rows[0].blocs), activite: JSON.parse(donneesQ.rows[0].activite) }
+			} else if (resultat !== 1 && isNaN(parseInt(pad)) === false && await fs.pathExists(path.join(__dirname, '..', '/static/pads/' + pad + '.json'))) {
+				const donnees = await fs.readJson(path.join(__dirname, '..', '/static/pads/' + pad + '.json'))
+				if (typeof donnees === 'object' && donnees !== null) {
 					await ajouterPadDansDb(pad, donnees)
 					if (champ === 'motdepasse') {
 						const hash = await bcrypt.hash(valeur, 10)
@@ -1915,12 +1866,9 @@ async function demarrerServeur () {
 					} else {
 						res.send('pad_cree_avec_compte')
 					}
-				} else if (resultat !== 1 && pgdb === true && isNaN(parseInt(pad)) === false) {
-					const client = await pool.connect()
-					const donneesQ = await client.query('SELECT donnees, blocs, activite FROM pads WHERE pad = $1', [parseInt(pad)])
-					client.release()
-					if (donneesQ && donneesQ.hasOwnProperty('rows') && donneesQ.rows[0] && typeof donneesQ.rows[0] === 'object' && Object.keys(donneesQ.rows[0]).length === 3) {
-						const donnees = { pad: JSON.parse(donneesQ.rows[0].donnees), blocs: JSON.parse(donneesQ.rows[0].blocs), activite: JSON.parse(donneesQ.rows[0].activite) }
+				} else if (resultat !== 1 && isNaN(parseInt(pad)) === false && await fs.pathExists(path.join(__dirname, '..', '/static/pads/' + pad + '.json'))) {
+					const donnees = await fs.readJson(path.join(__dirname, '..', '/static/pads/' + pad + '.json'))
+					if (typeof donnees === 'object' && donnees !== null && donnees.hasOwnProperty('pad') && donnees.hasOwnProperty('blocs') && donnees.hasOwnProperty('activite')) {
 						if (donnees.pad.hasOwnProperty('motdepasse')) {
 							await ajouterPadDansDb(pad, donnees)
 							await db
@@ -1977,12 +1925,9 @@ async function demarrerServeur () {
 						.SREM('pads-utilisateurs:' + nouvelIdentifiant, pad.toString())
 						.exec()
 						res.send('pad_transfere')
-					} else if (reponse !== 1 && pgdb === true && isNaN(parseInt(pad)) === false) {
-						const client = await pool.connect()
-						const donneesQ = await client.query('SELECT donnees, blocs, activite FROM pads WHERE pad = $1', [parseInt(pad)])
-						client.release()
-						if (donneesQ && donneesQ.hasOwnProperty('rows') && donneesQ.rows[0] && typeof donneesQ.rows[0] === 'object' && Object.keys(donneesQ.rows[0]).length === 3) {
-							const donnees = { pad: JSON.parse(donneesQ.rows[0].donnees), blocs: JSON.parse(donneesQ.rows[0].blocs), activite: JSON.parse(donneesQ.rows[0].activite) }
+					} else if (reponse !== 1 && isNaN(parseInt(pad)) === false && await fs.pathExists(path.join(__dirname, '..', '/static/pads/' + pad + '.json'))) {
+						const donnees = await fs.readJson(path.join(__dirname, '..', '/static/pads/' + pad + '.json'))
+						if (typeof donnees === 'object' && donnees !== null && donnees.hasOwnProperty('pad') && donnees.hasOwnProperty('blocs') && donnees.hasOwnProperty('activite')) {
 							await ajouterPadDansDb(pad, donnees)
 							const identifiant = donnees.pad.identifiant
 							await db
@@ -2042,12 +1987,9 @@ async function demarrerServeur () {
 								.SREM('pads-utilisateurs:' + nouvelIdentifiant, pad.toString())
 								.exec()
 								resolve('pad_transfere')
-							} else if (resultat !== 1 && pgdb === true && isNaN(parseInt(pad)) === false) {
-								const client = await pool.connect()
-								const donneesQ = await client.query('SELECT donnees, blocs, activite FROM pads WHERE pad = $1', [parseInt(pad)])
-								client.release()
-								if (donneesQ && donneesQ.hasOwnProperty('rows') && donneesQ.rows[0] && typeof donneesQ.rows[0] === 'object' && Object.keys(donneesQ.rows[0]).length === 3) {
-									const donnees = { pad: JSON.parse(donneesQ.rows[0].donnees), blocs: JSON.parse(donneesQ.rows[0].blocs), activite: JSON.parse(donneesQ.rows[0].activite) }
+							} else if (resultat !== 1 && isNaN(parseInt(pad)) === false && await fs.pathExists(path.join(__dirname, '..', '/static/pads/' + pad + '.json'))) {
+								const donnees = await fs.readJson(path.join(__dirname, '..', '/static/pads/' + pad + '.json'))
+								if (typeof donnees === 'object' && donnees !== null && donnees.hasOwnProperty('pad') && donnees.hasOwnProperty('blocs') && donnees.hasOwnProperty('activite')) {
 									await ajouterPadDansDb(pad, donnees)
 									await db
 									.multi()
@@ -2147,39 +2089,31 @@ async function demarrerServeur () {
 							}
 						}
 						resolve(pad)
-					} else if (resultat !== 1 && pgdb === true && isNaN(parseInt(pad)) === false) {
-						const client = await pool.connect()
-						if ((await client.query('SELECT id FROM pads WHERE pad = $1', [parseInt(pad)])).rowCount > 0) {
-							const utilisateurs = await db.SMEMBERS('utilisateurs-pads:' + pad)
-							if (utilisateurs === null) { resolve(); return false }
-							for (let j = 0; j < utilisateurs.length; j++) {
-								await db
-								.multi()
-								.SREM('pads-rejoints:' + utilisateurs[j], pad.toString())
-								.SREM('pads-utilisateurs:' + utilisateurs[j], pad.toString())
-								.SREM('pads-admins:' + utilisateurs[j], pad.toString())
-								.SREM('pads-favoris:' + utilisateurs[j], pad.toString())
-								.HDEL('couleurs:' + utilisateurs[j], 'pad' + pad)
-								.exec()
-							}
-							await db.DEL('utilisateurs-pads:' + pad)
-							if (stockage === 'fs') {
-								await fs.remove(path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + pad))
-							} else if (stockage === 's3') {
-								const liste = await s3Client.send(new ListObjectsV2Command({ Bucket: bucket, Prefix: pad + '/' }))
-								if (liste.hasOwnProperty('Contents')) {
-									for (let i = 0; i < liste.Contents.length; i++) {
-										await s3Client.send(new DeleteObjectCommand({ Bucket: bucket, Key: liste.Contents[i].Key }))
-									}
+					} else if (resultat !== 1 && isNaN(parseInt(pad)) === false && await fs.pathExists(path.join(__dirname, '..', '/static/pads/' + pad + '.json'))) {
+						const utilisateurs = await db.SMEMBERS('utilisateurs-pads:' + pad)
+						if (utilisateurs === null) { resolve(); return false }
+						for (let j = 0; j < utilisateurs.length; j++) {
+							await db
+							.multi()
+							.SREM('pads-rejoints:' + utilisateurs[j], pad.toString())
+							.SREM('pads-utilisateurs:' + utilisateurs[j], pad.toString())
+							.SREM('pads-admins:' + utilisateurs[j], pad.toString())
+							.SREM('pads-favoris:' + utilisateurs[j], pad.toString())
+							.HDEL('couleurs:' + utilisateurs[j], 'pad' + pad)
+							.exec()
+						}
+						await db.DEL('utilisateurs-pads:' + pad)
+						if (stockage === 'fs') {
+							await fs.remove(path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + pad))
+						} else if (stockage === 's3') {
+							const liste = await s3Client.send(new ListObjectsV2Command({ Bucket: bucket, Prefix: pad + '/' }))
+							if (liste.hasOwnProperty('Contents')) {
+								for (let i = 0; i < liste.Contents.length; i++) {
+									await s3Client.send(new DeleteObjectCommand({ Bucket: bucket, Key: liste.Contents[i].Key }))
 								}
 							}
-							await client.query('DELETE FROM pads WHERE pad = $1', [parseInt(pad)])
-							client.release()
-							resolve(pad)
-						} else {
-							client.release()
-							resolve()
 						}
+						resolve(pad)
 					} else {
 						resolve()
 					}
@@ -2275,12 +2209,9 @@ async function demarrerServeur () {
 							}
 						})
 						donneesEvaluations.push(donneesEvaluation)
-					} else if (resultat !== 1 && pgdb === true && isNaN(parseInt(pad)) === false) {
-						const client = await pool.connect()
-						const donneesQ = await client.query('SELECT donnees, blocs, activite FROM pads WHERE pad = $1', [parseInt(pad)])
-						client.release()
-						if (donneesQ && donneesQ.hasOwnProperty('rows') && donneesQ.rows[0] && typeof donneesQ.rows[0] === 'object' && Object.keys(donneesQ.rows[0]).length === 3) {
-							const donnees = { pad: JSON.parse(donneesQ.rows[0].donnees), blocs: JSON.parse(donneesQ.rows[0].blocs), activite: JSON.parse(donneesQ.rows[0].activite) }
+					} else if (resultat !== 1 && isNaN(parseInt(pad)) === false && await fs.pathExists(path.join(__dirname, '..', '/static/pads/' + pad + '.json'))) {
+						const donnees = await fs.readJson(path.join(__dirname, '..', '/static/pads/' + pad + '.json'))
+						if (typeof donnees === 'object' && donnees !== null && donnees.hasOwnProperty('pad') && donnees.hasOwnProperty('blocs') && donnees.hasOwnProperty('activite')) {
 							const blocs = donnees.blocs
 							const entrees = donnees.activite
 							const donneesBloc = new Promise(async function (resolve) {
@@ -3136,15 +3067,13 @@ async function demarrerServeur () {
 				if (resultat === 1) {
 					await db.HSET('pads:' + pad, 'titre', titre)
 					res.send('contenu_modifie')
-				} else if (resultat !== 1 && pgdb === true) {
-					const client = await pool.connect()
-					const donneesQ = await client.query('SELECT donnees FROM pads WHERE pad = $1', [parseInt(pad)])
-					if (Object.keys(donneesQ.rows[0]).length === 1) {
-						await client.query('UPDATE pads SET titre = $1 WHERE pad = $2', [titre, parseInt(pad)])
-						client.release()
+				} else if (resultat !== 1 && isNaN(parseInt(pad)) === false && await fs.pathExists(path.join(__dirname, '..', '/static/pads/' + pad + '.json'))) {
+					const donneesPad = await fs.readJson(path.join(__dirname, '..', '/static/pads/' + pad + '.json'))
+					if (typeof donneesPad === 'object' && donneesPad !== null) {
+						await ajouterPadDansDb(pad, donneesPad)
+						await db.HSET('pads:' + pad, 'titre', titre)
 						res.send('contenu_modifie')
 					} else {
-						client.release()
 						res.send('erreur')
 					}
 				} else {
@@ -3169,23 +3098,19 @@ async function demarrerServeur () {
 					} else {
 						res.send('non_autorise')
 					}
-				} else if (resultat !== 1 && pgdb === true) {
-					const client = await pool.connect()
-					const donneesQ = await client.query('SELECT donnees FROM pads WHERE pad = $1', [parseInt(pad)])
-					if (Object.keys(donneesQ.rows[0]).length === 1) {
-						const donneesPad = JSON.parse(donneesQ.rows[0].donnees)
-						if (ancienmotdepasse.trim() !== '' && donneesPad.hasOwnProperty('motdepasse') && donneesPad.motdepasse.trim() !== '' && donneesPad.identifiant === identifiant && await bcrypt.compare(ancienmotdepasse, donneesPad.motdepasse)) {
+				} else if (resultat !== 1 && isNaN(parseInt(pad)) === false && await fs.pathExists(path.join(__dirname, '..', '/static/pads/' + pad + '.json'))) {
+					const donneesPad = await fs.readJson(path.join(__dirname, '..', '/static/pads/' + pad + '.json'))
+					if (typeof donneesPad === 'object' && donneesPad !== null) {
+						if (ancienmotdepasse.trim() !== '' && donneesPad.pad.hasOwnProperty('motdepasse') && donneesPad.pad.motdepasse.trim() !== '' && donneesPad.pad.identifiant === identifiant && await bcrypt.compare(ancienmotdepasse, donneesPad.pad.motdepasse)) {
+							await ajouterPadDansDb(donneesPad, donnees)
 							const motdepasse = req.body.motdepasse
 							const hash = await bcrypt.hash(motdepasse, 10)
-							await client.query('UPDATE pads SET titre = $1, motdepasse = $2 WHERE pad = $3', [titre, hash, parseInt(pad)])
-							client.release()
+							await db.HSET('pads:' + pad, ['titre', titre, 'motdepasse', hash])
 							res.send('contenu_modifie')
 						} else {
-							client.release()
 							res.send('non_autorise')
 						}
 					} else {
-						client.release()
 						res.send('erreur')
 					}
 				} else {
@@ -3234,49 +3159,43 @@ async function demarrerServeur () {
 					} else {
 						res.send('non_autorise')
 					}
-				} else if (resultat !== 1 && pgdb === true && isNaN(parseInt(pad)) === false) {
-					const client = await pool.connect()
-					const donneesQ = await client.query('SELECT donnees FROM pads WHERE pad = $1', [parseInt(pad)])
-					if (donneesQ && donneesQ.hasOwnProperty('rows') && donneesQ.rows[0] && typeof donneesQ.rows[0] === 'object' && Object.keys(donneesQ.rows[0]).length === 1) {
-						const donneesPad = JSON.parse(donneesQ.rows[0].donnees)
-						if (motdepasse.trim() !== '' && donneesPad.hasOwnProperty('motdepasse') && donneesPad.motdepasse.trim() !== '' && await bcrypt.compare(motdepasse, donneesPad.motdepasse) && token === donneesPad.token) {
+				} else if (resultat !== 1 && isNaN(parseInt(pad)) === false && await fs.pathExists(path.join(__dirname, '..', '/static/pads/' + pad + '.json'))) {
+					const donneesPad = await fs.readJson(path.join(__dirname, '..', '/static/pads/' + pad + '.json'))
+					if (typeof donneesPad === 'object' && donneesPad !== null) {
+						if (motdepasse.trim() !== '' && donneesPad.pad.hasOwnProperty('motdepasse') && donneesPad.pad.motdepasse.trim() !== '' && await bcrypt.compare(motdepasse, donneesPad.pad.motdepasse) && token === donneesPad.pad.token) {
+							await ajouterPadDansDb(donneesPad, donnees)
 							const date = dayjs().format()
 							let langue = 'fr'
 							if (req.session.hasOwnProperty('langue') && req.session.langue !== '' && req.session.langue !== undefined) {
 								langue = req.session.langue
 							}
-							await db.HSET('utilisateurs:' + identifiant, ['id', identifiant, 'date', date, 'nom', nom, 'langue', langue])
-							donneesPad.identifiant = identifiant
-							donneesPad.digidrive = 1
-							await client.query('UPDATE pads SET donnees = $1 WHERE pad = $2', [JSON.stringify(donneesPad), parseInt(pad)])
-							client.release()
-							res.json({ titre: donneesPad.titre, identifiant: identifiant })
-						} else if (!donneesPad.hasOwnProperty('motdepasse') && token === donneesPad.token) {
-							const resultat = await db.EXISTS('utilisateurs:' + donneesPad.identifiant)
+							await db
+							.multi()
+							.HSET('utilisateurs:' + identifiant, ['id', identifiant, 'date', date, 'nom', nom, 'langue', langue])
+							.HSET('pads:' + pad, ['identifiant', identifiant, 'digidrive', 1])
+							.exec()
+							res.json({ titre: donneesPad.pad.titre, identifiant: identifiant })
+						} else if (!donneesPad.pad.hasOwnProperty('motdepasse') && token === donneesPad.pad.token) {
+							await ajouterPadDansDb(donneesPad, donnees)
+							const resultat = await db.EXISTS('utilisateurs:' + donneesPad.pad.identifiant)
 							if (resultat === null) { res.send('erreur'); return false }
 							if (resultat === 1) {
-								let utilisateur = await db.HGETALL('utilisateurs:' + donneesPad.identifiant)
+								let utilisateur = await db.HGETALL('utilisateurs:' + donneesPad.pad.identifiant)
 								utilisateur = Object.assign({}, utilisateur)
 								if (utilisateur === null) { res.send('erreur'); return false }
 								if (motdepasse.trim() !== '' && utilisateur.hasOwnProperty('motdepasse') && utilisateur.motdepasse.trim() !== '' && await bcrypt.compare(motdepasse, utilisateur.motdepasse)) {
-									donneesPad.digidrive = 1
-									await client.query('UPDATE pads SET donnees = $1 WHERE pad = $2', [JSON.stringify(donneesPad), parseInt(pad)])
-									client.release()
-									res.json({ titre: donneesPad.titre, identifiant: donneesPad.identifiant })
+									await db.HSET('pads:' + pad, 'digidrive', 1)
+									res.json({ titre: donneesPad.pad.titre, identifiant: donneesPad.pad.identifiant })
 								} else {
-									client.release()
 									res.send('non_autorise')
 								}
 							} else {
-								client.release()
 								res.send('erreur')
 							}
 						} else {
-							client.release()
 							res.send('non_autorise')
 						}
 					} else {
-						client.release()
 						res.send('erreur')
 					}
 				} else {
@@ -3297,7 +3216,16 @@ async function demarrerServeur () {
 					} else {
 						const resultat = await db.EXISTS('pads:' + pad)
 						if (resultat === null) { res.send('erreur'); return false }
-						if (resultat === 1) {
+						if (resultat === 1 || (resultat !== 1 && isNaN(parseInt(pad)) === false && await fs.pathExists(path.join(__dirname, '..', '/static/pads/' + pad + '.json')))) {
+							if (resultat !== 1 && isNaN(parseInt(pad)) === false && await fs.pathExists(path.join(__dirname, '..', '/static/pads/' + pad + '.json'))) {
+								const donneesPad = await fs.readJson(path.join(__dirname, '..', '/static/pads/' + pad + '.json'))
+								if (typeof donneesPad === 'object' && donneesPad !== null) {
+									await ajouterPadDansDb(pad, donneesPad)
+								} else {
+									res.send('erreur')
+									return false
+								}
+							}
 							let donnees = await db.HGETALL('pads:' + pad)
 							donnees = Object.assign({}, donnees)
 							if (donnees === null || !donnees.hasOwnProperty('identifiant')) { res.send('erreur'); return false }
@@ -3412,7 +3340,6 @@ async function demarrerServeur () {
 										.SADD('pads-crees:' + identifiant, id.toString())
 										.exec()
 									} else if (donnees.hasOwnProperty('code') && avecCompte === true) {
-										const couleur = choisirCouleur()
 										await db
 										.multi()
 										.INCR('pad')
@@ -3429,7 +3356,6 @@ async function demarrerServeur () {
 										.SADD('pads-crees:' + identifiant, id.toString())
 										.exec()
 									} else if (!donnees.hasOwnProperty('code') && avecCompte === true) {
-										const couleur = choisirCouleur()
 										await db
 										.multi()
 										.INCR('pad')
@@ -3454,166 +3380,6 @@ async function demarrerServeur () {
 							} else {
 								res.send('non_autorise')
 							}
-						} else if (resultat !== 1 && pgdb === true && isNaN(parseInt(pad)) === false) {
-							const client = await pool.connect()
-							const donneesQ = await client.query('SELECT donnees, blocs, activite FROM pads WHERE pad = $1', [parseInt(pad)])
-							client.release()
-							if (donneesQ && donneesQ.hasOwnProperty('rows') && donneesQ.rows[0] && typeof donneesQ.rows[0] === 'object' && Object.keys(donneesQ.rows[0]).length === 3) {
-								const donnees = { pad: JSON.parse(donneesQ.rows[0].donnees), blocs: JSON.parse(donneesQ.rows[0].blocs), activite: JSON.parse(donneesQ.rows[0].activite) }
-								let autorisation = false
-								let avecCompte = false
-								const proprietaire = donnees.pad.identifiant
-								if (proprietaire === identifiant && motdepasse.trim() !== '' && donnees.pad.hasOwnProperty('motdepasse') && donnees.pad.motdepasse.trim() !== '' && await bcrypt.compare(motdepasse, donnees.pad.motdepasse)) {
-									autorisation = true
-								} else if (!donnees.pad.hasOwnProperty('motdepasse') && proprietaire === identifiant) {
-									const resultat = await db.EXISTS('utilisateurs:' + identifiant)
-									if (resultat === null) { res.send('erreur'); return false }
-									if (resultat === 1) {
-										let utilisateur = await db.HGETALL('utilisateurs:' + identifiant)
-										utilisateur = Object.assign({}, utilisateur)
-										if (utilisateur === null) { res.send('erreur'); return false }
-										if (motdepasse.trim() !== '' && utilisateur.hasOwnProperty('motdepasse') && utilisateur.motdepasse.trim() !== '' && await bcrypt.compare(motdepasse, utilisateur.motdepasse)) {
-											autorisation = true
-											avecCompte = true
-										}
-									}
-								}
-								if (autorisation === true) {
-									const date = dayjs().format()
-									const donneesBlocs = []
-									for (const [indexBloc, bloc] of donnees.blocs.entries()) {
-										const donneesBloc = new Promise(async function (resolve) {
-											if (Object.keys(bloc).length > 0) {
-												if (bloc.hasOwnProperty('vignette') && definirVignettePersonnalisee(bloc.vignette) === true) {
-													bloc.vignette = path.basename(bloc.vignette)
-												}
-												let visibilite = 'visible'
-												if (bloc.hasOwnProperty('visibilite')) {
-													visibilite = bloc.visibilite
-												}
-												if (bloc.hasOwnProperty('iframe') && bloc.iframe !== '' && bloc.iframe.includes(etherpad)) {
-													const etherpadId = bloc.iframe.replace(etherpad + '/p/', '')
-													const destinationId = 'pad-' + id + '-' + Math.random().toString(16).slice(2)
-													const url = etherpad + '/api/1.2.14/copyPad?apikey=' + etherpadApi + '&sourceID=' + etherpadId + '&destinationID=' + destinationId
-													axios.get(url)
-													bloc.iframe = etherpad + '/p/' + destinationId
-													bloc.media = etherpad + '/p/' + destinationId
-												}
-												const blocId = 'bloc-id-' + (new Date()).getTime() + Math.random().toString(16).slice(10)
-												await db
-												.multi()
-												.HSET('pad-' + id + ':' + blocId, ['id', bloc.id, 'bloc', blocId, 'titre', bloc.titre, 'texte', bloc.texte, 'media', bloc.media, 'iframe', bloc.iframe, 'type', bloc.type, 'source', bloc.source, 'vignette', bloc.vignette, 'date', date, 'identifiant', bloc.identifiant, 'commentaires', 0, 'evaluations', 0, 'colonne', bloc.colonne, 'visibilite', visibilite])
-												.ZADD('blocs:' + id, [{ score: indexBloc, value: blocId }])
-												.exec()
-												resolve(blocId)
-											} else {
-												resolve({})
-											}
-										})
-										donneesBlocs.push(donneesBloc)
-									}
-									Promise.all(donneesBlocs).then(async function () {
-										const token = Math.random().toString(16).slice(2)
-										const nouveaumotdepasse = req.body.nouveaumotdepasse
-										const hash = await bcrypt.hash(nouveaumotdepasse, 10)
-										const couleur = choisirCouleur()
-										const code = Math.floor(100000 + Math.random() * 900000)
-										let registreActivite = 'active'
-										let conversation = 'desactivee'
-										let listeUtilisateurs = 'activee'
-										let editionNom = 'desactivee'
-										let ordre = 'croissant'
-										let largeur = 'normale'
-										let enregistrements = 'desactives'
-										let copieBloc = 'desactivee'
-										let affichageColonnes = []
-										if (donnees.pad.hasOwnProperty('registreActivite')) {
-											registreActivite = donnees.pad.registreActivite
-										}
-										if (donnees.pad.hasOwnProperty('conversation')) {
-											conversation = donnees.pad.conversation
-										}
-										if (donnees.pad.hasOwnProperty('listeUtilisateurs')) {
-											listeUtilisateurs = donnees.pad.listeUtilisateurs
-										}
-										if (donnees.pad.hasOwnProperty('editionNom')) {
-											editionNom = donnees.pad.editionNom
-										}
-										if (donnees.pad.hasOwnProperty('ordre')) {
-											ordre = donnees.pad.ordre
-										}
-										if (donnees.pad.hasOwnProperty('largeur')) {
-											largeur = donnees.pad.largeur
-										}
-										if (donnees.pad.hasOwnProperty('enregistrements')) {
-											enregistrements = donnees.pad.enregistrements
-										}
-										if (donnees.pad.hasOwnProperty('copieBloc')) {
-											copieBloc = donnees.pad.copieBloc
-										}
-										if (donnees.pad.hasOwnProperty('affichageColonnes')) {
-											affichageColonnes = JSON.parse(donnees.pad.affichageColonnes)
-										} else {
-											JSON.parse(donnees.pad.colonnes).forEach(function () {
-												affichageColonnes.push(true)
-											})
-										}
-										if (!donnees.pad.fond.includes('/img/') && donnees.pad.fond.substring(0, 1) !== '#' && donnees.pad.fond !== '' && typeof donnees.pad.fond === 'string') {
-											donnees.pad.fond = path.basename(donnees.pad.fond)
-										}
-										if (donnees.pad.hasOwnProperty('code') && avecCompte === false) {
-											await db
-											.multi()
-											.INCR('pad')
-											.HSET('pads:' + id, ['id', id, 'token', token, 'titre', 'Copie de ' + donnees.pad.titre, 'identifiant', identifiant, 'motdepasse', hash, 'fond', donnees.pad.fond, 'acces', donnees.pad.acces, 'code', code, 'contributions', donnees.pad.contributions, 'affichage', donnees.pad.affichage, 'registreActivite', registreActivite, 'conversation', conversation, 'listeUtilisateurs', listeUtilisateurs, 'editionNom', editionNom, 'fichiers', donnees.pad.fichiers, 'enregistrements', enregistrements, 'liens', donnees.pad.liens, 'documents', donnees.pad.documents, 'commentaires', donnees.pad.commentaires, 'evaluations', donnees.pad.evaluations, 'copieBloc', copieBloc, 'ordre', ordre, 'largeur', largeur, 'date', date, 'colonnes', donnees.pad.colonnes, 'affichageColonnes', JSON.stringify(affichageColonnes), 'bloc', donnees.pad.bloc, 'activite', 0, 'vues', 0, 'digidrive', 1])
-											.SADD('pads-crees:' + identifiant, id.toString())
-											.exec()
-										} else if (donnees.pad.hasOwnProperty('code') && avecCompte === true) {
-											const couleur = choisirCouleur()
-											await db
-											.multi()
-											.INCR('pad')
-											.HSET('pads:' + id, ['id', id, 'token', token, 'titre', 'Copie de ' + donnees.pad.titre, 'identifiant', identifiant, 'fond', donnees.pad.fond, 'acces', donnees.pad.acces, 'code', code, 'contributions', donnees.pad.contributions, 'affichage', donnees.pad.affichage, 'registreActivite', registreActivite, 'conversation', conversation, 'listeUtilisateurs', listeUtilisateurs, 'editionNom', editionNom, 'fichiers', donnees.pad.fichiers, 'enregistrements', enregistrements, 'liens', donnees.pad.liens, 'documents', donnees.pad.documents, 'commentaires', donnees.pad.commentaires, 'evaluations', donnees.pad.evaluations, 'copieBloc', copieBloc, 'ordre', ordre, 'largeur', largeur, 'date', date, 'colonnes', donnees.pad.colonnes, 'affichageColonnes', JSON.stringify(affichageColonnes), 'bloc', donnees.pad.bloc, 'activite', 0, 'vues', 0, 'digidrive', 1])
-											.SADD('pads-crees:' + identifiant, id.toString())
-											.SADD('utilisateurs-pads:' + id, identifiant)
-											.HSET('couleurs:' + identifiant, 'pad' + id, couleur)
-											.exec()
-										} else if (!donnees.pad.hasOwnProperty('code') && avecCompte === false) {
-											await db
-											.multi()
-											.INCR('pad')
-											.HSET('pads:' + id, ['id', id, 'token', token, 'titre', 'Copie de ' + donnees.pad.titre, 'identifiant', identifiant, 'motdepasse', hash, 'fond', donnees.pad.fond, 'acces', donnees.pad.acces, 'contributions', donnees.pad.contributions, 'affichage', donnees.pad.affichage, 'registreActivite', registreActivite, 'conversation', conversation, 'listeUtilisateurs', listeUtilisateurs, 'editionNom', editionNom, 'fichiers', donnees.pad.fichiers, 'enregistrements', enregistrements, 'liens', donnees.pad.liens, 'documents', donnees.pad.documents, 'commentaires', donnees.pad.commentaires, 'evaluations', donnees.pad.evaluations, 'copieBloc', copieBloc, 'ordre', ordre, 'largeur', largeur, 'date', date, 'colonnes', donnees.pad.colonnes, 'affichageColonnes', JSON.stringify(affichageColonnes), 'bloc', donnees.pad.bloc, 'activite', 0, 'vues', 0, 'digidrive', 1])
-											.SADD('pads-crees:' + identifiant, id.toString())
-											.exec()
-										} else if (!donnees.pad.hasOwnProperty('code') && avecCompte === true) {
-											const couleur = choisirCouleur()
-											await db
-											.multi()
-											.INCR('pad')
-											.HSET('pads:' + id, ['id', id, 'token', token, 'titre', 'Copie de ' + donnees.pad.titre, 'identifiant', identifiant, 'fond', donnees.pad.fond, 'acces', donnees.pad.acces, 'contributions', donnees.pad.contributions, 'affichage', donnees.pad.affichage, 'registreActivite', registreActivite, 'conversation', conversation, 'listeUtilisateurs', listeUtilisateurs, 'editionNom', editionNom, 'fichiers', donnees.pad.fichiers, 'enregistrements', enregistrements, 'liens', donnees.pad.liens, 'documents', donnees.pad.documents, 'commentaires', donnees.pad.commentaires, 'evaluations', donnees.pad.evaluations, 'copieBloc', copieBloc, 'ordre', ordre, 'largeur', largeur, 'date', date, 'colonnes', donnees.pad.colonnes, 'affichageColonnes', JSON.stringify(affichageColonnes), 'bloc', donnees.pad.bloc, 'activite', 0, 'vues', 0, 'digidrive', 1])
-											.SADD('pads-crees:' + identifiant, id.toString())
-											.SADD('utilisateurs-pads:' + id, identifiant)
-											.HSET('couleurs:' + identifiant, 'pad' + id, couleur)
-											.exec()
-										}
-										if (stockage === 'fs' && await fs.pathExists(path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + pad))) {
-											await fs.copy(path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + pad), path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + id))
-										} else if (stockage === 's3') {
-											const liste = await s3Client.send(new ListObjectsV2Command({ Bucket: bucket, Prefix: pad + '/' }))
-											if (liste.hasOwnProperty('Contents')) {
-												for (let i = 0; i < liste.Contents.length; i++) {
-													await s3Client.send(new CopyObjectCommand({ Bucket: bucket, Key: id + '/' + liste.Contents[i].Key.replace(pad + '/', ''), CopySource: '/' + bucket + '/' + liste.Contents[i].Key, ACL: 'public-read' }))
-												}
-											}
-										}
-										res.send(id + '/' + token)
-									})
-								} else {
-									res.send('non_autorise')
-								}
-							} else {
-								res.send('erreur')
-							}
 						}
 					}
 				})
@@ -3624,13 +3390,13 @@ async function demarrerServeur () {
 				const resultat = await db.EXISTS('pads:' + id)
 				if (resultat === null) { res.send('erreur'); return false }
 				if (resultat === 1) {
-					let d = await db.HGETALL('pads:' + id)
-					d = Object.assign({}, d)
-					if (d === null) { res.send('erreur'); return false }
-					const proprietaire = d.identifiant
-					if (proprietaire === identifiant && motdepasse.trim() !== '' && d.hasOwnProperty('motdepasse') && d.motdepasse.trim() !== '' && await bcrypt.compare(motdepasse, d.motdepasse)) {
+					let donneesPad = await db.HGETALL('pads:' + id)
+					donneesPad = Object.assign({}, donneesPad)
+					if (donneesPad === null) { res.send('erreur'); return false }
+					const proprietaire = donneesPad.identifiant
+					if (proprietaire === identifiant && motdepasse.trim() !== '' && donneesPad.hasOwnProperty('motdepasse') && donneesPad.motdepasse.trim() !== '' && await bcrypt.compare(motdepasse, donneesPad.motdepasse)) {
 						exporterPad(req, res, id, 'erreur')
-					} else if (!d.hasOwnProperty('motdepasse') && proprietaire === identifiant) {
+					} else if (!donneesPad.hasOwnProperty('motdepasse') && proprietaire === identifiant) {
 						const resultat = await db.EXISTS('utilisateurs:' + identifiant)
 						if (resultat === null) { res.send('erreur'); return false }
 						if (resultat === 1) {
@@ -3648,15 +3414,13 @@ async function demarrerServeur () {
 					} else {
 						res.send('non_autorise')
 					}
-				} else if (resultat !== 1 && pgdb === true && isNaN(parseInt(id)) === false) {
-					const client = await pool.connect()
-					const donneesQ = await client.query('SELECT donnees, blocs, activite FROM pads WHERE pad = $1', [parseInt(id)])
-					client.release()
-					if (donneesQ && donneesQ.hasOwnProperty('rows') && donneesQ.rows[0] && typeof donneesQ.rows[0] === 'object' && Object.keys(donneesQ.rows[0]).length === 3) {
-						const donnees = { pad: JSON.parse(donneesQ.rows[0].donnees), blocs: JSON.parse(donneesQ.rows[0].blocs), activite: JSON.parse(donneesQ.rows[0].activite) }
-						if (donnees.pad.identifiant === identifiant && motdepasse.trim() !== '' && donnees.pad.hasOwnProperty('motdepasse') && donnees.pad.motdepasse.trim() !== '' && await bcrypt.compare(motdepasse, donnees.pad.motdepasse)) {
-							exporterPadPg(res, id, donnees)
-						} else if (!donnees.pad.hasOwnProperty('motdepasse') && donnees.pad.identifiant === identifiant) {
+				} else if (resultat !== 1 && isNaN(parseInt(id)) === false && await fs.pathExists(path.join(__dirname, '..', '/static/pads/' + id + '.json'))) {
+					const donneesPad = await fs.readJson(path.join(__dirname, '..', '/static/pads/' + id + '.json'))
+					if (typeof donneesPad === 'object' && donneesPad !== null) {
+						const proprietaire = donneesPad.pad.identifiant
+						if (proprietaire === identifiant && motdepasse.trim() !== '' && donneesPad.pad.hasOwnProperty('motdepasse') && donneesPad.pad.motdepasse.trim() !== '' && await bcrypt.compare(motdepasse, donneesPad.pad.motdepasse)) {
+							exporterPadJson(res, id, donneesPad)
+						} else if (!donneesPad.pad.hasOwnProperty('motdepasse') && proprietaire === identifiant) {
 							const resultat = await db.EXISTS('utilisateurs:' + identifiant)
 							if (resultat === null) { res.send('erreur'); return false }
 							if (resultat === 1) {
@@ -3664,7 +3428,7 @@ async function demarrerServeur () {
 								utilisateur = Object.assign({}, utilisateur)
 								if (utilisateur === null) { res.send('erreur'); return false }
 								if (motdepasse.trim() !== '' && utilisateur.hasOwnProperty('motdepasse') && utilisateur.motdepasse.trim() !== '' && await bcrypt.compare(motdepasse, utilisateur.motdepasse)) {
-									exporterPadPg(res, id, donnees)
+									exporterPadJson(res, id, donneesPad)
 								} else {
 									res.send('non_autorise')
 								}
@@ -3675,7 +3439,7 @@ async function demarrerServeur () {
 							res.send('non_autorise')
 						}
 					} else {
-						res.send('contenu_inexistant')
+						res.send('erreur')
 					}
 				} else {
 					res.send('contenu_inexistant')
@@ -3686,7 +3450,16 @@ async function demarrerServeur () {
 				const motdepasse = req.body.motdepasse
 				const resultat = await db.EXISTS('pads:' + pad)
 				if (resultat === null) { res.send('erreur'); return false }
-				if (resultat === 1) {
+				if (resultat === 1 || (resultat !== 1 && isNaN(parseInt(pad)) === false && await fs.pathExists(path.join(__dirname, '..', '/static/pads/pad-' + pad + '.json')))) {
+					if (resultat !== 1 && isNaN(parseInt(pad)) === false && await fs.pathExists(path.join(__dirname, '..', '/static/pads/' + pad + '.json'))) {
+						const donneesPad = await fs.readJson(path.join(__dirname, '..', '/static/pads/' + pad + '.json'))
+						if (typeof donneesPad === 'object' && donneesPad !== null) {
+							await ajouterPadDansDb(pad, donneesPad)
+						} else {
+							res.send('erreur')
+							return false
+						}
+					}
 					let donneesPad = await db.HGETALL('pads:' + pad)
 					donneesPad = Object.assign({}, donneesPad)
 					if (donneesPad === null) { res.send('erreur'); return false }
@@ -3793,89 +3566,6 @@ async function demarrerServeur () {
 						}
 					} else {
 						res.send('non_autorise')
-					}
-				} else if (resultat !== 1 && pgdb === true && isNaN(parseInt(pad)) === false) {
-					const client = await pool.connect()
-					const donneesQ = await client.query('SELECT donnees FROM pads WHERE pad = $1', [parseInt(pad)])
-					if (donneesQ && donneesQ.hasOwnProperty('rows') && donneesQ.rows[0] && typeof donneesQ.rows[0] === 'object' && Object.keys(donneesQ.rows[0]).length === 1) {
-						const donneesPad = JSON.parse(donneesQ.rows[0].donnees)
-						if (motdepasse.trim() !== '' && donneesPad.hasOwnProperty('motdepasse') && donneesPad.motdepasse.trim() !== '' && donneesPad.identifiant === identifiant && await bcrypt.compare(motdepasse, donneesPad.motdepasse)) {
-							await db.SREM('pads-crees:' + identifiant, pad.toString())
-							const utilisateurs = await db.SMEMBERS('utilisateurs-pads:' + pad)
-							if (utilisateurs === null) { res.send('erreur'); return false }
-							for (let j = 0; j < utilisateurs.length; j++) {
-								await db
-								.multi()
-								.SREM('pads-rejoints:' + utilisateurs[j], pad.toString())
-								.SREM('pads-utilisateurs:' + utilisateurs[j], pad.toString())
-								.SREM('pads-admins:' + utilisateurs[j], pad.toString())
-								.SREM('pads-favoris:' + utilisateurs[j], pad.toString())
-								.HDEL('couleurs:' + utilisateurs[j], 'pad' + pad)
-								.exec()
-							}
-							await db.DEL('utilisateurs-pads:' + pad)
-							if (stockage === 'fs') {
-								await fs.remove(path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + pad))
-							} else if (stockage === 's3') {
-								const liste = await s3Client.send(new ListObjectsV2Command({ Bucket: bucket, Prefix: pad + '/' }))
-								if (liste.hasOwnProperty('Contents')) {
-									for (let i = 0; i < liste.Contents.length; i++) {
-										await s3Client.send(new DeleteObjectCommand({ Bucket: bucket, Key: liste.Contents[i].Key }))
-									}
-								}
-							}
-							const client = await pool.connect()
-							await client.query('DELETE FROM pads WHERE pad = $1', [parseInt(pad)])
-							client.release()
-							res.send('contenu_supprime')
-						} else if (!donneesPad.hasOwnProperty('motdepasse') && donneesPad.identifiant === identifiant) {
-							const resultat = await db.EXISTS('utilisateurs:' + identifiant)
-							if (resultat === null) { res.send('erreur'); return false }
-							if (resultat === 1) {
-								let utilisateur = db.HGETALL('utilisateurs:' + identifiant)
-								utilisateur = Object.assign({}, utilisateur)
-								if (utilisateur === null) { res.send('erreur'); return false }
-								if (motdepasse.trim() !== '' && utilisateur.hasOwnProperty('motdepasse') && utilisateur.motdepasse.trim() !== '' && await bcrypt.compare(motdepasse, utilisateur.motdepasse)) {
-									await db.SREM('pads-crees:' + identifiant, pad.toString())
-									const utilisateurs = await db.SMEMBERS('utilisateurs-pads:' + pad)
-									if (utilisateurs === null) { res.send('erreur'); return false }
-									for (let j = 0; j < utilisateurs.length; j++) {
-										await db
-										.multi()
-										.SREM('pads-rejoints:' + utilisateurs[j], pad.toString())
-										.SREM('pads-utilisateurs:' + utilisateurs[j], pad.toString())
-										.SREM('pads-admins:' + utilisateurs[j], pad.toString())
-										.SREM('pads-favoris:' + utilisateurs[j], pad.toString())
-										.HDEL('couleurs:' + utilisateurs[j], 'pad' + pad)
-										.exec()
-									}
-									await db.DEL('utilisateurs-pads:' + pad)
-									if (stockage === 'fs') {
-										await fs.remove(path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + pad))
-									} else if (stockage === 's3') {
-										const liste = await s3Client.send(new ListObjectsV2Command({ Bucket: bucket, Prefix: pad + '/' }))
-										if (liste.hasOwnProperty('Contents')) {
-											for (let i = 0; i < liste.Contents.length; i++) {
-												await s3Client.send(new DeleteObjectCommand({ Bucket: bucket, Key: liste.Contents[i].Key }))
-											}
-										}
-									}
-									const client = await pool.connect()
-									await client.query('DELETE FROM pads WHERE pad = $1', [parseInt(pad)])
-									client.release()
-									res.send('contenu_supprime')
-								} else {
-									res.send('non_autorise')
-								}
-							} else {
-								res.send('erreur')
-							}
-						} else {
-							res.send('non_autorise')
-						}
-					} else {
-						client.release()
-						res.send('erreur')
 					}
 				} else {
 					res.send('contenu_supprime')
@@ -6211,10 +5901,9 @@ async function demarrerServeur () {
 						await db.ZADD('activite:' + id, [{ score: activite.id, value: JSON.stringify(activite) }])
 					}
 				}
-				if (pgdb === true && isNaN(parseInt(id)) === false) {
-					const client = await pool.connect()
-					await client.query('DELETE FROM pads WHERE pad = $1', [parseInt(id)])
-					client.release()
+				if (isNaN(parseInt(id)) === false) {
+					await fs.remove(path.join(__dirname, '..', '/static/pads/' + id + '.json'))
+					await fs.remove(path.join(__dirname, '..', '/static/pads/pad-' + id + '.json'))
 					resolveMain('pad_ajoute_dans_db')
 				} else {
 					resolveMain('')
@@ -6260,38 +5949,31 @@ async function demarrerServeur () {
 							donnees.nom = donnees.identifiant
 							resolve(donnees)
 						}
-					} else if (resultat !== 1 && pgdb === true && isNaN(parseInt(pad)) === false) {
-						const client = await pool.connect()
-						const donneesQ = await client.query('SELECT donnees FROM pads WHERE pad = $1', [parseInt(pad)])
-						client.release()
-						if (donneesQ && donneesQ.hasOwnProperty('rows') && donneesQ.rows[0] && typeof donneesQ.rows[0] === 'object' && Object.keys(donneesQ.rows[0]).length === 1) {
-							const donnees = JSON.parse(donneesQ.rows[0].donnees)
-							if (donnees.hasOwnProperty('identifiant')) {
-								// Pour compatibilité avec les anciens chemins
-								if (donnees.hasOwnProperty('fond') && !donnees.fond.includes('/img/') && donnees.fond.substring(0, 1) !== '#' && donnees.fond !== '' && typeof donnees.fond === 'string') {
-									donnees.fond = path.basename(donnees.fond)
-								}
-								const reponse = await db.EXISTS('utilisateurs:' + donnees.identifiant)
-								if (reponse === 1) {
-									let utilisateur = await db.HGETALL('utilisateurs:' + donnees.identifiant)
-									utilisateur = Object.assign({}, utilisateur)
-									if (utilisateur === null) {
-										donnees.nom = donnees.identifiant
-										resolve(donnees)
-										return false
-									}
-									if (utilisateur.nom === '') {
-										donnees.nom = donnees.identifiant
-									} else {
-										donnees.nom = utilisateur.nom
-									}
-									resolve(donnees)
-								} else {
+					} else if (resultat !== 1 && isNaN(parseInt(pad)) === false && await fs.pathExists(path.join(__dirname, '..', '/static/pads/pad-' + pad + '.json'))) {
+						const donnees = await fs.readJson(path.join(__dirname, '..', '/static/pads/pad-' + pad + '.json'))
+						if (typeof donnees === 'object' && donnees !== null && donnees.hasOwnProperty('identifiant')) {
+							// Pour compatibilité avec les anciens chemins
+							if (donnees.hasOwnProperty('fond') && !donnees.fond.includes('/img/') && donnees.fond.substring(0, 1) !== '#' && donnees.fond !== '' && typeof donnees.fond === 'string') {
+								donnees.fond = path.basename(donnees.fond)
+							}
+							const reponse = await db.EXISTS('utilisateurs:' + donnees.identifiant)
+							if (reponse === 1) {
+								let utilisateur = await db.HGETALL('utilisateurs:' + donnees.identifiant)
+								utilisateur = Object.assign({}, utilisateur)
+								if (utilisateur === null) {
 									donnees.nom = donnees.identifiant
 									resolve(donnees)
+									return false
 								}
+								if (utilisateur.nom === '') {
+									donnees.nom = donnees.identifiant
+								} else {
+									donnees.nom = utilisateur.nom
+								}
+								resolve(donnees)
 							} else {
-								resolve({})
+								donnees.nom = donnees.identifiant
+								resolve(donnees)
 							}
 						} else {
 							resolve({})
@@ -6347,38 +6029,31 @@ async function demarrerServeur () {
 							donnees.nom = donnees.identifiant
 							resolve(donnees)
 						}
-					} else if (resultat !== 1 && pgdb === true && isNaN(parseInt(pad)) === false) {
-						const client = await pool.connect()
-						const donneesQ = await client.query('SELECT donnees FROM pads WHERE pad = $1', [parseInt(pad)])
-						client.release()
-						if (donneesQ && donneesQ.hasOwnProperty('rows') && donneesQ.rows[0] && typeof donneesQ.rows[0] === 'object' && Object.keys(donneesQ.rows[0]).length === 1) {
-							const donnees = JSON.parse(donneesQ.rows[0].donnees)
-							if (donnees.hasOwnProperty('identifiant')) {
-								// Pour compatibilité avec les anciens chemins
-								if (donnees.hasOwnProperty('fond') && !donnees.fond.includes('/img/') && donnees.fond.substring(0, 1) !== '#' && donnees.fond !== '' && typeof donnees.fond === 'string') {
-									donnees.fond = path.basename(donnees.fond)
-								}
-								const reponse = await db.EXISTS('utilisateurs:' + donnees.identifiant)
-								if (reponse === 1) {
-									let utilisateur = await db.HGETALL('utilisateurs:' + donnees.identifiant)
-									utilisateur = Object.assign({}, utilisateur)
-									if (utilisateur === null) {
-										donnees.nom = donnees.identifiant
-										resolve(donnees)
-										return false
-									}
-									if (utilisateur.nom === '') {
-										donnees.nom = donnees.identifiant
-									} else {
-										donnees.nom = utilisateur.nom
-									}
-									resolve(donnees)
-								} else {
+					} else if (resultat !== 1 && isNaN(parseInt(pad)) === false && await fs.pathExists(path.join(__dirname, '..', '/static/pads/pad-' + pad + '.json'))) {
+						const donnees = await fs.readJson(path.join(__dirname, '..', '/static/pads/pad-' + pad + '.json'))
+						if (typeof donnees === 'object' && donnees !== null && donnees.hasOwnProperty('identifiant')) {
+							// Pour compatibilité avec les anciens chemins
+							if (donnees.hasOwnProperty('fond') && !donnees.fond.includes('/img/') && donnees.fond.substring(0, 1) !== '#' && donnees.fond !== '' && typeof donnees.fond === 'string') {
+								donnees.fond = path.basename(donnees.fond)
+							}
+							const reponse = await db.EXISTS('utilisateurs:' + donnees.identifiant)
+							if (reponse === 1) {
+								let utilisateur = await db.HGETALL('utilisateurs:' + donnees.identifiant)
+								utilisateur = Object.assign({}, utilisateur)
+								if (utilisateur === null) {
 									donnees.nom = donnees.identifiant
 									resolve(donnees)
+									return false
 								}
+								if (utilisateur.nom === '') {
+									donnees.nom = donnees.identifiant
+								} else {
+									donnees.nom = utilisateur.nom
+								}
+								resolve(donnees)
 							} else {
-								resolve({})
+								donnees.nom = donnees.identifiant
+								resolve(donnees)
 							}
 						} else {
 							resolve({})
@@ -6429,38 +6104,31 @@ async function demarrerServeur () {
 							donnees.nom = donnees.identifiant
 							resolve(donnees)
 						}
-					} else if (resultat !== 1 && pgdb === true && isNaN(parseInt(pad)) === false) {
-						const client = await pool.connect()
-						const donneesQ = await client.query('SELECT donnees FROM pads WHERE pad = $1', [parseInt(pad)])
-						client.release()
-						if (donneesQ && donneesQ.hasOwnProperty('rows') && donneesQ.rows[0] && typeof donneesQ.rows[0] === 'object' && Object.keys(donneesQ.rows[0]).length === 1) {
-							const donnees = JSON.parse(donneesQ.rows[0].donnees)
-							if (donnees.hasOwnProperty('identifiant')) {
-								// Pour compatibilité avec les anciens chemins
-								if (donnees.hasOwnProperty('fond') && !donnees.fond.includes('/img/') && donnees.fond.substring(0, 1) !== '#' && donnees.fond !== '' && typeof donnees.fond === 'string') {
-									donnees.fond = path.basename(donnees.fond)
-								}
-								const reponse = await db.EXISTS('utilisateurs:' + donnees.identifiant)
-								if (reponse === 1) {
-									let utilisateur = await db.HGETALL('utilisateurs:' + donnees.identifiant)
-									utilisateur = Object.assign({}, utilisateur)
-									if (utilisateur === null) {
-										donnees.nom = donnees.identifiant
-										resolve(donnees)
-										return false
-									}
-									if (utilisateur.nom === '') {
-										donnees.nom = donnees.identifiant
-									} else {
-										donnees.nom = utilisateur.nom
-									}
-									resolve(donnees)
-								} else {
+					} else if (resultat !== 1 && isNaN(parseInt(pad)) === false && await fs.pathExists(path.join(__dirname, '..', '/static/pads/pad-' + pad + '.json'))) {
+						const donnees = await fs.readJson(path.join(__dirname, '..', '/static/pads/pad-' + pad + '.json'))
+						if (typeof donnees === 'object' && donnees !== null && donnees.hasOwnProperty('identifiant')) {
+							// Pour compatibilité avec les anciens chemins
+							if (donnees.hasOwnProperty('fond') && !donnees.fond.includes('/img/') && donnees.fond.substring(0, 1) !== '#' && donnees.fond !== '' && typeof donnees.fond === 'string') {
+								donnees.fond = path.basename(donnees.fond)
+							}
+							const reponse = await db.EXISTS('utilisateurs:' + donnees.identifiant)
+							if (reponse === 1) {
+								let utilisateur = await db.HGETALL('utilisateurs:' + donnees.identifiant)
+								utilisateur = Object.assign({}, utilisateur)
+								if (utilisateur === null) {
 									donnees.nom = donnees.identifiant
 									resolve(donnees)
+									return false
 								}
+								if (utilisateur.nom === '') {
+									donnees.nom = donnees.identifiant
+								} else {
+									donnees.nom = utilisateur.nom
+								}
+								resolve(donnees)
 							} else {
-								resolve({})
+								donnees.nom = donnees.identifiant
+								resolve(donnees)
 							}
 						} else {
 							resolve({})
@@ -6511,38 +6179,31 @@ async function demarrerServeur () {
 							donnees.nom = donnees.identifiant
 							resolve(donnees)
 						}
-					} else if (resultat !== 1 && pgdb === true && isNaN(parseInt(pad)) === false) {
-						const client = await pool.connect()
-						const donneesQ = await client.query('SELECT donnees FROM pads WHERE pad = $1', [parseInt(pad)])
-						client.release()
-						if (donneesQ && donneesQ.hasOwnProperty('rows') && donneesQ.rows[0] && typeof donneesQ.rows[0] === 'object' && Object.keys(donneesQ.rows[0]).length === 1) {
-							const donnees = JSON.parse(donneesQ.rows[0].donnees)
-							if (donnees.hasOwnProperty('identifiant')) {
-								// Pour compatibilité avec les anciens chemins
-								if (donnees.hasOwnProperty('fond') && !donnees.fond.includes('/img/') && donnees.fond.substring(0, 1) !== '#' && donnees.fond !== '' && typeof donnees.fond === 'string') {
-									donnees.fond = path.basename(donnees.fond)
-								}
-								const reponse = await db.EXISTS('utilisateurs:' + donnees.identifiant)
-								if (reponse === 1) {
-									let utilisateur = await db.HGETALL('utilisateurs:' + donnees.identifiant)
-									utilisateur = Object.assign({}, utilisateur)
-									if (utilisateur === null) {
-										donnees.nom = donnees.identifiant
-										resolve(donnees)
-										return false
-									}
-									if (utilisateur.nom === '') {
-										donnees.nom = donnees.identifiant
-									} else {
-										donnees.nom = utilisateur.nom
-									}
-									resolve(donnees)
-								} else {
+					} else if (resultat !== 1 && isNaN(parseInt(pad)) === false && await fs.pathExists(path.join(__dirname, '..', '/static/pads/pad-' + pad + '.json'))) {
+						const donnees = await fs.readJson(path.join(__dirname, '..', '/static/pads/pad-' + pad + '.json'))
+						if (typeof donnees === 'object' && donnees !== null && donnees.hasOwnProperty('identifiant')) {
+							// Pour compatibilité avec les anciens chemins
+							if (donnees.hasOwnProperty('fond') && !donnees.fond.includes('/img/') && donnees.fond.substring(0, 1) !== '#' && donnees.fond !== '' && typeof donnees.fond === 'string') {
+								donnees.fond = path.basename(donnees.fond)
+							}
+							const reponse = await db.EXISTS('utilisateurs:' + donnees.identifiant)
+							if (reponse === 1) {
+								let utilisateur = await db.HGETALL('utilisateurs:' + donnees.identifiant)
+								utilisateur = Object.assign({}, utilisateur)
+								if (utilisateur === null) {
 									donnees.nom = donnees.identifiant
 									resolve(donnees)
+									return false
 								}
+								if (utilisateur.nom === '') {
+									donnees.nom = donnees.identifiant
+								} else {
+									donnees.nom = utilisateur.nom
+								}
+								resolve(donnees)
 							} else {
-								resolve({})
+								donnees.nom = donnees.identifiant
+								resolve(donnees)
 							}
 						} else {
 							resolve({})
@@ -6574,17 +6235,10 @@ async function demarrerServeur () {
 						let donnees = await db.HGETALL('pads:' + pad)
 						donnees = Object.assign({}, donnees)
 						resolve(donnees)
-					} else if (resultat !== 1 && pgdb === true && isNaN(parseInt(pad)) === false) {
-						const client = await pool.connect()
-						const donneesQ = await client.query('SELECT donnees FROM pads WHERE pad = $1', [parseInt(pad)])
-						client.release()
-						if (donneesQ && donneesQ.hasOwnProperty('rows') && donneesQ.rows[0] && typeof donneesQ.rows[0] === 'object' && Object.keys(donneesQ.rows[0]).length === 1) {
-							const donnees = JSON.parse(donneesQ.rows[0].donnees)
-							if (donnees.hasOwnProperty('identifiant')) {
-								resolve(donnees)
-							} else {
-								resolve({})
-							}
+					} else if (resultat !== 1 && isNaN(parseInt(pad)) === false && await fs.pathExists(path.join(__dirname, '..', '/static/pads/pad-' + pad + '.json'))) {
+						const donnees = await fs.readJson(path.join(__dirname, '..', '/static/pads/pad-' + pad + '.json'))
+						if (typeof donnees === 'object' && donnees !== null && donnees.hasOwnProperty('identifiant')) {
+							resolve(donnees)
 						} else {
 							resolve({})
 						}
@@ -6612,17 +6266,10 @@ async function demarrerServeur () {
 						donnees = Object.assign({}, donnees)
 						if (donnees === null) { resolve({}); return false }
 						resolve(donnees)
-					} else if (resultat !== 1 && pgdb === true && isNaN(parseInt(pad)) === false) {
-						const client = await pool.connect()
-						const donneesQ = await client.query('SELECT donnees FROM pads WHERE pad = $1', [parseInt(pad)])
-						client.release()
-						if (donneesQ && donneesQ.hasOwnProperty('rows') && donneesQ.rows[0] && typeof donneesQ.rows[0] === 'object' && Object.keys(donneesQ.rows[0]).length === 1) {
-							const donnees = JSON.parse(donneesQ.rows[0].donnees)
-							if (donnees.hasOwnProperty('identifiant')) {
-								resolve(donnees)
-							} else {
-								resolve({})
-							}
+					} else if (resultat !== 1 && isNaN(parseInt(pad)) === false && await fs.pathExists(path.join(__dirname, '..', '/static/pads/pad-' + pad + '.json'))) {
+						const donnees = await fs.readJson(path.join(__dirname, '..', '/static/pads/pad-' + pad + '.json'))
+						if (typeof donnees === 'object' && donnees !== null && donnees.hasOwnProperty('identifiant')) {
+							resolve(donnees)
 						} else {
 							resolve({})
 						}
@@ -6958,6 +6605,13 @@ async function demarrerServeur () {
 					if ((bloc.couleur === '' || bloc.couleur === null) && utilisateursSansCouleur.includes(bloc.identifiant) === false) {
 						utilisateursSansCouleur.push(bloc.identifiant)
 					}
+					// Filtrer HTML
+					let html = bloc.texte
+					html = v.stripTags(html, ['b', 'i', 'u', 'strike', 'a', 'br', 'div', 'font', 'ul', 'ol', 'li'])
+					html = html.replace(/style=".*?"/mg, '')
+					html = html.replace(/class=".*?"/mg, '')
+					html = DOMPurify.sanitize(html)
+					bloc.texte = html
 				})
 				activite = activite.filter(function (element) {
 					return Object.keys(element).length > 0
@@ -7266,6 +6920,13 @@ async function demarrerServeur () {
 					if ((bloc.couleur === '' || bloc.couleur === null) && utilisateursSansCouleur.includes(bloc.identifiant) === false) {
 						utilisateursSansCouleur.push(bloc.identifiant)
 					}
+					// Filtrer HTML
+					let html = bloc.texte
+					html = v.stripTags(html, ['b', 'i', 'u', 'strike', 'a', 'br', 'div', 'font', 'ul', 'ol', 'li'])
+					html = html.replace(/style=".*?"/mg, '')
+					html = html.replace(/class=".*?"/mg, '')
+					html = DOMPurify.sanitize(html)
+					bloc.texte = html
 				})
 				activite = activite.filter(function (element) {
 					return Object.keys(element).length > 0
@@ -7528,7 +7189,7 @@ async function demarrerServeur () {
 		})
 	}
 
-	async function exporterPadPg (res, id, donnees) {
+	async function exporterPadJson (res, id, donnees) {
 		const html = genererHTML(donnees.pad, donnees.blocs)
 		const chemin = path.join(__dirname, '..', '/static/temp')
 		await fs.mkdirp(path.normalize(chemin + '/' + id))
