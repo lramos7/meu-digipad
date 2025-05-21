@@ -1,6 +1,6 @@
 {
   "name": "digipad",
-  "version": "1.4.2",
+  "version": "1.5.0",
   "homepage": "https://digipad.app",
   "repository": {
     "type": "git",
@@ -18,8 +18,8 @@
     "build": "vike build",
     "server": "nodemon --watch server ./server",
     "server:prod": "cross-env NODE_ENV=production node --nouse-idle-notification --expose-gc ./server",
-    "import": "cross-env NODE_ENV=production node server/importer-pads-json-db-pg.js",
-    "export": "cross-env NODE_ENV=production node server/exporter-pads-db-pg.js",
+    "export": "cross-env NODE_ENV=production node server/exporter-pads-json.js",
+    "exportpg": "cross-env NODE_ENV=production node server/exporter-pads-pg-json.js",
     "maintenance": "cross-env NODE_ENV=production node server/maintenance.js"
   },
   "type": "module",
@@ -54,6 +54,7 @@
     "gm": "^1.25.0",
     "helmet": "^7.1.0",
     "imagesloaded": "^5.0.0",
+    "isomorphic-dompurify": "^2.24.0",
     "lamejs": "github:zhuker/lamejs",
     "libreoffice-convert": "^1.6.0",
     "linkify-html": "^4.1.3",

@@ -229,12 +229,12 @@ export default {
 	},
 	watch: {
 		affichage: function (affichage) {
-			if (affichage === 'colonnes') {
+			if (!this.mobile && affichage === 'colonnes') {
 				this.definirColonnes(this.blocs)
 				this.$nextTick(function () {
 					this.activerDefilementHorizontal()
 				}.bind(this))
-			} else {
+			} else if (!this.mobile) {
 				this.desactiverDefilementHorizontal()
 			}
 		},
@@ -373,7 +373,7 @@ export default {
 				window.addEventListener('resize', this.redimensionner, false)
 				window.addEventListener('message', this.ecouterMessage, false)
 
-				if (this.pad.affichage === 'colonnes') {
+				if (!this.mobile && this.pad.affichage === 'colonnes') {
 					this.activerDefilementHorizontal()
 				}
 
@@ -402,26 +402,7 @@ export default {
 					this.chargementPage = false
 				}.bind(this), 300)
 
-				if (this.mobile) {
-					document.querySelector('#pad').addEventListener('touchstart', function (event) {
-						if (((event.target.closest('.titre') !== null && event.target.textContent !== '') || (event.target.closest('.texte') !== null && event.target.textContent !== '')) && this.pad.affichage === 'colonnes') {
-							this.desactiverDefilementHorizontal()
-						} else {
-							const selection = document.getSelection()
-							if (selection) {
-								selection.removeAllRanges()
-							}
-						}
-					}.bind(this))
-
-					document.querySelector('#pad').addEventListener('touchend', function () {
-						if (this.pad.affichage === 'colonnes') {
-							setTimeout(function () {
-								this.activerDefilementHorizontal()
-							}.bind(this), 500)
-						}
-					}.bind(this))
-				} else {
+				if (!this.mobile) {
 					document.querySelector('#pad').addEventListener('mousedown', function (event) {
 						if (((event.target.closest('.titre') !== null && event.target.textContent !== '') || (event.target.closest('.texte') !== null && event.target.textContent !== '')) && this.pad.affichage === 'colonnes') {
 							this.desactiverDefilementHorizontal()
@@ -430,11 +411,16 @@ export default {
 							if (selection) {
 								selection.removeAllRanges()
 							}
+							const pad = document.querySelector('#pad')
+							this.defilementHorizontalDebut(event)
+							pad.addEventListener('mouseleave', this.defilementHorizontalFin)
+							pad.addEventListener('mouseup', this.defilementHorizontalFin)
+							pad.addEventListener('mousemove', this.defilementHorizontalEnCours)
 						}
 					}.bind(this))
 
-					document.querySelector('#pad').addEventListener('mouseup', function () {
-						if (this.pad.affichage === 'colonnes') {
+					document.querySelector('#pad').addEventListener('mouseup', function (event) {
+						if (event.target.closest('.titre') === null && event.target.closest('.texte') === null && this.pad.affichage === 'colonnes') {
 							setTimeout(function () {
 								this.activerDefilementHorizontal()
 							}.bind(this), 500)
@@ -900,7 +886,7 @@ export default {
 					event.stopPropagation()
 					let html = event.clipboardData.getData('text/html')
 					if (html !== '') {
-						html = stripTags(html, ['b', 'i', 'u', 'strike', 'a', 'br', 'div', 'font', 'ul', 'ol'])
+						html = stripTags(html, ['b', 'i', 'u', 'strike', 'a', 'br', 'div', 'font', 'ul', 'ol', 'li'])
 						html = html.replace(/style=".*?"/mg, '')
 						html = html.replace(/class=".*?"/mg, '')
 						pell.exec('insertHTML', html)
@@ -2316,7 +2302,7 @@ export default {
 					event.stopPropagation()
 					let html = event.clipboardData.getData('text/html')
 					if (html !== '') {
-						html = stripTags(html, ['b', 'i', 'u', 'strike', 'a', 'br', 'div', 'font', 'ul', 'ol'])
+						html = stripTags(html, ['b', 'i', 'u', 'strike', 'a', 'br', 'div', 'font', 'ul', 'ol', 'li'])
 						html = html.replace(/style=".*?"/mg, '')
 						html = html.replace(/class=".*?"/mg, '')
 						pell.exec('insertHTML', html)
@@ -2391,7 +2377,7 @@ export default {
 					event.stopPropagation()
 					let html = event.clipboardData.getData('text/html')
 					if (html !== '') {
-						html = stripTags(html, ['b', 'i', 'u', 'strike', 'a', 'br', 'div', 'font', 'ul', 'ol'])
+						html = stripTags(html, ['b', 'i', 'u', 'strike', 'a', 'br', 'div', 'font', 'ul', 'ol', 'li'])
 						html = html.replace(/style=".*?"/mg, '')
 						html = html.replace(/class=".*?"/mg, '')
 						pell.exec('insertHTML', html)
@@ -2523,7 +2509,7 @@ export default {
 			this.gererFocus()
 		},
 		demarrerDeplacerBloc () {
-			if (this.pad.affichage === 'colonnes') {
+			if (!this.mobile && this.pad.affichage === 'colonnes') {
 				this.desactiverDefilementHorizontal()
 				this.defilement = false
 				this.depart = 0
@@ -2532,7 +2518,7 @@ export default {
 		},
 		deplacerBloc (event) {
 			this.chargement = true
-			if (this.pad.affichage === 'colonnes') {
+			if (!this.mobile && this.pad.affichage === 'colonnes') {
 				this.activerDefilementHorizontal()
 				const blocs = []
 				this.colonnes.forEach(function (colonne, indexColonne) {
@@ -2816,7 +2802,7 @@ export default {
 						this.pad.affichage = donnees.pad.affichage
 						this.pad.colonnes = donnees.pad.colonnes
 						this.pad.affichageColonnes = donnees.pad.affichageColonnes
-						if (this.pad.affichage === 'colonnes') {
+						if (!this.mobile && this.pad.affichage === 'colonnes') {
 							this.definirColonnes(this.blocs)
 							this.$nextTick(function () {
 								this.activerDefilementHorizontal()
@@ -3538,7 +3524,7 @@ export default {
 					this.activite = donnees.activite
 					this.pad.colonnes = donnees.pad.colonnes
 					this.pad.affichageColonnes = donnees.pad.affichageColonnes
-					if (this.pad.affichage === 'colonnes') {
+					if (!this.mobile && this.pad.affichage === 'colonnes') {
 						this.definirColonnes(this.blocs)
 						this.$nextTick(function () {
 							this.activerDefilementHorizontal()
@@ -4248,7 +4234,7 @@ export default {
 					this.pad.code = donnees.pad.code
 					this.pad.colonnes = donnees.pad.colonnes
 					this.pad.affichageColonnes = donnees.pad.affichageColonnes
-					if (this.pad.affichage === 'colonnes') {
+					if (!this.mobile && this.pad.affichage === 'colonnes') {
 						this.definirColonnes(this.blocs)
 						this.$nextTick(function () {
 							this.activerDefilementHorizontal()
