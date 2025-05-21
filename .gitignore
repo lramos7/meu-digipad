@@ -10,6 +10,7 @@ yarn-error.log*
 package-lock.json
 _resources
 dist
+server/exporter-pads-pg-json.js
 
 # Runtime data
 pids
