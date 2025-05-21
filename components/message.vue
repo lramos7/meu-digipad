@@ -5,7 +5,7 @@
 				<div class="contenu">
 					<div class="message" v-html="message" />
 					<div class="actions">
-						<span class="bouton" role="button" tabindex="0" @click="$emit('fermer')" @keydown.enter="$emit('fermer')">{{ $t('fermer') }}</span>
+						<span class="bouton" role="button" tabindex="0" @click="fermer" @keydown.enter="fermer">{{ $t('fermer') }}</span>
 					</div>
 				</div>
 			</div>
@@ -26,6 +26,36 @@ export default {
 				document.querySelector('#message .bouton').focus()
 			})
 		}
+	},
+	methods: {
+		fermer () {
+			this.$emit('fermer')
+		}
 	}
 }
 </script>
+
+<style>
+#conteneur-message .modale .conteneur {
+	height: 100%;
+	padding: 30px 25px;
+	text-align: center;
+}
+
+#conteneur-message .modale {
+	max-width: 500px;
+}
+
+#conteneur-message .message {
+	font-size: 18px;
+	line-height: 1.5;
+}
+
+#conteneur-message .bouton {
+	margin-top: 20px;
+}
+
+#conteneur-message .modale .actions {
+	font-size: 0;
+}
+</style>
