@@ -229,12 +229,14 @@ export default {
 	},
 	watch: {
 		affichage: function (affichage) {
-			if (!this.mobile && affichage === 'colonnes') {
+			if (affichage === 'colonnes') {
 				this.definirColonnes(this.blocs)
-				this.$nextTick(function () {
-					this.activerDefilementHorizontal()
-				}.bind(this))
-			} else if (!this.mobile) {
+				if (!this.mobile) {
+					this.$nextTick(function () {
+						this.activerDefilementHorizontal()
+					}.bind(this))
+				}
+			} else if (affichage !== 'colonnes' && !this.mobile) {
 				this.desactiverDefilementHorizontal()
 			}
 		},
@@ -2518,8 +2520,10 @@ export default {
 		},
 		deplacerBloc (event) {
 			this.chargement = true
-			if (!this.mobile && this.pad.affichage === 'colonnes') {
-				this.activerDefilementHorizontal()
+			if (this.pad.affichage === 'colonnes') {
+				if (!this.mobile) {
+					this.activerDefilementHorizontal()
+				}
 				const blocs = []
 				this.colonnes.forEach(function (colonne, indexColonne) {
 					colonne.forEach(function (bloc, indexBloc) {
@@ -2802,11 +2806,13 @@ export default {
 						this.pad.affichage = donnees.pad.affichage
 						this.pad.colonnes = donnees.pad.colonnes
 						this.pad.affichageColonnes = donnees.pad.affichageColonnes
-						if (!this.mobile && this.pad.affichage === 'colonnes') {
+						if (this.pad.affichage === 'colonnes') {
 							this.definirColonnes(this.blocs)
-							this.$nextTick(function () {
-								this.activerDefilementHorizontal()
-							}.bind(this))
+							if (!this.mobile) {
+								this.$nextTick(function () {
+									this.activerDefilementHorizontal()
+								}.bind(this))
+							}
 						}
 						this.$socket.emit('connexion', { pad: this.pad.id, identifiant: this.identifiant, nom: this.nom })
 						this.fermerModaleCodeAcces()
@@ -3524,11 +3530,13 @@ export default {
 					this.activite = donnees.activite
 					this.pad.colonnes = donnees.pad.colonnes
 					this.pad.affichageColonnes = donnees.pad.affichageColonnes
-					if (!this.mobile && this.pad.affichage === 'colonnes') {
+					if (this.pad.affichage === 'colonnes') {
 						this.definirColonnes(this.blocs)
-						this.$nextTick(function () {
-							this.activerDefilementHorizontal()
-						}.bind(this))
+						if (!this.mobile) {
+							this.$nextTick(function () {
+								this.activerDefilementHorizontal()
+							}.bind(this))
+						}
 					}
 					this.$socket.emit('connexion', { pad: this.pad.id, identifiant: this.identifiant, nom: this.nom })
 				} else {
@@ -4234,11 +4242,13 @@ export default {
 					this.pad.code = donnees.pad.code
 					this.pad.colonnes = donnees.pad.colonnes
 					this.pad.affichageColonnes = donnees.pad.affichageColonnes
-					if (!this.mobile && this.pad.affichage === 'colonnes') {
+					if (this.pad.affichage === 'colonnes') {
 						this.definirColonnes(this.blocs)
-						this.$nextTick(function () {
-							this.activerDefilementHorizontal()
-						}.bind(this))
+						if (!this.mobile) {
+							this.$nextTick(function () {
+								this.activerDefilementHorizontal()
+							}.bind(this))
+						}
 					}
 				}
 				this.notification = this.$t('padDebloque')
