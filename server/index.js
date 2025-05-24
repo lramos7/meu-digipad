@@ -95,7 +95,7 @@ async function demarrerServeur () {
 			},
 			requestHandler: {
 				requestTimeout: 30_000,
-				httpAgent: { maxSockets: 500 },
+				httpsAgent: { maxSockets: 500 }
 			}
 		})
 	}
