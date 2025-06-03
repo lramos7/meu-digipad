@@ -1259,7 +1259,7 @@ async function demarrerServeur () {
 		const identifiant = req.body.identifiant
 		const admin = req.body.admin
 		const motdepasseAdmin = process.env.VITE_ADMIN_PASSWORD
-		if ((req.session.identifiant && req.session.identifiant === identifiant) || (admin !== '' && admin === motdepasseAdmin)) {
+		if ((req.session.identifiant && req.session.identifiant === identifiant && (req.session.statut === 'utilisateur' || req.session.statut === 'auteur')) || (admin !== '' && admin === motdepasseAdmin)) {
 			const id = req.body.padId
 			const resultat = await db.EXISTS('pads:' + id)
 			if (resultat === null) { res.send('erreur_export'); return false }
@@ -1497,7 +1497,7 @@ async function demarrerServeur () {
 		const motdepasseAdmin = process.env.VITE_ADMIN_PASSWORD
 		const pad = req.body.padId
 		const type = req.body.type
-		if ((req.session.identifiant && req.session.identifiant === identifiant) || (admin !== '' && admin === motdepasseAdmin)) {
+		if ((req.session.identifiant && req.session.identifiant === identifiant && (req.session.statut === 'utilisateur' || req.session.statut === 'auteur')) || (admin !== '' && admin === motdepasseAdmin)) {
 			let suppressionFichiers = true
 			if (req.body.hasOwnProperty('suppressionFichiers')) {
 				suppressionFichiers = req.body.suppressionFichiers
@@ -3846,9 +3846,11 @@ async function demarrerServeur () {
 			socket.to('pad-' + pad).emit('deconnexion', identifiant)
 		})
 
-		socket.on('disconnect', function () {
+		socket.on('disconnecting', function () {
 			if (socket.request.session.identifiant !== '') {
-				socket.broadcast.emit('deconnexion', socket.request.session.identifiant)
+				socket.rooms.forEach(function (room) {
+					io.to(room).emit('deconnexion', socket.request.session.identifiant)
+				})
 			}
 		})
 
@@ -3862,7 +3864,9 @@ async function demarrerServeur () {
 				socket.request.session.save()
 			}
 			if (identifiant !== '') {
-				socket.broadcast.emit('deconnexion', identifiant)
+				socket.rooms.forEach(function (room) {
+					io.to(room).emit('deconnexion', socket.request.session.identifiant)
+				})
 			}
 		})
 
