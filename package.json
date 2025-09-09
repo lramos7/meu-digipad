@@ -1,6 +1,6 @@
 {
   "name": "digipad",
-  "version": "1.5.1",
+  "version": "1.5.2",
   "homepage": "https://digipad.app",
   "repository": {
     "type": "git",
@@ -72,7 +72,7 @@
     "vike": "^0.4.230",
     "vite": "^6.0.0",
     "voca": "^1.4.1",
-    "vue": "^3.5.4",
+    "vue": "^3.5.13",
     "vue-draggable-next": "^2.2.1",
     "vue-i18n": "^10.0.0",
     "vue-next-masonry": "^1.1.3"
