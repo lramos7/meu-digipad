@@ -86,6 +86,8 @@ async function demarrerServeur () {
 		bucket = process.env.S3_BUCKET
 	}
 	if (stockage === 's3') {
+		const s3ServerType = process.env.S3_SERVER_TYPE || 'aws'
+		const maxSockets = process.env.S3_MAX_SOCKETS || 500
 		s3Client = new S3Client({
 			endpoint: process.env.S3_ENDPOINT,
 			region: process.env.S3_REGION,
@@ -93,17 +95,15 @@ async function demarrerServeur () {
 				accessKeyId: process.env.S3_ACCESS_KEY,
 				secretAccessKey: process.env.S3_SECRET_KEY
 			},
+			forcePathStyle: s3ServerType === 'minio' ? true : false,
 			requestHandler: {
 				requestTimeout: 30_000,
-				httpsAgent: { maxSockets: 500 }
+				httpsAgent: { maxSockets: maxSockets }
 			}
 		})
 	}
 	let db
-	let db_port = 6379
-	if (process.env.DB_PORT) {
-		db_port = process.env.DB_PORT
-	}
+	const db_port = process.env.DB_PORT || 6379
 	if (production) {
 		db = await createClient({
 			url: 'redis://default:' + process.env.DB_PWD  + '@' + process.env.DB_HOST + ':' + db_port
@@ -117,7 +117,7 @@ async function demarrerServeur () {
 			console.log('redis: ' + err)
 		}).connect()
 	}
-	let storeOptions, cookie, dureeSession, dateCron, domainesAutorises, minimumEspaceDisque
+	let storeOptions, cookie, domainesAutorises
 	let maintenance = false
 	if (production) {
 		storeOptions = {
@@ -152,14 +152,10 @@ async function demarrerServeur () {
 		saveUninitialized: false,
 		cookie: cookie
 	}
-	if (process.env.SESSION_DURATION) {
-		dureeSession = parseInt(process.env.SESSION_DURATION)
-	} else {
-		dureeSession = 864000000 //3600 * 24 * 10 * 1000
-	}
+	const dureeSession = parseInt(process.env.SESSION_DURATION) || 864000000 //3600 * 24 * 10 * 1000
 	const sessionMiddleware = session(sessionOptions)
 
-	if (production && process.env.AUTHORIZED_DOMAINS) {
+	if (production && process.env.AUTHORIZED_DOMAINS && process.env.AUTHORIZED_DOMAINS !== null && process.env.AUTHORIZED_DOMAINS !== '') {
 		domainesAutorises = process.env.AUTHORIZED_DOMAINS.split(',')
 	} else {
 		domainesAutorises = '*'
@@ -180,19 +176,12 @@ async function demarrerServeur () {
 		}
 	})
 
-	if (process.env.CRON_TASK_DATE) {
-		dateCron = process.env.CRON_TASK_DATE
-	} else {
-		dateCron = '59 23 * * Saturday' // tous les samedis à 23h59
-	}
+	const dateCron = process.env.CRON_TASK_DATE || '59 23 * * Saturday' // tous les samedis à 23h59
 	cron.schedule(dateCron, async function () {
 		await fs.emptyDir(path.join(__dirname, '..', '/static/temp'))
 	})
 
-	minimumEspaceDisque = 10
-	if (process.env.ALERT_AVAILABLE_SPACE) {
-		minimumEspaceDisque = process.env.ALERT_AVAILABLE_SPACE
-	}
+	const minimumEspaceDisque = process.env.ALERT_AVAILABLE_SPACE || 10
 
 	// Charger plugin dayjs
 	dayjs.extend(localizedFormat)

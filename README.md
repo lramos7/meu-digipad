@@ -62,11 +62,13 @@ AUTHORIZED_DOMAINS (domaines autorisés pour api serveur. ex : ladigitale.dev,ex
 ALERT_AVAILABLE_SPACE (pourcentage d'espace libre en dessous duquel une alerte est affichée et le téléversement de fichiers empêché / 10 par défaut)
 VITE_STORAGE (type de stockage pour les fichiers - fs ou s3 / fs - filestorage par défaut)
 VITE_S3_PUBLIC_LINK (lien public vers les contenus du conteneur d'objets S3)
+S3_SERVER_TYPE (aws ou minio / aws par défaut)
 S3_ENDPOINT (endpoint S3)
 S3_ACCESS_KEY (clé d'accès S3)
 S3_SECRET_KEY (clé secrète d'accès S3)
 S3_REGION (clé du conteneur S3)
 S3_BUCKET (nom du conteneur s3)
+S3_MAX_SOCKETS (nombre maximum de sockets pour httpsAgent du client S3)
 VITE_DOCX_VIEWER (lien vers une visionneuse pour les documents MS Office / téléchargement du fichier par défaut)
 ```
 
