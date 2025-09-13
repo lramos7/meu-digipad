@@ -39,6 +39,7 @@ async function onBeforeRender (pageContext) {
 		} else if (!admin && reponse.data.pad.acces === 'prive' && statut !== 'utilisateur') {
 			pageProps = { redirection }
 		} else {
+			const urlOriginal = pageContext.urlOriginal
 			const params = pageContext.params
 			const hote = pageContext.hote
 			const userAgent = pageContext.userAgent
@@ -52,7 +53,7 @@ async function onBeforeRender (pageContext) {
 			if (!admin) {
 				pads = []
 			}
-			pageProps = { params, hote, userAgent, langues, identifiant, nom, langue, statut, pads, pad, blocs, activite, titre }
+			pageProps = { urlOriginal, params, hote, userAgent, langues, identifiant, nom, langue, statut, pads, pad, blocs, activite, titre }
 		}
 	}
 	return {
