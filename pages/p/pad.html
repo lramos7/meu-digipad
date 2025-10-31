@@ -640,7 +640,7 @@
 						<audio id="audio" controls :src="definirLienFichier(pad.id, media)" v-show="!chargementMedia" v-else-if="type === 'audio'" />
 						<video id="video" controls playsinline crossOrigin="anonymous" :src="definirLienFichier(pad.id, media)" v-show="!chargementMedia" v-else-if="type === 'video'" />
 						<iframe id="document" :src="'/pdfjs/web/viewer.html?file=' + definirLienFichierHote(pad.id, media)" allowfullscreen v-show="!chargementMedia" v-else-if="type === 'pdf'" />
-						<iframe id="document" :src="visionneuseDocx + definirLienFichierHote(pad.id, media)" allowfullscreen v-show="!chargementMedia" v-else-if="(type === 'office' || type === 'document') && visionneuseDocx !== ''" />
+						<iframe id="document" :src="visionneuseDocx + definirLienFichierHote(pad.id, media)" allowfullscreen v-show="!chargementMedia" v-else-if="(type === 'office' || type === 'document') && visionneuseDocx && visionneuseDocx !== '' && visionneuseDocx !== null" />
 						<a id="lien" :href="media" target="_blank" v-show="!chargementMedia" v-else-if="type === 'lien'">
 							<span class="type">{{ $t('lienExterne') }}</span>
 							<span class="nom">{{ definirNomFichier(media) }}</span>
@@ -924,7 +924,7 @@
 						<audio controls :src="definirCheminFichiers() + '/' + pad.id + '/' + donneesBloc.media" v-else-if="donneesBloc.type === 'audio'" />
 						<video controls playsinline crossOrigin="anonymous" :src="definirCheminFichiers() + '/' + pad.id + '/' + donneesBloc.media" v-else-if="donneesBloc.type === 'video'" />
 						<iframe class="document" :src="'/pdfjs/web/viewer.html?file=' + definirCheminFichiersHote() + '/' + pad.id + '/' + donneesBloc.media" allowfullscreen v-else-if="donneesBloc.type === 'pdf'" />
-						<iframe class="document" :src="visionneuseDocx + definirCheminFichiersHote() + '/' + pad.id + '/' + donneesBloc.media" allowfullscreen v-else-if="(donneesBloc.type === 'office' || donneesBloc.type === 'document') && visionneuseDocx !== ''" />
+						<iframe class="document" :src="visionneuseDocx + definirCheminFichiersHote() + '/' + pad.id + '/' + donneesBloc.media" allowfullscreen v-else-if="(donneesBloc.type === 'office' || donneesBloc.type === 'document') && visionneuseDocx && visionneuseDocx !== '' && visionneuseDocx !== null" />
 						<span v-else-if="donneesBloc.type === 'lien'">
 							<a :href="donneesBloc.media" target="_blank">
 								<img :src="definirLienVignette(pad.id, donneesBloc.vignette)" :alt="definirNomLienFichier(donneesBloc.vignette)" v-if="donneesBloc.vignette && donneesBloc.vignette !== ''">
