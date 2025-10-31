@@ -77,6 +77,7 @@ async function demarrerServeur () {
 	} else if (process.env.PORT) {
 		hote = 'http://localhost:' + process.env.PORT
 	}
+	const hoteTeleversement = process.env.UPLOAD_HOST || hote
 	let stockage = 'fs'
 	const lienPublicS3 = process.env.VITE_S3_PUBLIC_LINK
 	let s3Client = ''
@@ -493,6 +494,7 @@ async function demarrerServeur () {
 			urlOriginal: req.originalUrl,
 			params: req.query,
 			hote: hote,
+			hoteTeleversement: hoteTeleversement,
 			userAgent: userAgent,
 			langues: ['fr', 'es', 'it', 'de', 'en', 'hr'],
 			identifiant: req.session.identifiant,

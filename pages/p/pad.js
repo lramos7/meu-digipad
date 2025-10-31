@@ -121,6 +121,7 @@ export default {
 			colonneDestination: '',
 			elementPrecedent: null,
 			hote: this.$pageContext.pageProps.hote,
+			hoteTeleversement: this.$pageContext.pageProps.hoteTeleversement,
 			userAgent: this.$pageContext.pageProps.userAgent,
 			langues: this.$pageContext.pageProps.langues,
 			identifiant: this.$pageContext.pageProps.identifiant,
@@ -922,7 +923,7 @@ export default {
 				const formulaire = new FormData()
 				formulaire.append('pad', this.pad.id)
 				formulaire.append('fichier', fichier)
-				axios.post(this.hote + '/api/televerser-fichier', formulaire, {
+				axios.post(this.hoteTeleversement + '/api/televerser-fichier', formulaire, {
 					headers: {
 						'Content-Type': 'multipart/form-data'
 					},
@@ -984,7 +985,7 @@ export default {
 						case 'document':
 						case 'office':
 							this.$nextTick(function () {
-								if (this.visionneuseDocx !== '') {
+								if (this.visionneuseDocx && this.visionneuseDocx !== '' && this.visionneuseDocx !== null) {
 									const iframe = document.querySelector('#document')
 									iframe.addEventListener('load', function () {
 										imagesLoaded('#vignette', function () {
@@ -1043,7 +1044,7 @@ export default {
 			const formulaire = new FormData()
 			formulaire.append('pad', this.pad.id)
 			formulaire.append('fichier', blob, 'enregistrement.mp3')
-			axios.post(this.hote + '/api/televerser-audio', formulaire, {
+			axios.post(this.hoteTeleversement + '/api/televerser-audio', formulaire, {
 				headers: {
 					'Content-Type': 'multipart/form-data'
 				},
@@ -1256,7 +1257,7 @@ export default {
 									const url = new URL(this.lien)
 									const domaine = url.hostname
 									const protocole = url.protocol
-									axios.post(this.hote + '/api/recuperer-icone', {
+									axios.post(this.hoteTeleversement + '/api/recuperer-icone', {
 										domaine: domaine,
 										protocole: protocole
 									}).then(async function (reponse) {
@@ -1448,7 +1449,7 @@ export default {
 				const formulaire = new FormData()
 				formulaire.append('pad', this.pad.id)
 				formulaire.append('fichier', fichier)
-				axios.post(this.hote + '/api/televerser-vignette', formulaire, {
+				axios.post(this.hoteTeleversement + '/api/televerser-vignette', formulaire, {
 					headers: {
 						'Content-Type': 'multipart/form-data'
 					},
@@ -2875,7 +2876,7 @@ export default {
 				const formulaire = new FormData()
 				formulaire.append('pad', this.pad.id)
 				formulaire.append('fichier', fichier)
-				axios.post(this.hote + '/api/televerser-fond', formulaire, {
+				axios.post(this.hoteTeleversement + '/api/televerser-fond', formulaire, {
 					headers: {
 						'Content-Type': 'multipart/form-data'
 					},
