@@ -3,6 +3,7 @@ import imagesLoaded from 'imagesloaded'
 import pell from 'pell'
 import linkifyHtml from 'linkify-html'
 import stripTags from 'voca/strip_tags'
+import DOMPurify from 'dompurify'
 import fileSaver from 'file-saver'
 const { saveAs } = fileSaver
 import ClipboardJS from 'clipboard'
@@ -399,6 +400,10 @@ export default {
 					document.querySelector('#copier-code span').focus()
 					this.notification = this.$t('codeCopie')
 				}.bind(this))
+
+				this.blocs.forEach(function (bloc) {
+					bloc.texte = DOMPurify.sanitize(bloc.texte)
+				})
 
 				setTimeout(function () {
 					this.chargementPage = false
@@ -890,6 +895,7 @@ export default {
 						html = stripTags(html, ['b', 'i', 'u', 'strike', 'a', 'br', 'div', 'font', 'ul', 'ol', 'li'])
 						html = html.replace(/style=".*?"/mg, '')
 						html = html.replace(/class=".*?"/mg, '')
+						html = DOMPurify.sanitize(html)
 						pell.exec('insertHTML', html)
 					} else {
 						pell.exec('insertText', event.clipboardData.getData('text/plain'))
@@ -2306,6 +2312,7 @@ export default {
 						html = stripTags(html, ['b', 'i', 'u', 'strike', 'a', 'br', 'div', 'font', 'ul', 'ol', 'li'])
 						html = html.replace(/style=".*?"/mg, '')
 						html = html.replace(/class=".*?"/mg, '')
+						html = DOMPurify.sanitize(html)
 						pell.exec('insertHTML', html)
 					} else {
 						pell.exec('insertText', event.clipboardData.getData('text/plain'))
@@ -2381,6 +2388,7 @@ export default {
 						html = stripTags(html, ['b', 'i', 'u', 'strike', 'a', 'br', 'div', 'font', 'ul', 'ol', 'li'])
 						html = html.replace(/style=".*?"/mg, '')
 						html = html.replace(/class=".*?"/mg, '')
+						html = DOMPurify.sanitize(html)
 						pell.exec('insertHTML', html)
 					} else {
 						pell.exec('insertText', event.clipboardData.getData('text/plain'))
