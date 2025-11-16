@@ -25,8 +25,8 @@
 				<i class="material-icons" :class="{'evalue': $parent.$parent.verifierUtilisateurEvaluation(item.evaluations) === true}" v-for="etoile in (5 - $parent.$parent.definirEvaluationCapsule(item.evaluations))" :key="'etoilevide_' + etoile">star_outline</i>
 				<span>({{ item.evaluations.length }})</span>
 			</span>
-			<span class="bouton" role="button" :tabindex="tabindex" :title="$t('evaluerCapsule')" :style="{'color': couleur}" @click="$parent.$parent.ouvrirModaleEvaluations(item.bloc, item.titre, '')" @keydown.enter="$parent.$parent.ouvrirModaleEvaluations(item.bloc, item.titre, '')" v-if="$parent.$parent.verifierUtilisateurEvaluation(item.evaluations) === false && action !== 'organiser'"><i class="material-icons">add_comment</i></span>
-			<span class="bouton" role="button" :tabindex="tabindex" :title="$t('evaluerCapsule')" :style="{'color': couleur}" @click="$parent.$parent.ouvrirModaleEvaluations(item.bloc, item.titre, item.evaluations)" @keydown.enter="$parent.$parent.ouvrirModaleEvaluations(item.bloc, item.titre, item.evaluations)" v-else-if="$parent.$parent.verifierUtilisateurEvaluation(item.evaluations) === true && action !== 'organiser'"><i class="material-icons">rate_review</i></span>
+			<span class="bouton" role="button" :tabindex="tabindex" :title="$t('evaluerCapsule')" @click="$parent.$parent.ouvrirModaleEvaluations(item.bloc, item.titre, '')" @keydown.enter="$parent.$parent.ouvrirModaleEvaluations(item.bloc, item.titre, '')" v-if="$parent.$parent.verifierUtilisateurEvaluation(item.evaluations) === false && action !== 'organiser'"><i class="material-icons">add_comment</i></span>
+			<span class="bouton" role="button" :tabindex="tabindex" :title="$t('evaluerCapsule')" @click="$parent.$parent.ouvrirModaleEvaluations(item.bloc, item.titre, item.evaluations)" @keydown.enter="$parent.$parent.ouvrirModaleEvaluations(item.bloc, item.titre, item.evaluations)" v-else-if="$parent.$parent.verifierUtilisateurEvaluation(item.evaluations) === true && action !== 'organiser'"><i class="material-icons">rate_review</i></span>
 		</div>
 		<div class="action" :style="{'color': item.couleur}">
 			<span class="bouton" role="button" :tabindex="tabindex" :title="$t('modifierCapsule')" @click="$parent.$parent.ouvrirModaleBloc('edition', item, indexCol)" @keydown.enter="$parent.$parent.ouvrirModaleBloc('edition', item, indexCol)" v-if="(item.identifiant === identifiant || admin || pad.contributions === 'modifiables') && action !== 'organiser'"><i class="material-icons">edit</i></span>
@@ -54,7 +54,6 @@ export default {
 		identifiant: String,
 		item: Object,
 		pad: Object,
-		couleur: String,
 		indexCol: Number,
 		tabindex: Number,
 		action: String,

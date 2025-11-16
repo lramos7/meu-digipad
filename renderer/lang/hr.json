@@ -140,7 +140,6 @@
 	"monEvaluation": "Moja recenzija",
 	"modifierNom": "Promijenite ime",
 	"votreNom": "Vaše ime",
-	"couleurModifiee": "Boja promijenjena.",
 	"titrePadModifie": "Naslov objave je promijenjen.",
 	"accesPadModifie": "Promijenjen je pristup digitalnoj ploči.",
 	"statutPadModifie": "Statusje promijenjen.",
@@ -393,5 +392,8 @@
 	"retourAccueil": "Povratak na početnu stranicu",
 	"nombreVues": "Broj pregleda",
 	"repeterImageFond": "Ponovite pozadinsku sliku",
-	"parametreFondModifie": "Promijenjena postavka ponavljanja pozadinske slike."
+	"parametreFondModifie": "Promijenjena postavka ponavljanja pozadinske slike.",
+	"couleur": "Boja",
+	"aValideCapsule": "validirao obradu \"{titre}\"",
+	"aValideUneCapsule": "validirao objavu"
 }

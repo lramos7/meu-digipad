@@ -5,7 +5,6 @@ import linkifyHtml from 'linkify-html'
 import stripTags from 'voca/strip_tags'
 import fileSaver from 'file-saver'
 const { saveAs } = fileSaver
-import Panzoom from '@panzoom/panzoom'
 import ClipboardJS from 'clipboard'
 import lamejs from 'lamejs'
 import ChargementPage from '#root/components/chargement-page.vue'
@@ -82,7 +81,7 @@ export default {
 			utilisateurs: [],
 			utilisateur: '',
 			nomUtilisateur: '',
-			couleur: '',
+			couleur: '#242f3d',
 			couleurs: ['#f76707', '#f59f00', '#74b816', '#37b24d', '#0ca678', '#1098ad', '#1c7ed6', '#4263eb', '#7048e8', '#ae3ec9', '#d6336c', '#f03e3e', '#495057'],
 			listeCouleurs: false,
 			panneaux: [],
@@ -537,7 +536,6 @@ export default {
 			donnees.forEach(function (utilisateur) {
 				if (utilisateur.identifiant === this.identifiant && utilisateurs.length === 0) {
 					utilisateurs.push(utilisateur)
-					this.couleur = utilisateur.couleur
 				} else if (utilisateur.identifiant !== this.identifiant) {
 					autresUtilisateurs.push(utilisateur)
 				}
@@ -753,7 +751,7 @@ export default {
 		ajouterColonne () {
 			if (this.titreColonne !== '') {
 				this.chargement = true
-				this.$socket.emit('ajoutercolonne', this.pad.id, this.titreColonne, this.pad.colonnes, this.pad.affichageColonnes, this.couleur, this.identifiant, this.nom)
+				this.$socket.emit('ajoutercolonne', this.pad.id, this.titreColonne, this.pad.colonnes, this.pad.affichageColonnes, this.identifiant, this.nom)
 				this.fermerModaleColonne()
 			}
 		},
@@ -786,7 +784,7 @@ export default {
 		supprimerColonne () {
 			this.modaleConfirmer = false
 			this.chargement = true
-			this.$socket.emit('supprimercolonne', this.pad.id, this.titreColonne, this.colonne, this.couleur, this.identifiant, this.nom)
+			this.$socket.emit('supprimercolonne', this.pad.id, this.titreColonne, this.colonne, this.identifiant, this.nom)
 			this.fermerModaleColonne()
 		},
 		fermerModaleColonne () {
@@ -799,7 +797,7 @@ export default {
 		},
 		deplacerColonne (direction, colonne) {
 			this.chargement = true
-			this.$socket.emit('deplacercolonne', this.pad.id, this.pad.colonnes[colonne], this.pad.affichageColonnes[colonne], direction, colonne, this.couleur, this.identifiant, this.nom)
+			this.$socket.emit('deplacercolonne', this.pad.id, this.pad.colonnes[colonne], this.pad.affichageColonnes[colonne], direction, colonne, this.identifiant, this.nom)
 		},
 		definirLargeurCapsules () {
 			let donnees
@@ -1538,7 +1536,7 @@ export default {
 					})
 				})
 			}
-			this.$socket.emit('autoriserbloc', this.pad.id, this.pad.token, donneesBloc, indexBloc, indexBlocColonne, moderation, this.identifiant)
+			this.$socket.emit('autoriserbloc', this.pad.id, this.pad.token, donneesBloc, indexBloc, indexBlocColonne, moderation, this.identifiant, this.nom)
 		},
 		fermerModaleBloc () {
 			this.modale = ''
@@ -1594,7 +1592,7 @@ export default {
 		supprimerBloc () {
 			this.modaleConfirmer = false
 			this.chargement = true
-			this.$socket.emit('supprimerbloc', this.bloc, this.pad.id, this.pad.token, this.titre, this.couleur, this.colonne, this.identifiant, this.nom)
+			this.$socket.emit('supprimerbloc', this.bloc, this.pad.id, this.pad.token, this.titre, this.colonne, this.identifiant, this.nom)
 		},
 		fermerModaleConfirmer () {
 			this.modaleConfirmer = false
@@ -1747,7 +1745,7 @@ export default {
 					break
 				case 'embed':
 					if (item.source === 'etherpad') {
-						html = '<iframe src="' + item.media + '?userName=' + this.nom + '&userColor=' + this.couleur + '" allowfullscreen></iframe>'
+						html = '<iframe src="' + item.media + '?userName=' + this.nom + '" allowfullscreen></iframe>'
 					} else if (this.verifierURL(item.iframe) === true) {
 						html = '<iframe src="' + item.iframe + '" allow="autoplay; fullscreen"></iframe>'
 					} else {
@@ -2269,7 +2267,7 @@ export default {
 				bloc = this.donneesBloc.bloc
 			}
 			if (this.commentaire !== '') {
-				this.$socket.emit('commenterbloc', bloc, this.pad.id, this.titre, this.commentaire, this.couleur, this.identifiant, this.nom)
+				this.$socket.emit('commenterbloc', bloc, this.pad.id, this.titre, this.commentaire, this.identifiant, this.nom)
 				this.commentaire = ''
 				this.commentaireId = ''
 				this.commentaireModifie = ''
@@ -2485,7 +2483,7 @@ export default {
 			} else {
 				this.chargement = true
 			}
-			this.$socket.emit('evaluerbloc', bloc, this.pad.id, this.titre, this.evaluation, this.couleur, this.identifiant, this.nom)
+			this.$socket.emit('evaluerbloc', bloc, this.pad.id, this.titre, this.evaluation, this.identifiant, this.nom)
 			this.fermerModaleEvaluations()
 		},
 		modifierEvaluation () {
@@ -2653,7 +2651,6 @@ export default {
 			}
 		},
 		afficherUtilisateurs () {
-			this.listeCouleurs = false
 			if (this.menu !== 'utilisateurs') {
 				this.elementPrecedent = (document.activeElement || document.body)
 				this.menu = 'utilisateurs'
@@ -3017,11 +3014,6 @@ export default {
 			}
 			this.codeVisible = false
 			this.gererFocus()
-		},
-		modifierCouleur (couleur) {
-			this.listeCouleurs = false
-			this.couleur = couleur
-			this.$socket.emit('modifiercouleur', this.pad.id, couleur, this.identifiant)
 		},
 		afficherModifierNom () {
 			this.nomUtilisateur = this.nom
@@ -3564,9 +3556,7 @@ export default {
 					} else {
 						this.blocs.unshift(donnees)
 					}
-					if (donnees.visibilite === 'visible' || this.admin || (this.pad.contributions === 'moderees' && (this.utilisateur === this.identifiant))) {
-						this.activite.unshift({ id: donnees.activiteId, bloc: donnees.bloc, identifiant: donnees.identifiant, nom: donnees.nom, titre: donnees.titre, date: donnees.date, couleur: donnees.couleur, type: 'bloc-ajoute' })
-					}
+					this.activite.unshift({ id: donnees.activiteId, bloc: donnees.bloc, identifiant: donnees.identifiant, nom: donnees.nom, titre: donnees.titre, date: donnees.date, type: 'bloc-ajoute' })
 					if (this.admin || this.pad.affichage !== 'colonnes' || (this.pad.affichage === 'colonnes' && this.affichageColonnes[donnees.colonne])) {
 						this.$nextTick(function () {
 							const bloc = document.querySelector('#' + donnees.bloc)
@@ -3592,32 +3582,32 @@ export default {
 			}.bind(this))
 
 			this.$socket.on('modifierbloc', function (donnees) {
-				this.action = 'modifier'
-				if (this.pad.affichage === 'colonnes') {
-					this.colonnes[donnees.colonne].forEach(function (item, index) {
+				if (this.blocs.map(function (e) { return e.bloc }).includes(donnees.bloc)) {
+					this.action = 'modifier'
+					if (this.pad.affichage === 'colonnes') {
+						this.colonnes[donnees.colonne].forEach(function (item, index) {
+							if (item.bloc === donnees.bloc) {
+								if (donnees.visibilite === 'privee' && !this.admin) {
+									this.colonnes[donnees.colonne].splice(index, 1)
+								} else {
+									this.colonnes[donnees.colonne][index] = { bloc: donnees.bloc, identifiant: item.identifiant, nom: item.nom, titre: donnees.titre, texte: donnees.texte, media: donnees.media, iframe: donnees.iframe, type: donnees.type, source: donnees.source, vignette: donnees.vignette, date: item.date, modifie: donnees.modifie, couleur: donnees.couleur, commentaires: item.commentaires, evaluations: item.evaluations, colonne: item.colonne, visibilite: donnees.visibilite }
+								}
+							}
+						}.bind(this))
+					}
+					this.blocs.forEach(function (item, index) {
 						if (item.bloc === donnees.bloc) {
+							this.utilisateur = donnees.identifiant
 							if (donnees.visibilite === 'privee' && !this.admin) {
-								this.colonnes[donnees.colonne].splice(index, 1)
+								this.blocs.splice(index, 1)
 							} else {
-								this.colonnes[donnees.colonne][index] = { bloc: donnees.bloc, identifiant: item.identifiant, nom: item.nom, titre: donnees.titre, texte: donnees.texte, media: donnees.media, iframe: donnees.iframe, type: donnees.type, source: donnees.source, vignette: donnees.vignette, date: item.date, modifie: donnees.modifie, couleur: item.couleur, commentaires: item.commentaires, evaluations: item.evaluations, colonne: item.colonne, visibilite: donnees.visibilite }
+								this.blocs.splice(index, 1, { bloc: donnees.bloc, identifiant: item.identifiant, nom: item.nom, titre: donnees.titre, texte: donnees.texte, media: donnees.media, iframe: donnees.iframe, type: donnees.type, source: donnees.source, vignette: donnees.vignette, date: item.date, modifie: donnees.modifie, couleur: donnees.couleur, commentaires: item.commentaires, evaluations: item.evaluations, colonne: item.colonne, visibilite: donnees.visibilite })
 							}
 						}
 					}.bind(this))
+					this.activite.unshift({ id: donnees.activiteId, bloc: donnees.bloc, identifiant: donnees.identifiant, nom: donnees.nom, titre: donnees.titre, date: donnees.modifie, type: 'bloc-modifie' })
+					this.envoyerNotificationAdmins()
 				}
-				this.blocs.forEach(function (item, index) {
-					if (item.bloc === donnees.bloc) {
-						this.utilisateur = donnees.identifiant
-						if (donnees.visibilite === 'privee' && !this.admin) {
-							this.blocs.splice(index, 1)
-						} else {
-							this.blocs.splice(index, 1, { bloc: donnees.bloc, identifiant: item.identifiant, nom: item.nom, titre: donnees.titre, texte: donnees.texte, media: donnees.media, iframe: donnees.iframe, type: donnees.type, source: donnees.source, vignette: donnees.vignette, date: item.date, modifie: donnees.modifie, couleur: item.couleur, commentaires: item.commentaires, evaluations: item.evaluations, colonne: item.colonne, visibilite: donnees.visibilite })
-						}
-					}
-				}.bind(this))
-				if (donnees.visibilite === 'visible') {
-					this.activite.unshift({ id: donnees.activiteId, bloc: donnees.bloc, identifiant: donnees.identifiant, nom: donnees.nom, titre: donnees.titre, date: donnees.modifie, couleur: donnees.couleur, type: 'bloc-modifie' })
-				}
-				this.envoyerNotificationAdmins()
 			}.bind(this))
 
 			this.$socket.on('autoriserbloc', function (donnees) {
@@ -3627,7 +3617,9 @@ export default {
 							colonne.forEach(function (item, index) {
 								if (item.bloc === donnees.bloc) {
 									this.colonnes[indexColonne][index].visibilite = 'visible'
-									this.colonnes[indexColonne][index].date = donnees.date
+									if (donnees.moderation === 'privee') {
+										this.colonnes[indexColonne][index].date = donnees.date
+									}
 									if (this.colonnes[indexColonne][index].hasOwnProperty('modifie')) {
 										delete this.colonnes[indexColonne][index].modifie
 									}
@@ -3638,7 +3630,9 @@ export default {
 					this.blocs.forEach(function (item, index) {
 						if (item.bloc === donnees.bloc) {
 							this.blocs[index].visibilite = 'visible'
-							this.blocs[index].date = donnees.date
+							if (donnees.moderation === 'privee') {
+								this.blocs[index].date = donnees.date
+							}
 							if (this.blocs[index].hasOwnProperty('modifie')) {
 								delete this.blocs[index].modifie
 							}
@@ -3651,7 +3645,11 @@ export default {
 						this.colonnes[donnees.colonne].splice(donnees.indexBlocColonne, 0, donnees)
 					}
 				}
-				this.activite.unshift({ id: donnees.activiteId, bloc: donnees.bloc, identifiant: donnees.identifiant, nom: donnees.nom, titre: donnees.titre, date: donnees.date, couleur: donnees.couleur, type: 'bloc-ajoute' })
+				if (donnees.moderation === 'moderee') {
+					this.activite.unshift({ id: donnees.activiteId, bloc: donnees.bloc, identifiant: donnees.admin, nom: donnees.nom, titre: donnees.titre, date: donnees.date, type: 'bloc-valide' })
+				} else {
+					this.activite.unshift({ id: donnees.activiteId, bloc: donnees.bloc, identifiant: donnees.identifiant, nom: donnees.nom, titre: donnees.titre, date: donnees.date, type: 'bloc-ajoute' })
+				}
 				this.$nextTick(function () {
 					const bloc = document.querySelector('#' + donnees.bloc)
 					if (bloc !== null) {
@@ -3728,23 +3726,25 @@ export default {
 						this.blocs.splice(index, 1)
 					}
 				}.bind(this))
-				this.activite.unshift({ id: donnees.activiteId, bloc: donnees.bloc, identifiant: donnees.identifiant, nom: donnees.nom, titre: donnees.titre, date: donnees.date, couleur: donnees.couleur, type: 'bloc-supprime' })
+				this.activite.unshift({ id: donnees.activiteId, bloc: donnees.bloc, identifiant: donnees.identifiant, nom: donnees.nom, titre: donnees.titre, date: donnees.date, type: 'bloc-supprime' })
 				this.envoyerNotificationAdmins()
 			}.bind(this))
 
 			this.$socket.on('commenterbloc', function (donnees) {
-				const blocs = this.blocs
-				blocs.forEach(function (item) {
-					if (item.bloc === donnees.bloc) {
-						item.commentaires = donnees.commentaires
+				if (this.blocs.map(function (e) { return e.bloc }).includes(donnees.bloc)) {
+					const blocs = this.blocs
+					blocs.forEach(function (item) {
+						if (item.bloc === donnees.bloc) {
+							item.commentaires = donnees.commentaires
+						}
+					})
+					this.blocs = blocs
+					if ((this.modale === 'commentaires' && this.bloc === donnees.bloc) || (this.modaleDiaporama && this.donneesBloc.bloc === donnees.bloc)) {
+						this.commentaires.push({ id: donnees.id, identifiant: donnees.identifiant, nom: donnees.nom, texte: donnees.texte, date: donnees.date })
 					}
-				})
-				this.blocs = blocs
-				if ((this.modale === 'commentaires' && this.bloc === donnees.bloc) || (this.modaleDiaporama && this.donneesBloc.bloc === donnees.bloc)) {
-					this.commentaires.push({ id: donnees.id, identifiant: donnees.identifiant, nom: donnees.nom, texte: donnees.texte, date: donnees.date })
+					this.activite.unshift({ id: donnees.activiteId, bloc: donnees.bloc, identifiant: donnees.identifiant, nom: donnees.nom, titre: donnees.titre, date: donnees.date, type: 'bloc-commente' })
+					this.envoyerNotificationAdmins()
 				}
-				this.activite.unshift({ id: donnees.activiteId, bloc: donnees.bloc, identifiant: donnees.identifiant, nom: donnees.nom, titre: donnees.titre, date: donnees.date, couleur: donnees.couleur, type: 'bloc-commente' })
-				this.envoyerNotificationAdmins()
 			}.bind(this))
 
 			this.$socket.on('modifiercommentaire', function (donnees) {
@@ -3794,15 +3794,17 @@ export default {
 
 			this.$socket.on('evaluerbloc', function (donnees) {
 				this.chargement = false
-				const blocs = this.blocs
-				blocs.forEach(function (item) {
-					if (item.bloc === donnees.bloc) {
-						item.evaluations.push(donnees.evaluation)
-					}
-				})
-				this.blocs = blocs
-				this.activite.unshift({ id: donnees.activiteId, bloc: donnees.bloc, identifiant: donnees.identifiant, nom: donnees.nom, titre: donnees.titre, date: donnees.date, couleur: donnees.couleur, type: 'bloc-evalue' })
-				this.envoyerNotificationAdmins()
+				if (this.blocs.map(function (e) { return e.bloc }).includes(donnees.bloc)) {
+					const blocs = this.blocs
+					blocs.forEach(function (item) {
+						if (item.bloc === donnees.bloc) {
+							item.evaluations.push(donnees.evaluation)
+						}
+					})
+					this.blocs = blocs
+					this.activite.unshift({ id: donnees.activiteId, bloc: donnees.bloc, identifiant: donnees.identifiant, nom: donnees.nom, titre: donnees.titre, date: donnees.date, type: 'bloc-evalue' })
+					this.envoyerNotificationAdmins()
+				}
 			}.bind(this))
 
 			this.$socket.on('modifierevaluation', function (donnees) {
@@ -3844,14 +3846,6 @@ export default {
 				if (donnees.identifiant === this.identifiant) {
 					this.nom = donnees.nom
 					this.notification = this.$t('nomModifie')
-				}
-			}.bind(this))
-
-			this.$socket.on('modifiercouleur', function (donnees) {
-				this.modifierCaracteristique(donnees.identifiant, 'couleur', donnees.couleur)
-				if (donnees.identifiant === this.identifiant) {
-					this.notification = this.$t('couleurModifiee')
-					document.querySelector('#utilisateurs .moi .couleur').focus()
 				}
 			}.bind(this))
 
@@ -4115,7 +4109,7 @@ export default {
 				this.affichageColonnes.push(true)
 				this.pad.colonnes = donnees.colonnes
 				this.pad.affichageColonnes = donnees.affichageColonnes
-				this.activite.unshift({ id: donnees.activiteId, identifiant: donnees.identifiant, nom: donnees.nom, titre: donnees.titre, date: donnees.date, couleur: donnees.couleur, type: 'colonne-ajoutee' })
+				this.activite.unshift({ id: donnees.activiteId, identifiant: donnees.identifiant, nom: donnees.nom, titre: donnees.titre, date: donnees.date, type: 'colonne-ajoutee' })
 				if (this.admin) {
 					this.notification = this.$t('colonneAjoutee')
 				}
@@ -4167,7 +4161,7 @@ export default {
 				this.pad.colonnes = donnees.colonnes
 				this.pad.affichageColonnes = donnees.affichageColonnes
 				this.blocs = blocs
-				this.activite.unshift({ id: donnees.activiteId, identifiant: donnees.identifiant, nom: donnees.nom, titre: donnees.titre, date: donnees.date, couleur: donnees.couleur, type: 'colonne-supprimee' })
+				this.activite.unshift({ id: donnees.activiteId, identifiant: donnees.identifiant, nom: donnees.nom, titre: donnees.titre, date: donnees.date, type: 'colonne-supprimee' })
 				if (this.admin) {
 					this.notification = this.$t('colonneSupprimee')
 				} else if (!this.admin && this.modale === 'bloc' && parseInt(this.colonne) === parseInt(donnees.colonne)) {
@@ -4205,7 +4199,7 @@ export default {
 				this.pad.colonnes = donnees.colonnes
 				this.pad.affichageColonnes = donnees.affichageColonnes
 				this.blocs = blocs
-				this.activite.unshift({ id: donnees.activiteId, identifiant: donnees.identifiant, nom: donnees.nom, titre: donnees.titre, date: donnees.date, couleur: donnees.couleur, type: 'colonne-deplacee' })
+				this.activite.unshift({ id: donnees.activiteId, identifiant: donnees.identifiant, nom: donnees.nom, titre: donnees.titre, date: donnees.date, type: 'colonne-deplacee' })
 				if (this.admin) {
 					this.notification = this.$t('colonneDeplacee')
 				} else {
@@ -4227,7 +4221,6 @@ export default {
 				this.accesAutorise = true
 				this.modifierCaracteristique(this.identifiant, 'identifiant', donnees.identifiant)
 				this.modifierCaracteristique(donnees.identifiant, 'nom', donnees.nom)
-				this.modifierCaracteristique(donnees.identifiant, 'couleur', donnees.couleur)
 				const pads = JSON.parse(JSON.stringify(this.pads))
 				if (!pads.includes(this.pad.id)) {
 					pads.push(this.pad.id)

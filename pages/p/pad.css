@@ -765,6 +765,10 @@
 	cursor: pointer;
 }
 
+#entrees li .conteneur-entree span:first-child {
+	font-weight: 700;
+}
+
 #menu-conversation .contenu {
 	height: calc(100% - 9.4rem);
 }
@@ -832,12 +836,15 @@
 	position: relative;
 }
 
+#utilisateurs li.moi {
+	border: 2px solid #001d1d;
+}
+
 #utilisateurs li.moi .utilisateur {
 	font-weight: 700;
 }
 
-#utilisateurs li.moi .utilisateur.invite.edition,
-#utilisateurs li.moi .couleur {
+#utilisateurs li.moi .utilisateur.invite.edition {
 	cursor: pointer;
 }
 
@@ -852,36 +859,6 @@
 	margin-left: 5px;
 }
 
-#utilisateurs li.moi .couleurs {
-	display: flex;
-	justify-content: space-evenly;
-	flex-wrap: wrap;
-	width: calc(100% + 2px);
-    position: absolute;
-    padding: 1rem 0.5rem 0;
-    border: 1px solid #ddd;
-    top: 5rem;
-    left: -1px;
-    background: #fff;
-    z-index: 1;
-}
-
-#utilisateurs li.moi .couleurs span {
-	width: 2.5rem;
-	height: 2.5rem;
-	margin: 0 0.5rem 1rem;
-	border: 1px solid #ddd;
-	cursor: pointer;
-}
-
-#utilisateurs li.moi .couleurs span.couleur-personnalisee {
-	border: 0;
-}
-
-#utilisateurs li.moi .couleurs span:not(.couleur-personnalisee).actif {
-	border: 2px solid #242f3d;
-}
-
 #utilisateurs li .utilisateur:not(.edition) {
 	text-overflow: ellipsis;
     overflow: hidden;
@@ -894,12 +871,6 @@
     overflow: hidden;
 	white-space: nowrap;
 	max-width: 19rem;
-}
-
-#utilisateurs li .couleur {
-    width: 2rem;
-    height: 2rem;
-    border: 1px solid #ddd;
 }
 
 #discussion {
@@ -1336,6 +1307,72 @@
 
 .menu .conteneur .fonds input[type="color"]::-webkit-color-swatch-wrapper {
 	padding: 0;
+}
+
+.modale #couleurs {
+	display: flex;
+	justify-content: flex-start;
+	align-items: center;
+	margin-bottom: 20px;
+	overflow: auto;
+}
+
+.modale #couleurs span {
+	display: block;
+	width: 30px;
+	height: 30px;
+	border-radius: 50%;
+	margin-right: 10px;
+	cursor: pointer;
+	flex: 0 0 auto;
+}
+
+.modale #couleurs span.icone {
+	display: flex;
+	width: 62px;
+	height: 30px;
+}
+
+.modale #couleurs span.icone label {
+	font-size: 24px;
+	width: 24px;
+	margin-right: 8px;
+	margin-bottom: 0;
+	line-height: 30px;
+}
+
+.modale #couleurs span input[type="color"] {
+	width: 30px;
+	height: 30px;
+	padding: 0;
+	border: none;
+	cursor: pointer;
+}
+
+.modale #couleurs span input[type="color"]::-moz-color-swatch {
+	border: none;
+	border-radius: 50%;
+}
+
+.modale #couleurs span input[type="color"]::-webkit-color-swatch {
+	border: none;
+	border-radius: 50%;
+}
+
+.modale #couleurs span input[type="color"]::-webkit-color-swatch-wrapper {
+	padding: 0;
+}
+
+.modale #couleurs span input[type="color"].selectionne::-moz-color-swatch {
+	border: 2px solid #000;
+}
+
+.modale #couleurs span input[type="color"].selectionne::-webkit-color-swatch {
+	border: 2px solid #000;
+}
+
+.modale #couleurs span.selectionne {
+	border: 2px solid #000;
 }
 
 .modale .vide {

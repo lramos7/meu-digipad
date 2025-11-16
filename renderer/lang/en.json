@@ -140,7 +140,6 @@
 	"monEvaluation": "My review",
 	"modifierNom": "Change the name",
 	"votreNom": "Your name",
-	"couleurModifiee": "Colour changed.",
 	"titrePadModifie": "Title of the pad changed.",
 	"accesPadModifie": "Access to the pad changed.",
 	"statutPadModifie": "Status of the pad changed.",
@@ -393,5 +392,8 @@
 	"retourAccueil": "Back to home page",
 	"nombreVues": "Number of views",
 	"repeterImageFond": "Repeat background image",
-	"parametreFondModifie": "Background image repeat parameter changed."
+	"parametreFondModifie": "Background image repeat parameter changed.",
+	"couleur": "Color",
+	"aValideCapsule": "approved the capsule \"{titre}\"",
+	"aValideUneCapsule": "approved a capsule"
 }

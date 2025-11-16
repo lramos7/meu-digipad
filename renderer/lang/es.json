@@ -140,7 +140,6 @@
 	"monEvaluation": "Mi evaluación",
 	"modifierNom": "Modificar el nombre",
 	"votreNom": "Su nombre",
-	"couleurModifiee": "Color modificado.",
 	"titrePadModifie": "Título del pad modificado.",
 	"accesPadModifie": "Acceso al pad modificado.",
 	"statutPadModifie": "Estado del pad modificado.",
@@ -393,5 +392,8 @@
 	"retourAccueil": "Volver a la página de inicio",
 	"nombreVues": "Número de visitas",
 	"repeterImageFond": "Repetir imagen de fondo",
-	"parametreFondModifie": "Parámetro de repetición de imagen de fondo modificado."
+	"parametreFondModifie": "Parámetro de repetición de imagen de fondo modificado.",
+	"couleur": "Color",
+	"aValideCapsule": "ha aprobado la cápsula «{titre}»",
+	"aValideUneCapsule": "ha aprobado una cápsula"
 }

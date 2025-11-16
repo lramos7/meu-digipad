@@ -140,7 +140,6 @@
     "monEvaluation": "Meine Bewertung",
     "modifierNom": "Name ändern",
     "votreNom": "Ihr Name",
-    "couleurModifiee": "Farbe geändert.",
     "titrePadModifie": "Titel des Pads geändert.",
     "accesPadModifie": "Zugang zum Pad geändert.",
     "statutPadModifie": "Status des Pads geändert.",
@@ -393,5 +392,8 @@
 	"retourAccueil": "Zurück zur Startseite",
 	"nombreVues": "Anzahl der Ansichten",
 	"repeterImageFond": "Hintergrundbild wiederholen",
-	"parametreFondModifie": "Parameter für die Wiederholung des Hintergrundbildes geändert."
+	"parametreFondModifie": "Parameter für die Wiederholung des Hintergrundbildes geändert.",
+	"couleur": "Farbe",
+	"aValideCapsule": "den Beitrag \"{titre}\" überprüft",
+	"aValideUneCapsule": "einen Beitrag überprüft"
 }

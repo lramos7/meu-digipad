@@ -46,49 +46,55 @@
 			<ul id="entrees">
 				<template v-for="(entree, indexEntree) in activite">
 					<li v-if="entree.type === 'bloc-ajoute'" :data-bloc="entree.bloc" :key="'bloc-ajoute_' + indexEntree">
-						<div class="conteneur-entree"><span :style="{'color': entree.couleur}"> {{ definirNom(entree) }}</span> <span v-if="entree.titre !== ''" v-html="$t('aCreeCapsule', { titre: entree.titre })" /><span v-else v-html="$t('aCreeUneCapsule')" /> {{ $formaterDateRelative(entree.date, langue) }}.</div>
+						<div class="conteneur-entree"><span> {{ definirNom(entree) }}</span> <span v-if="entree.titre !== ''" v-html="$t('aCreeCapsule', { titre: entree.titre })" /><span v-else v-html="$t('aCreeUneCapsule')" /> {{ $formaterDateRelative(entree.date, langue) }}.</div>
+						<div class="menu-entree" v-if="admin">
+							<span class="bouton supprimer" role="button" :tabindex="definirTabIndex()" :title="$t('supprimerEntree')" @click="supprimerActivite(entree.id)" @keydown.enter="supprimerActivite(entree.id)"><i class="material-icons">delete</i></span>
+						</div>
+					</li>
+					<li v-else-if="entree.type === 'bloc-valide'" :data-bloc="entree.bloc" :key="'bloc-valide_' + indexEntree">
+						<div class="conteneur-entree"><span> {{ definirNom(entree) }}</span> <span v-if="entree.titre !== ''" v-html="$t('aValideCapsule', { titre: entree.titre })" /><span v-else v-html="$t('aValideUneCapsule')" /> {{ $formaterDateRelative(entree.date, langue) }}.</div>
 						<div class="menu-entree" v-if="admin">
 							<span class="bouton supprimer" role="button" :tabindex="definirTabIndex()" :title="$t('supprimerEntree')" @click="supprimerActivite(entree.id)" @keydown.enter="supprimerActivite(entree.id)"><i class="material-icons">delete</i></span>
 						</div>
 					</li>
 					<li v-else-if="entree.type === 'bloc-supprime'" :data-bloc="entree.bloc" :key="'bloc-supprime_' + indexEntree">
-						<div class="conteneur-entree"><span :style="{'color': entree.couleur}"> {{ definirNom(entree) }}</span> <span v-if="entree.titre !== ''" v-html="$t('aSupprimeCapsule', { titre: entree.titre })" /><span v-else v-html="$t('aSupprimeUneCapsule')" /> {{ $formaterDateRelative(entree.date, langue) }}.</div>
+						<div class="conteneur-entree"><span> {{ definirNom(entree) }}</span> <span v-if="entree.titre !== ''" v-html="$t('aSupprimeCapsule', { titre: entree.titre })" /><span v-else v-html="$t('aSupprimeUneCapsule')" /> {{ $formaterDateRelative(entree.date, langue) }}.</div>
 						<div class="menu-entree" v-if="admin">
 							<span class="bouton supprimer" role="button" :tabindex="definirTabIndex()" :title="$t('supprimerEntree')" @click="supprimerActivite(entree.id)" @keydown.enter="supprimerActivite(entree.id)"><i class="material-icons">delete</i></span>
 						</div>
 					</li>
 					<li v-else-if="entree.type === 'bloc-modifie'" :data-bloc="entree.bloc" :key="'bloc-modifie_' + indexEntree">
-						<div class="conteneur-entree"><span :style="{'color': entree.couleur}"> {{ definirNom(entree) }}</span> <span v-if="entree.titre !== ''" v-html="$t('aModifieCapsule', { titre: entree.titre })" /><span v-else v-html="$t('aModifieUneCapsule')" /> {{ $formaterDateRelative(entree.date, langue) }}.</div>
+						<div class="conteneur-entree"><span> {{ definirNom(entree) }}</span> <span v-if="entree.titre !== ''" v-html="$t('aModifieCapsule', { titre: entree.titre })" /><span v-else v-html="$t('aModifieUneCapsule')" /> {{ $formaterDateRelative(entree.date, langue) }}.</div>
 						<div class="menu-entree" v-if="admin">
 							<span class="bouton supprimer" role="button" :tabindex="definirTabIndex()" :title="$t('supprimerEntree')" @click="supprimerActivite(entree.id)" @keydown.enter="supprimerActivite(entree.id)"><i class="material-icons">delete</i></span>
 						</div>
 					</li>
 					<li v-else-if="entree.type === 'bloc-commente'" :data-bloc="entree.bloc" :key="'bloc-commente_' + indexEntree">
-						<div class="conteneur-entree"><span :style="{'color': entree.couleur}"> {{ definirNom(entree) }}</span> <span v-if="entree.titre !== ''" v-html="$t('aCommenteCapsule', { titre: entree.titre })" /><span v-else v-html="$t('aCommenteUneCapsule')" /> {{ $formaterDateRelative(entree.date, langue) }}.</div>
+						<div class="conteneur-entree"><span> {{ definirNom(entree) }}</span> <span v-if="entree.titre !== ''" v-html="$t('aCommenteCapsule', { titre: entree.titre })" /><span v-else v-html="$t('aCommenteUneCapsule')" /> {{ $formaterDateRelative(entree.date, langue) }}.</div>
 						<div class="menu-entree" v-if="admin">
 							<span class="bouton supprimer" role="button" :tabindex="definirTabIndex()" :title="$t('supprimerEntree')" @click="supprimerActivite(entree.id)" @keydown.enter="supprimerActivite(entree.id)"><i class="material-icons">delete</i></span>
 						</div>
 					</li>
 					<li v-else-if="entree.type === 'bloc-evalue'" :data-bloc="entree.bloc" :key="'bloc-evalue_' + indexEntree">
-						<div class="conteneur-entree"><span :style="{'color': entree.couleur}"> {{ definirNom(entree) }}</span> <span v-if="entree.titre !== ''" v-html="$t('aEvalueCapsule', { titre: entree.titre })" /><span v-else v-html="$t('aEvalueUneCapsule')" /> {{ $formaterDateRelative(entree.date, langue) }}.</div>
+						<div class="conteneur-entree"><span> {{ definirNom(entree) }}</span> <span v-if="entree.titre !== ''" v-html="$t('aEvalueCapsule', { titre: entree.titre })" /><span v-else v-html="$t('aEvalueUneCapsule')" /> {{ $formaterDateRelative(entree.date, langue) }}.</div>
 						<div class="menu-entree" v-if="admin">
 							<span class="bouton supprimer" role="button" :tabindex="definirTabIndex()" :title="$t('supprimerEntree')" @click="supprimerActivite(entree.id)" @keydown.enter="supprimerActivite(entree.id)"><i class="material-icons">delete</i></span>
 						</div>
 					</li>
 					<li v-else-if="entree.type === 'colonne-ajoutee' && pad.affichage === 'colonnes'" :key="'colonne-ajoutee_' + indexEntree">
-						<div class="conteneur-entree"><span :style="{'color': entree.couleur}"> {{ definirNom(entree) }}</span> <span v-html="$t('aAjouteColonne', { titre: entree.titre })" /> {{ $formaterDateRelative(entree.date, langue) }}.</div>
+						<div class="conteneur-entree"><span> {{ definirNom(entree) }}</span> <span v-html="$t('aAjouteColonne', { titre: entree.titre })" /> {{ $formaterDateRelative(entree.date, langue) }}.</div>
 						<div class="menu-entree" v-if="admin">
 							<span class="bouton supprimer" role="button" :tabindex="definirTabIndex()" :title="$t('supprimerEntree')" @click="supprimerActivite(entree.id)" @keydown.enter="supprimerActivite(entree.id)"><i class="material-icons">delete</i></span>
 						</div>
 					</li>
 					<li v-else-if="entree.type === 'colonne-supprimee' && pad.affichage === 'colonnes'" :key="'colonne-supprimee_' + indexEntree">
-						<div class="conteneur-entree"><span :style="{'color': entree.couleur}"> {{ definirNom(entree) }}</span> <span v-html="$t('aSupprimeColonne', { titre: entree.titre })" /> {{ $formaterDateRelative(entree.date, langue) }}.</div>
+						<div class="conteneur-entree"><span> {{ definirNom(entree) }}</span> <span v-html="$t('aSupprimeColonne', { titre: entree.titre })" /> {{ $formaterDateRelative(entree.date, langue) }}.</div>
 						<div class="menu-entree" v-if="admin">
 							<span class="bouton supprimer" role="button" :tabindex="definirTabIndex()" :title="$t('supprimerEntree')" @click="supprimerActivite(entree.id)" @keydown.enter="supprimerActivite(entree.id)"><i class="material-icons">delete</i></span>
 						</div>
 					</li>
 					<li v-else-if="entree.type === 'colonne-deplacee' && pad.affichage === 'colonnes'" :key="'colonne-deplacee_' + indexEntree">
-						<div class="conteneur-entree"><span :style="{'color': entree.couleur}"> {{ definirNom(entree) }}</span> <span v-html="$t('aDeplaceColonne', { titre: entree.titre })" /> {{ $formaterDateRelative(entree.date, langue) }}.</div>
+						<div class="conteneur-entree"><span> {{ definirNom(entree) }}</span> <span v-html="$t('aDeplaceColonne', { titre: entree.titre })" /> {{ $formaterDateRelative(entree.date, langue) }}.</div>
 						<div class="menu-entree" v-if="admin">
 							<span class="bouton supprimer" role="button" :tabindex="definirTabIndex()" :title="$t('supprimerEntree')" @click="supprimerActivite(entree.id)" @keydown.enter="supprimerActivite(entree.id)"><i class="material-icons">delete</i></span>
 						</div>
@@ -404,16 +410,9 @@
 						<span class="utilisateur" v-if="statut === 'utilisateur'">{{ definirNom(utilisateurConnecte) }} ({{ $t('moi') }})</span>
 						<span class="utilisateur invite edition" role="button" :tabindex="definirTabIndex()" @click="afficherModifierNom" @keydown.enter="afficherModifierNom" v-else-if="statut !== 'utilisateur' && pad.editionNom && pad.editionNom === 'activee'"><span>{{ definirNom(utilisateurConnecte) }} ({{ $t('moi') }})</span><span class="icone"><i class="material-icons">edit</i></span></span>
 						<span class="utilisateur invite" v-else-if="statut !== 'utilisateur' && (!pad.editionNom || (pad.editionNom && pad.editionNom === 'desactivee'))">{{ definirNom(utilisateurConnecte) }} ({{ $t('moi') }})</span>
-						<span class="couleur" role="button" :tabindex="definirTabIndex()" :style="{'background': utilisateurConnecte.couleur}" @click="listeCouleurs = !listeCouleurs" @keydown.enter="listeCouleurs = !listeCouleurs" />
-						<div class="couleurs" v-if="listeCouleurs">
-							<span role="button" :tabindex="definirTabIndex()" :class="{'actif': couleur === couleurUtilisateur}" v-for="(couleurUtilisateur, indexCouleurUtilisateur) in couleurs" :style="{'background': couleurUtilisateur }" @click="modifierCouleur(couleurUtilisateur)" @keydown.enter="modifierCouleur(couleurUtilisateur)" :key="'couleur_' + indexCouleurUtilisateur" />
-							<span class="couleur-personnalisee actif" :title="$t('selectionnerCouleur')" v-if="!couleurs.includes(couleur)"><input type="color" :value="couleur" @change="modifierCouleur($event.target.value)"></span>
-							<span class="couleur-personnalisee" :title="$t('selectionnerCouleur')" v-else><input type="color" value="#ffffff" @change="modifierCouleur($event.target.value)"></span>
-						</div>
 					</li>
 					<li v-else :key="'utilisateur_' + indexUtilisateurConnecte">
 						<span class="utilisateur">{{ definirNom(utilisateurConnecte) }}</span>
-						<span class="couleur" :style="{'background': utilisateurConnecte.couleur}" />
 					</li>
 				</template>
 			</ul>
@@ -424,25 +423,25 @@
 		<!-- Affichage mur // sans recherche -->
 		<masonry id="blocs" class="mur" :cols="definirLargeurCapsules()" :gutter="0" v-if="pad.affichage === 'mur' && action !== 'organiser' && !recherche">
 			<div :id="item.bloc" class="bloc" :tabindex="definirTabIndex()" :class="{'privee': item.visibilite === 'privee'}" v-for="(item, indexItem) in blocs" :style="{'border-color': item.couleur}" :data-bloc="item.bloc" @focus="definirBlocActif(item.bloc)" :key="'bloc_' + indexItem">
-				<Capsule :admin="admin" :identifiant="identifiant" :item="item" :pad="pad" :couleur="couleur" :statut="statut" :viaDigidrive="viaDigidrive" :indexCol="0" :tabindex="definirTabIndex()" :action="action" />
+				<Capsule :admin="admin" :identifiant="identifiant" :item="item" :pad="pad" :statut="statut" :viaDigidrive="viaDigidrive" :indexCol="0" :tabindex="definirTabIndex()" :action="action" />
 			</div>
 		</masonry>
 		<!-- Affichage mur // avec recherche -->
 		<masonry id="blocs" class="mur" :cols="definirLargeurCapsules()" :gutter="0" v-else-if="pad.affichage === 'mur' && action !== 'organiser' && recherche">
 			<div :id="item.bloc" class="bloc" :tabindex="definirTabIndex()" :class="{'privee': item.visibilite === 'privee'}" v-for="(item, indexItem) in blocsRecherche" :style="{'border-color': item.couleur}" :data-bloc="item.bloc" @focus="definirBlocActif(item.bloc)" :key="'bloc_' + indexItem">
-				<Capsule :admin="admin" :identifiant="identifiant" :item="item" :pad="pad" :couleur="couleur" :statut="statut" :viaDigidrive="viaDigidrive" :indexCol="0" :tabindex="definirTabIndex()" :action="action" />
+				<Capsule :admin="admin" :identifiant="identifiant" :item="item" :pad="pad" :statut="statut" :viaDigidrive="viaDigidrive" :indexCol="0" :tabindex="definirTabIndex()" :action="action" />
 			</div>
 		</masonry>
 		<!-- Affichage flux vertical // sans recherche -->
 		<div id="blocs" class="flux-vertical" :class="{'large': pad.hasOwnProperty('largeur') && pad.largeur === 'large'}" v-else-if="pad.affichage === 'flux-vertical' && action !== 'organiser' && !recherche">
 			<div :id="item.bloc" class="bloc" :tabindex="definirTabIndex()" :class="{'privee': item.visibilite === 'privee'}" v-for="(item, indexItem) in blocs" :style="{'border-color': item.couleur}" :data-bloc="item.bloc" @focus="definirBlocActif(item.bloc)" :key="'bloc_' + indexItem">
-				<CapsuleAlt :admin="admin" :identifiant="identifiant" :item="item" :pad="pad" :couleur="couleur" :statut="statut" :viaDigidrive="viaDigidrive" :indexCol="0" :tabindex="definirTabIndex()" :action="action" />
+				<CapsuleAlt :admin="admin" :identifiant="identifiant" :item="item" :pad="pad" :statut="statut" :viaDigidrive="viaDigidrive" :indexCol="0" :tabindex="definirTabIndex()" :action="action" />
 			</div>
 		</div>
 		<!-- Affichage flux vertical // avec recherche -->
 		<div id="blocs" class="flux-vertical" :class="{'large': pad.hasOwnProperty('largeur') && pad.largeur === 'large'}" v-else-if="pad.affichage === 'flux-vertical' && action !== 'organiser' && recherche">
 			<div :id="item.bloc" class="bloc" :tabindex="definirTabIndex()" :class="{'privee': item.visibilite === 'privee'}" v-for="(item, indexItem) in blocsRecherche" :style="{'border-color': item.couleur}" :data-bloc="item.bloc" @focus="definirBlocActif(item.bloc)" :key="'bloc_' + indexItem">
-				<CapsuleAlt :admin="admin" :identifiant="identifiant" :item="item" :pad="pad" :couleur="couleur" :statut="statut" :viaDigidrive="viaDigidrive" :indexCol="0" :tabindex="definirTabIndex()" :action="action" />
+				<CapsuleAlt :admin="admin" :identifiant="identifiant" :item="item" :pad="pad" :statut="statut" :viaDigidrive="viaDigidrive" :indexCol="0" :tabindex="definirTabIndex()" :action="action" />
 			</div>
 		</div>
 		<!-- Affichage colonne // sans recherche -->
@@ -462,7 +461,7 @@
 					</div>
 					<div class="conteneur-colonne ascenseur" v-if="colonnes[indexCol].length > 0">
 						<div :id="item.bloc" class="bloc" :tabindex="definirTabIndex()" :class="{'privee': item.visibilite === 'privee'}" v-for="(item, indexItem) in colonnes[indexCol]" :style="{'border-color': item.couleur}" :data-bloc="item.bloc" @focus="definirBlocActif(item.bloc)" :key="'bloc_' + indexItem">
-							<CapsuleAlt :admin="admin" :identifiant="identifiant" :item="item" :pad="pad" :couleur="couleur" :statut="statut" :viaDigidrive="viaDigidrive" :indexCol="indexCol" :tabindex="definirTabIndex()" :action="action" />
+							<CapsuleAlt :admin="admin" :identifiant="identifiant" :item="item" :pad="pad" :statut="statut" :viaDigidrive="viaDigidrive" :indexCol="indexCol" :tabindex="definirTabIndex()" :action="action" />
 						</div>
 					</div>
 					<div class="ajouter" v-if="accesAutorise && (admin || pad.contributions !== 'fermees')">
@@ -491,7 +490,7 @@
 					</div>
 					<div class="conteneur-colonne ascenseur">
 						<div :id="item.bloc" class="bloc" :tabindex="definirTabIndex()" :class="{'privee': item.visibilite === 'privee'}" v-for="(item, indexItem) in blocsRecherche[indexCol]" :style="{'border-color': item.couleur}" :data-bloc="item.bloc" @focus="definirBlocActif(item.bloc)" :key="'bloc_' + indexItem">
-							<CapsuleAlt :admin="admin" :identifiant="identifiant" :item="item" :pad="pad" :couleur="couleur" :statut="statut" :viaDigidrive="viaDigidrive" :indexCol="indexCol" :tabindex="definirTabIndex()" :action="action" />
+							<CapsuleAlt :admin="admin" :identifiant="identifiant" :item="item" :pad="pad" :statut="statut" :viaDigidrive="viaDigidrive" :indexCol="indexCol" :tabindex="definirTabIndex()" :action="action" />
 						</div>
 					</div>
 				</section>
@@ -500,7 +499,7 @@
 		<!-- Mode Organiser // Affichage mur et flux vertical -->
 		<draggable id="blocs" :class="{'mur': pad.affichage === 'mur', 'flux-vertical': pad.affichage === 'flux-vertical', 'large': pad.hasOwnProperty('largeur') && pad.largeur === 'large'}" v-model="blocs" draggable=".bloc" :sort="true" :animation="250" :swap-threshold="0.5" :force-fallback="true" :fallback-tolerance="10" :scroll-sensitivity="convertirRem(4)" :scroll-speed="convertirRem(4)" @start="demarrerDeplacerBloc" @end="deplacerBloc" v-else-if="(pad.affichage === 'mur' || pad.affichage === 'flux-vertical') && action === 'organiser'">
 			<div :id="item.bloc" class="bloc" :tabindex="definirTabIndex()" :class="{'privee': item.visibilite === 'privee'}" v-for="(item, indexItem) in blocs" :style="{'border-color': item.couleur}" :data-bloc="item.bloc" @focus="definirBlocActif(item.bloc)" :key="'bloc_' + indexItem">
-				<Capsule :admin="admin" :identifiant="identifiant" :item="item" :pad="pad" :couleur="couleur" :statut="statut" :viaDigidrive="viaDigidrive" :indexCol="0" :tabindex="definirTabIndex()" :action="action" />
+				<Capsule :admin="admin" :identifiant="identifiant" :item="item" :pad="pad" :statut="statut" :viaDigidrive="viaDigidrive" :indexCol="0" :tabindex="definirTabIndex()" :action="action" />
 			</div>
 		</draggable>
 		<!-- Mode Organiser // Affichage colonnes -->
@@ -517,7 +516,7 @@
 				</div>
 				<draggable class="conteneur-colonne ascenseur" v-model="colonnes[indexCol]" group="colonne" draggable=".bloc" :sort="true" :animation="250" :swap-threshold="0.5" :force-fallback="true" :fallback-tolerance="10" :scroll-sensitivity="convertirRem(4)" :scroll-speed="convertirRem(4)" :data-index="indexCol" @start="demarrerDeplacerBloc" @end="deplacerBloc">
 					<div :id="item.bloc" class="bloc" :tabindex="definirTabIndex()" :class="{'privee': item.visibilite === 'privee'}" v-for="(item, indexItem) in colonnes[indexCol]" :style="{'border-color': item.couleur}" :data-bloc="item.bloc" @focus="definirBlocActif(item.bloc)" :key="'bloc_' + indexItem">
-						<Capsule :admin="admin" :identifiant="identifiant" :item="item" :pad="pad" :couleur="couleur" :statut="statut" :viaDigidrive="viaDigidrive" :indexCol="indexCol" :tabindex="definirTabIndex()" :action="action" />
+						<Capsule :admin="admin" :identifiant="identifiant" :item="item" :pad="pad" :statut="statut" :viaDigidrive="viaDigidrive" :indexCol="indexCol" :tabindex="definirTabIndex()" :action="action" />
 					</div>
 				</draggable>
 			</section>
@@ -570,6 +569,15 @@
 							<input id="visibilite-capsule" type="checkbox" :checked="visibilite" @change="modifierVisibiliteCapsule">
 							<span class="barre" />
 						</label>
+					</div>
+					<label>{{ $t('couleur') }}</label>
+					<div id="couleurs">
+						<span role="button" :tabindex="definirTabIndexModale()" v-for="(item, index) in couleurs" :class="{'selectionne': item === couleur}" :style="{'background': item}" @click="couleur = item" @keydown.enter="couleur = item" :key="'couleur_' + index" />
+						<span class="icone">
+							<label for="couleur"><i class="material-icons">colorize</i></label>
+							<input id="couleur" type="color" value="#dddddd" :title="$t('selectionnerCouleur')" @change="couleur = $event.target.value" v-if="couleurs.includes(couleur)">
+							<input id="couleur" type="color" :value="couleur" class="selectionne" :title="$t('selectionnerCouleur')" @change="couleur = $event.target.value" v-else>
+						</span>
 					</div>
 					<label for="champ-titre">{{ $t('titre') }}</label>
 					<input id="champ-titre" type="text" maxlength="96" :placeholder="$t('ajouterTitre')" :value="titre" @input="titre = $event.target.value">
@@ -751,38 +759,6 @@
 		</div>
 	</div>
 
-	<div class="conteneur-modale" v-else-if="modale === 'evaluations'">
-		<div class="modale" role="dialog">
-			<div class="en-tete">
-				<span class="titre">{{ $t('evaluerCapsule') }}</span>
-				<span class="fermer" role="button" :tabindex="definirTabIndexModale()" @click="fermerModaleEvaluations" @keydown.enter="fermerModaleEvaluations"><i class="material-icons">close</i></span>
-			</div>
-			<div class="conteneur">
-				<div class="contenu">
-					<label>{{ $t('monEvaluation') }}</label>
-					<div class="section-etoiles">
-						<span class="etoiles" v-if="evaluation === 0">
-							<i class="material-icons" role="button" :tabindex="definirTabIndexModale()" @click="evaluation = 1" @keydown.enter="evaluation = 1">star_outline</i>
-							<i class="material-icons" role="button" :tabindex="definirTabIndexModale()" @click="evaluation = 2" @keydown.enter="evaluation = 2">star_outline</i>
-							<i class="material-icons" role="button" :tabindex="definirTabIndexModale()" @click="evaluation = 3" @keydown.enter="evaluation = 3">star_outline</i>
-							<i class="material-icons" role="button" :tabindex="definirTabIndexModale()" @click="evaluation = 4" @keydown.enter="evaluation = 4">star_outline</i>
-							<i class="material-icons" role="button" :tabindex="definirTabIndexModale()" @click="evaluation = 5" @keydown.enter="evaluation = 5">star_outline</i>
-						</span>
-						<span class="etoiles" v-else>
-							<i class="material-icons selectionne" role="button" :tabindex="definirTabIndexModale()" v-for="etoile in evaluation" @click="evaluation = etoile" @keydown.enter="evaluation = etoile" :key="'etoilepleine_' + etoile">star</i>
-							<i class="material-icons" role="button" :tabindex="definirTabIndexModale()" v-for="etoile in (5 - evaluation)" @click="evaluation = (evaluation + etoile)" @keydown.enter="evaluation = (evaluation + etoile)" :key="'etoilevide_' + etoile">star_outline</i>
-						</span>
-						<i class="material-icons annuler" role="button" :tabindex="definirTabIndexModale()" @click="evaluation = 0" @keydown.enter="evaluation = 0" v-if="evaluation > 0">delete_forever</i>
-					</div>
-					<div class="actions">
-						<span class="bouton" role="button" :tabindex="definirTabIndexModale()" @click="envoyerEvaluation" @keydown.enter="envoyerEvaluation" v-if="evaluations.map(function (e) { return e.identifiant }).indexOf(identifiant) === -1">{{ $t('valider') }}</span>
-						<span class="bouton" role="button" :tabindex="definirTabIndexModale()" @click="modifierEvaluation" @keydown.enter="modifierEvaluation" v-else>{{ $t('modifier') }}</span>
-					</div>
-				</div>
-			</div>
-		</div>
-	</div>
-
 	<div class="conteneur-modale" v-else-if="modale === 'modifier-nom'">
 		<div class="modale" role="dialog">
 			<div class="en-tete">
@@ -960,8 +936,8 @@
 							<i class="material-icons" :class="{'evalue': verifierUtilisateurEvaluation(donneesBloc.evaluations) === true}" v-for="etoile in (5 - definirEvaluationCapsule(donneesBloc.evaluations))" :key="'etoilevide_' + etoile">star_outline</i>
 							<span>({{ donneesBloc.evaluations.length }})</span>
 						</span>
-						<span class="bouton" role="button" :tabindex="definirTabIndexModaleDiaporama()" :title="$t('evaluerCapsule')" :style="{'color': couleur}" @click="ouvrirModaleEvaluations(donneesBloc.bloc, donneesBloc.titre, '')" @keydown.enter="ouvrirModaleEvaluations(donneesBloc.bloc, donneesBloc.titre, '')" v-if="verifierUtilisateurEvaluation(donneesBloc.evaluations) === false"><i class="material-icons">add_comment</i></span>
-						<span class="bouton" role="button" :tabindex="definirTabIndexModaleDiaporama()" :title="$t('evaluerCapsule')" :style="{'color': couleur}" @click="ouvrirModaleEvaluations(donneesBloc.bloc, donneesBloc.titre, donneesBloc.evaluations)" @keydown.enter="ouvrirModaleEvaluations(donneesBloc.bloc, donneesBloc.titre, donneesBloc.evaluations)" v-else><i class="material-icons">rate_review</i></span>
+						<span class="bouton" role="button" :tabindex="definirTabIndexModaleDiaporama()" :title="$t('evaluerCapsule')" @click="ouvrirModaleEvaluations(donneesBloc.bloc, donneesBloc.titre, '')" @keydown.enter="ouvrirModaleEvaluations(donneesBloc.bloc, donneesBloc.titre, '')" v-if="verifierUtilisateurEvaluation(donneesBloc.evaluations) === false"><i class="material-icons">add_comment</i></span>
+						<span class="bouton" role="button" :tabindex="definirTabIndexModaleDiaporama()" :title="$t('evaluerCapsule')" @click="ouvrirModaleEvaluations(donneesBloc.bloc, donneesBloc.titre, donneesBloc.evaluations)" @keydown.enter="ouvrirModaleEvaluations(donneesBloc.bloc, donneesBloc.titre, donneesBloc.evaluations)" v-else><i class="material-icons">rate_review</i></span>
 					</div>
 				</div>
 				<div class="conteneur conteneur-commentaires" v-if="pad.commentaires === 'actives'">
@@ -995,6 +971,38 @@
 		</div>
 		<span id="precedent" role="button" :tabindex="definirTabIndexModaleDiaporama()" v-if="blocs.length > 1" @click="afficherBlocPrecedent" @keydown.enter="afficherBlocPrecedent"><i class="material-icons">arrow_back</i></span>
 		<span id="suivant" role="button" :tabindex="definirTabIndexModaleDiaporama()" v-if="blocs.length > 1" @click="afficherBlocSuivant" @keydown.enter="afficherBlocSuivant"><i class="material-icons">arrow_forward</i></span>
+	</div>
+
+	<div class="conteneur-modale" v-if="modale === 'evaluations'">
+		<div class="modale" role="dialog">
+			<div class="en-tete">
+				<span class="titre">{{ $t('evaluerCapsule') }}</span>
+				<span class="fermer" role="button" :tabindex="definirTabIndexModale()" @click="fermerModaleEvaluations" @keydown.enter="fermerModaleEvaluations"><i class="material-icons">close</i></span>
+			</div>
+			<div class="conteneur">
+				<div class="contenu">
+					<label>{{ $t('monEvaluation') }}</label>
+					<div class="section-etoiles">
+						<span class="etoiles" v-if="evaluation === 0">
+							<i class="material-icons" role="button" :tabindex="definirTabIndexModale()" @click="evaluation = 1" @keydown.enter="evaluation = 1">star_outline</i>
+							<i class="material-icons" role="button" :tabindex="definirTabIndexModale()" @click="evaluation = 2" @keydown.enter="evaluation = 2">star_outline</i>
+							<i class="material-icons" role="button" :tabindex="definirTabIndexModale()" @click="evaluation = 3" @keydown.enter="evaluation = 3">star_outline</i>
+							<i class="material-icons" role="button" :tabindex="definirTabIndexModale()" @click="evaluation = 4" @keydown.enter="evaluation = 4">star_outline</i>
+							<i class="material-icons" role="button" :tabindex="definirTabIndexModale()" @click="evaluation = 5" @keydown.enter="evaluation = 5">star_outline</i>
+						</span>
+						<span class="etoiles" v-else>
+							<i class="material-icons selectionne" role="button" :tabindex="definirTabIndexModale()" v-for="etoile in evaluation" @click="evaluation = etoile" @keydown.enter="evaluation = etoile" :key="'etoilepleine_' + etoile">star</i>
+							<i class="material-icons" role="button" :tabindex="definirTabIndexModale()" v-for="etoile in (5 - evaluation)" @click="evaluation = (evaluation + etoile)" @keydown.enter="evaluation = (evaluation + etoile)" :key="'etoilevide_' + etoile">star_outline</i>
+						</span>
+						<i class="material-icons annuler" role="button" :tabindex="definirTabIndexModale()" @click="evaluation = 0" @keydown.enter="evaluation = 0" v-if="evaluation > 0">delete_forever</i>
+					</div>
+					<div class="actions">
+						<span class="bouton" role="button" :tabindex="definirTabIndexModale()" @click="envoyerEvaluation" @keydown.enter="envoyerEvaluation" v-if="evaluations.map(function (e) { return e.identifiant }).indexOf(identifiant) === -1">{{ $t('valider') }}</span>
+						<span class="bouton" role="button" :tabindex="definirTabIndexModale()" @click="modifierEvaluation" @keydown.enter="modifierEvaluation" v-else>{{ $t('modifier') }}</span>
+					</div>
+				</div>
+			</div>
+		</div>
 	</div>
 
 	<div class="conteneur-modale" v-if="transcodage || progressionEnregistrement">
