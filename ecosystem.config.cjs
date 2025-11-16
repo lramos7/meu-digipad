@@ -3,7 +3,6 @@ module.exports = {
 		name: 'Digipad',
 		script: './server/index.js',
 		node_args: [
-			'--nouse-idle-notification',
 			'--expose-gc'
 		],
 		autorestart: true,
