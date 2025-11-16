@@ -40,7 +40,6 @@ import { EventEmitter } from 'events'
 import base64 from 'base-64'
 import checkDiskSpace from 'check-disk-space'
 import { S3Client, CopyObjectCommand, PutObjectCommand, ListObjectsV2Command, GetObjectCommand, HeadObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3'
-import DOMPurify from 'isomorphic-dompurify'
 import { renderPage, createDevMiddleware } from 'vike/server'
 
 const production = process.env.NODE_ENV === 'production'
@@ -6264,245 +6263,193 @@ async function demarrerServeur () {
 				}
 				pad.admins = []
 			}
-			const blocsPad = new Promise(async function (resolveMain) {
-				const donneesBlocs = []
-				if (admin || (!accesCode && !accesPrive)) {
-					const blocs = await db.ZRANGE('blocs:' + id, 0, -1)
-					if (blocs === null) { resolveMain(donneesBlocs); return false }
+			// Récupérer les données de tous les blocs
+			const listeBlocs = []
+			let donneesBlocs = []
+			if (admin || (!accesCode && !accesPrive)) {
+				const blocs = await db.ZRANGE('blocs:' + id, 0, -1)
+				if (blocs !== null) {
 					for (const bloc of blocs) {
-						const donneesBloc = new Promise(async function (resolve) {
-							let donnees = await db.HGETALL('pad-' + id + ':' + bloc)
-							donnees = Object.assign({}, donnees)
-							if (donnees === null) { resolve({}); return false }
-							if (Object.keys(donnees).length > 0) {
+						let donneesBloc = await db.HGETALL('pad-' + id + ':' + bloc)
+						donneesBloc = Object.assign({}, donneesBloc)
+						if (Object.keys(donneesBloc).length > 0) {
+							// Ne pas ajouter les capsules en attente de modération ou privées
+							if (((pad.contributions === 'moderees' && donneesBloc.visibilite === 'masquee') || donneesBloc.visibilite === 'privee') && donneesBloc.identifiant !== identifiant && pad.identifiant !== identifiant && !pad.admins.includes(identifiant)) {
+								donneesBloc = {}
+							}
+							// Ne pas ajouter les capsules dans les colonnes masquées
+							else if (pad.affichage === 'colonnes' && pad.affichageColonnes[donneesBloc.colonne] === false && pad.identifiant !== identifiant && !pad.admins.includes(identifiant)) {
+								donneesBloc = {}
+							} else {
+								// Ajouter dans la liste des blocs
+								listeBlocs.push(bloc)
 								// Pour résoudre le problème des capsules qui sont référencées dans une colonne inexistante
-								if (parseInt(donnees.colonne) >= nombreColonnes) {
-									donnees.colonne = nombreColonnes - 1
+								if (parseInt(donneesBloc.colonne) >= nombreColonnes) {
+									donneesBloc.colonne = nombreColonnes - 1
 								}
 								// Pour compatibilité avec les anciens chemins
-								if (donnees.hasOwnProperty('vignette') && definirVignettePersonnalisee(donnees.vignette) === true) {
-									donnees.vignette = path.basename(donnees.vignette)
+								if (donneesBloc.hasOwnProperty('vignette') && definirVignettePersonnalisee(donneesBloc.vignette) === true) {
+									donneesBloc.vignette = path.basename(donneesBloc.vignette)
 								}
 								// Pour homogénéité des paramètres du bloc avec modération activée
-								if (!donnees.hasOwnProperty('visibilite')) {
-									donnees.visibilite = 'visible'
+								if (!donneesBloc.hasOwnProperty('visibilite')) {
+									donneesBloc.visibilite = 'visible'
 								}
 								// Pour résoudre le problème lié au changement de domaine de digidoc
-								if (donnees.hasOwnProperty('iframe') && donnees.iframe.includes('env-7747481.jcloud-ver-jpe.ik-server.com') === true) {
-									donnees.iframe = donnees.iframe.replace('https://env-7747481.jcloud-ver-jpe.ik-server.com', process.env.VITE_ETHERPAD)
+								if (donneesBloc.hasOwnProperty('iframe') && donneesBloc.iframe.includes('env-7747481.jcloud-ver-jpe.ik-server.com') === true) {
+									donneesBloc.iframe = donneesBloc.iframe.replace('https://env-7747481.jcloud-ver-jpe.ik-server.com', process.env.VITE_ETHERPAD)
 								}
 								// Pour résoudre le problème lié au changement de domaine de digidoc
-								if (donnees.hasOwnProperty('media') && donnees.media.includes('env-7747481.jcloud-ver-jpe.ik-server.com') === true) {
-									donnees.media = donnees.media.replace('https://env-7747481.jcloud-ver-jpe.ik-server.com', process.env.VITE_ETHERPAD)
+								if (donneesBloc.hasOwnProperty('media') && donneesBloc.media.includes('env-7747481.jcloud-ver-jpe.ik-server.com') === true) {
+									donneesBloc.media = donneesBloc.media.replace('https://env-7747481.jcloud-ver-jpe.ik-server.com', process.env.VITE_ETHERPAD)
 								}
-								// Ne pas ajouter les capsules en attente de modération ou privées
-								if (((pad.contributions === 'moderees' && donnees.visibilite === 'masquee') || donnees.visibilite === 'privee') && donnees.identifiant !== identifiant && pad.identifiant !== identifiant && !pad.admins.includes(identifiant)) {
-									resolve({})
-									return false
+								// Ajouter couleur
+								if (!donneesBloc.hasOwnProperty('couleur') || donneesBloc.couleur === null || typeof donneesBloc.couleur !== 'string') {
+									donneesBloc.couleur = '#242f3d'
 								}
-								// Ne pas ajouter les capsules dans les colonnes masquées
-								if (pad.affichage === 'colonnes' && pad.affichageColonnes[donnees.colonne] === false && pad.identifiant !== identifiant && !pad.admins.includes(identifiant)) {
-									resolve({})
-									return false
-								}
+								// Filtrer HTML
+								let html = donneesBloc.texte
+								html = v.stripTags(html, ['b', 'i', 'u', 'strike', 'a', 'br', 'div', 'font', 'ul', 'ol', 'li'])
+								html = html.replace(/style=".*?"/mg, '')
+								html = html.replace(/class=".*?"/mg, '')
+								donneesBloc.texte = html
+								// Commentaires
 								const commentaires = await db.ZCARD('commentaires:' + bloc)
 								if (commentaires === null) {
-									donnees.commentaires = []
-									resolve(donnees)
-									return false
+									donneesBloc.commentaires = []
+								} else {
+									donneesBloc.commentaires = commentaires
 								}
-								donnees.commentaires = commentaires
+								// Evaluations
 								const evaluations = await db.ZRANGE('evaluations:' + bloc, 0, -1)
 								if (evaluations === null) {
-									donnees.evaluations = []
-									resolve(donnees)
-									return false
-								}
-								const donneesEvaluations = []
-								evaluations.forEach(function (evaluation) {
-									donneesEvaluations.push(JSON.parse(evaluation))
-								})
-								donnees.evaluations = donneesEvaluations
-								const resultat = await db.EXISTS('utilisateurs:' + donnees.identifiant)
-								if (resultat === null) {
-									donnees.nom = ''
-									resolve(donnees)
-									return false
-								}
-								if (resultat === 1) {
-									let utilisateur = await db.HGETALL('utilisateurs:' + donnees.identifiant)
-									utilisateur = Object.assign({}, utilisateur)
-									if (utilisateur === null) {
-										donnees.nom = ''
-										resolve(donnees)
-										return false
-									}
-									donnees.nom = utilisateur.nom
-									resolve(donnees)
+									donneesBloc.evaluations = []
 								} else {
-									const reponse = await db.EXISTS('noms:' + donnees.identifiant)
-									if (reponse === null) {
-										donnees.nom = ''
-										resolve(donnees)
-										return false
-									}
-									if (reponse === 1) {
-										const nom = await db.HGET('noms:' + donnees.identifiant, 'nom')
-										if (nom === null) {
-											donnees.nom = ''
-											resolve(donnees)
-											return false
-										}
-										donnees.nom = nom
-										resolve(donnees)
+									const donneesEvaluations = []
+									evaluations.forEach(function (evaluation) {
+										donneesEvaluations.push(JSON.parse(evaluation))
+									})
+									donneesBloc.evaluations = donneesEvaluations
+								}
+								// Utilisateurs
+								const utilisateurExiste = await db.EXISTS('utilisateurs:' + donneesBloc.identifiant)
+								if (utilisateurExiste === null) {
+									donneesBloc.nom = ''
+								} else if (utilisateurExiste === 1) {
+									let donneesUtilisateur = await db.HGETALL('utilisateurs:' + donneesBloc.identifiant)
+									donneesUtilisateur = Object.assign({}, donneesUtilisateur)
+									if (donneesUtilisateur === null) {
+										donneesBloc.nom = ''
 									} else {
-										donnees.nom = ''
-										resolve(donnees)
+										donneesBloc.nom = donneesUtilisateur.nom
+									}
+								} else {
+									const nomExiste = await db.EXISTS('noms:' + donneesBloc.identifiant)
+									if (nomExiste === null) {
+										donneesBloc.nom = ''
+									} else if (nomExiste === 1) {
+										const donneesNom = await db.HGET('noms:' + donneesBloc.identifiant, 'nom')
+										if (donneesNom === null) {
+											donneesBloc.nom = ''
+										} else {
+											donneesBloc.nom = donneesNom
+										}
+									} else {
+										donneesBloc.nom = ''
 									}
 								}
-							} else {
-								resolve({})
 							}
-						})
+						}
 						donneesBlocs.push(donneesBloc)
 					}
-					Promise.all(donneesBlocs).then(function (resultat) {
-						resultat = resultat.filter(function (element) {
-							return Object.keys(element).length > 0
-						})
-						resolveMain(resultat)
-					})
-				} else {
-					resolveMain(donneesBlocs)
 				}
+			}
+			donneesBlocs = donneesBlocs.filter(function (element) {
+				return Object.keys(element).length > 0
 			})
-			const activitePad = new Promise(async function (resolveMain) {
-				const donneesEntrees = []
-				if (admin || (!accesCode && !accesPrive)) {
-					const entrees = await db.ZRANGE('activite:' + id, 0, -1)
-					if (entrees === null) { resolveMain(donneesEntrees); return false }
+			if (pad.ordre === 'decroissant') {
+				donneesBlocs.reverse()
+			}
+			// Récupérer les entrées du registre d'activité
+			let donneesEntrees = []
+			if (admin || (!accesCode && !accesPrive)) {
+				const entrees = await db.ZRANGE('activite:' + id, 0, -1)
+				if (entrees !== null) {
 					for (let entree of entrees) {
-						entree = JSON.parse(entree)
-						const donneesEntree = new Promise(async function (resolve) {
-							const resultat = await db.EXISTS('utilisateurs:' + entree.identifiant)
-							if (resultat === null) {
-								entree.nom = ''
-								resolve(entree)
-								return false
-							}
-							if (resultat === 1) {
-								let utilisateur = await db.HGETALL('utilisateurs:' + entree.identifiant)
-								utilisateur = Object.assign({}, utilisateur)
-								if (utilisateur === null) {
-									entree.nom = ''
-									resolve(entree)
-									return false
-								}
-								entree.nom = utilisateur.nom
-								resolve(entree)
+						let donneesEntree = JSON.parse(entree)
+						const utilisateurEntreeExiste = await db.EXISTS('utilisateurs:' + donneesEntree.identifiant)
+						if (utilisateurEntreeExiste === null) {
+							donneesEntree.nom = ''
+						} else if (utilisateurEntreeExiste === 1) {
+							let donneesUtilisateurEntree = await db.HGETALL('utilisateurs:' + donneesEntree.identifiant)
+							donneesUtilisateurEntree = Object.assign({}, donneesUtilisateurEntree)
+							if (donneesUtilisateurEntree === null) {
+								donneesEntree.nom = ''
 							} else {
-								const reponse = await db.EXISTS('noms:' + entree.identifiant)
-								if (reponse === null) {
-									entree.nom = ''
-									resolve(entree)
-									return false
-								}
-								if (reponse === 1) {
-									const nom = await db.HGET('noms:' + entree.identifiant, 'nom')
-									if (nom === null) {
-										entree.nom = ''
-										resolve(entree)
-										return false
-									}
-									entree.nom = nom
-									resolve(entree)
-								} else {
-									entree.nom = ''
-									resolve(entree)
-								}
+								donneesEntree.nom = donneesUtilisateurEntree.nom
 							}
-						})
+						} else {
+							const nomEntreeExiste = await db.EXISTS('noms:' + donneesEntree.identifiant)
+							if (nomEntreeExiste === null) {
+								donneesEntree.nom = ''
+							} else if (nomEntreeExiste === 1) {
+								const nomUtilisateurEntree = await db.HGET('noms:' + donneesEntree.identifiant, 'nom')
+								if (nomUtilisateurEntree === null) {
+									donneesEntree.nom = ''
+								} else {
+									donneesEntree.nom = nomUtilisateurEntree
+								}
+							} else {
+								donneesEntree.nom = ''
+							}
+						}
 						donneesEntrees.push(donneesEntree)
 					}
-					Promise.all(donneesEntrees).then(function (resultat) {
-						resolveMain(resultat)
-					})
-				} else {
-					resolveMain(donneesEntrees)
 				}
+			}
+			donneesEntrees = donneesEntrees.filter(function (element) {
+				return Object.keys(element).length > 0 && ((element.hasOwnProperty('type') && element.type.includes('colonne')) || (element.hasOwnProperty('bloc') && listeBlocs.includes(element.bloc)))
 			})
-			Promise.all([blocsPad, activitePad]).then(async function ([blocs, activite]) {
-				const listeBlocs = []
-				blocs = blocs.filter(function (element) {
-					return Object.keys(element).length > 0
-				})
-				blocs.forEach(function (item) {
-					listeBlocs.push(item.bloc)
-					if (!item.hasOwnProperty('couleur') || item.couleur === null || typeof item.couleur !== 'string') {
-						item.couleur = '#242f3d'
-					}
-					// Filtrer HTML
-					let html = item.texte
-					html = v.stripTags(html, ['b', 'i', 'u', 'strike', 'a', 'br', 'div', 'font', 'ul', 'ol', 'li'])
-					html = html.replace(/style=".*?"/mg, '')
-					html = html.replace(/class=".*?"/mg, '')
-					html = DOMPurify.sanitize(html)
-					item.texte = html
-				})
-				activite = activite.filter(function (element) {
-					return Object.keys(element).length > 0 && ((element.hasOwnProperty('type') && element.type.includes('colonne')) || (element.hasOwnProperty('bloc') && listeBlocs.includes(element.bloc)))
-				})
-				if (pad.ordre === 'decroissant') {
-					blocs.reverse()
-				}
-				// Ajouter nombre de vues
-				await db.HSET('pads:' + id, 'vues', vues)
-				// Ajouter dans pads rejoints
-				if (pad.identifiant !== identifiant && statut === 'utilisateur') {
-					const padsRejoints = await db.SMEMBERS('pads-rejoints:' + identifiant)
-					if (padsRejoints === null) { res.send('erreur'); return false }
-					let padDejaRejoint = false
-					for (const padRejoint of padsRejoints) {
-						if (padRejoint === id) {
-							padDejaRejoint = true
-						}
-					}
-					if (padDejaRejoint === false && pad.acces !== 'prive') {
-						await db
-						.multi()
-						.SADD('pads-rejoints:' + identifiant, id.toString())
-						.SADD('pads-utilisateurs:' + identifiant, id.toString())
-						.SADD('utilisateurs-pads:' + id, identifiant)
-						.exec()
-						res.json({ pad: pad, blocs: blocs, activite: activite.reverse() })
-					} else {
-						// Vérifier notification mise à jour pad
-						if (pad.hasOwnProperty('notification') && pad.notification.includes(identifiant) && Array.isArray(pad.notification)) {
-							pad.notification.splice(pad.notification.indexOf(identifiant), 1)
-							await db.HSET('pads:' + id, 'notification', JSON.stringify(pad.notification))
-							res.json({ pad: pad, blocs: blocs, activite: activite.reverse() })
-						} else {
-							res.json({ pad: pad, blocs: blocs, activite: activite.reverse() })
-						}
-					}
-				} else {
-					// Vérifier notification mise à jour pad
-					if (pad.hasOwnProperty('notification') && pad.notification.includes(identifiant) && Array.isArray(pad.notification)) {
-						pad.notification.splice(pad.notification.indexOf(identifiant), 1)
-						await db.HSET('pads:' + id, 'notification', JSON.stringify(pad.notification))
-						res.json({ pad: pad, blocs: blocs, activite: activite.reverse() })
-					} else {
-						res.json({ pad: pad, blocs: blocs, activite: activite.reverse() })
+			donneesEntrees.reverse()
+			// Ajouter nombre de vues
+			await db.HSET('pads:' + id, 'vues', vues)
+			// Ajouter dans pads rejoints
+			if (pad.identifiant !== identifiant && statut === 'utilisateur') {
+				const padsRejoints = await db.SMEMBERS('pads-rejoints:' + identifiant)
+				if (padsRejoints === null) { res.send('erreur'); return false }
+				let padDejaRejoint = false
+				for (const padRejoint of padsRejoints) {
+					if (padRejoint === id) {
+						padDejaRejoint = true
 					}
 				}
-			})
+				if (padDejaRejoint === false && pad.acces !== 'prive') {
+					await db
+					.multi()
+					.SADD('pads-rejoints:' + identifiant, id.toString())
+					.SADD('pads-utilisateurs:' + identifiant, id.toString())
+					.SADD('utilisateurs-pads:' + id, identifiant)
+					.exec()
+				} 
+				// Vérifier notification mise à jour pad
+				else if (pad.hasOwnProperty('notification') && pad.notification.includes(identifiant) && Array.isArray(pad.notification)) {
+					pad.notification.splice(pad.notification.indexOf(identifiant), 1)
+					await db.HSET('pads:' + id, 'notification', JSON.stringify(pad.notification))
+				}
+			} 
+			// Vérifier notification mise à jour pad
+			else if (pad.hasOwnProperty('notification') && pad.notification.includes(identifiant) && Array.isArray(pad.notification)) {
+				pad.notification.splice(pad.notification.indexOf(identifiant), 1)
+				await db.HSET('pads:' + id, 'notification', JSON.stringify(pad.notification))
+			}
+			res.json({ pad: pad, blocs: donneesBlocs, activite: donneesEntrees })
 		} else {
 			res.send('erreur')
 		}
 	}
 
 	async function recupererDonneesPadProtege (pad, id, identifiant) {
-		return new Promise(function (resolveData) {
+		return new Promise(async function (resolveData) {
 			let nombreColonnes = 0
 			if (pad.hasOwnProperty('colonnes')) {
 				nombreColonnes = JSON.parse(pad.colonnes).length
@@ -6528,191 +6475,158 @@ async function demarrerServeur () {
 				}
 				pad.affichageColonnes = affichageColonnes
 			}
-			const blocsPad = new Promise(async function (resolveMain) {
-				const donneesBlocs = []
-				const blocs = await db.ZRANGE('blocs:' + id, 0, -1)
-				if (blocs === null) { resolveMain(donneesBlocs); return false }
+			// Récupérer les données de tous les blocs
+			const listeBlocs = []
+			let donneesBlocs = []
+			const blocs = await db.ZRANGE('blocs:' + id, 0, -1)
+			if (blocs !== null) {
 				for (const bloc of blocs) {
-					const donneesBloc = new Promise(async function (resolve) {
-						let donnees = await db.HGETALL('pad-' + id + ':' + bloc)
-						donnees = Object.assign({}, donnees)
-						if (donnees === null) { resolve({}); return false }
-						if (donnees && Object.keys(donnees).length > 0) {
-							if (parseInt(donnees.colonne) >= nombreColonnes) {
-								donnees.colonne = nombreColonnes - 1
+					let donneesBloc = await db.HGETALL('pad-' + id + ':' + bloc)
+					donneesBloc = Object.assign({}, donneesBloc)
+					if (Object.keys(donneesBloc).length > 0) {
+						// Ne pas ajouter les capsules en attente de modération ou privées
+						if ((pad.contributions === 'moderees' && donneesBloc.visibilite === 'masquee') || donneesBloc.visibilite === 'privee') {
+							donneesBloc = {}
+						}
+						// Ne pas ajouter les capsules dans les colonnes masquées
+						else if (pad.affichage === 'colonnes' && pad.affichageColonnes[donneesBloc.colonne] === false) {
+							donneesBloc = {}
+						} else {
+							// Ajouter dans la liste des blocs
+							listeBlocs.push(bloc)
+							// Pour résoudre le problème des capsules qui sont référencées dans une colonne inexistante
+							if (parseInt(donneesBloc.colonne) >= nombreColonnes) {
+								donneesBloc.colonne = nombreColonnes - 1
 							}
-							if (donnees.hasOwnProperty('vignette') && definirVignettePersonnalisee(donnees.vignette) === true) {
-								donnees.vignette = path.basename(donnees.vignette)
+							// Pour compatibilité avec les anciens chemins
+							if (donneesBloc.hasOwnProperty('vignette') && definirVignettePersonnalisee(donneesBloc.vignette) === true) {
+								donneesBloc.vignette = path.basename(donneesBloc.vignette)
 							}
-							if (!donnees.hasOwnProperty('visibilite')) {
-								donnees.visibilite = 'visible'
+							// Pour homogénéité des paramètres du bloc avec modération activée
+							if (!donneesBloc.hasOwnProperty('visibilite')) {
+								donneesBloc.visibilite = 'visible'
 							}
-							if (donnees.hasOwnProperty('iframe') && donnees.iframe.includes('env-7747481.jcloud-ver-jpe.ik-server.com') === true) {
-								donnees.iframe = donnees.iframe.replace('https://env-7747481.jcloud-ver-jpe.ik-server.com', process.env.VITE_ETHERPAD)
+							// Pour résoudre le problème lié au changement de domaine de digidoc
+							if (donneesBloc.hasOwnProperty('iframe') && donneesBloc.iframe.includes('env-7747481.jcloud-ver-jpe.ik-server.com') === true) {
+								donneesBloc.iframe = donneesBloc.iframe.replace('https://env-7747481.jcloud-ver-jpe.ik-server.com', process.env.VITE_ETHERPAD)
 							}
-							if (donnees.hasOwnProperty('media') && donnees.media.includes('env-7747481.jcloud-ver-jpe.ik-server.com') === true) {
-								donnees.media = donnees.media.replace('https://env-7747481.jcloud-ver-jpe.ik-server.com', process.env.VITE_ETHERPAD)
+							// Pour résoudre le problème lié au changement de domaine de digidoc
+							if (donneesBloc.hasOwnProperty('media') && donneesBloc.media.includes('env-7747481.jcloud-ver-jpe.ik-server.com') === true) {
+								donneesBloc.media = donneesBloc.media.replace('https://env-7747481.jcloud-ver-jpe.ik-server.com', process.env.VITE_ETHERPAD)
 							}
-							if ((pad.contributions === 'moderees' && donnees.visibilite === 'masquee') || donnees.visibilite === 'privee') {
-								resolve({})
-								return false
+							// Ajouter couleur
+							if (!donneesBloc.hasOwnProperty('couleur') || donneesBloc.couleur === null || typeof donneesBloc.couleur !== 'string') {
+								donneesBloc.couleur = '#242f3d'
 							}
-							if (pad.affichage === 'colonnes' && pad.affichageColonnes[donnees.colonne] === false) {
-								resolve({})
-								return false
-							}
+							// Filtrer HTML
+							let html = donneesBloc.texte
+							html = v.stripTags(html, ['b', 'i', 'u', 'strike', 'a', 'br', 'div', 'font', 'ul', 'ol', 'li'])
+							html = html.replace(/style=".*?"/mg, '')
+							html = html.replace(/class=".*?"/mg, '')
+							donneesBloc.texte = html
+							// Commentaires
 							const commentaires = await db.ZCARD('commentaires:' + bloc)
 							if (commentaires === null) {
-								donnees.commentaires = []
-								resolve(donnees)
-								return false
+								donneesBloc.commentaires = []
+							} else {
+								donneesBloc.commentaires = commentaires
 							}
-							donnees.commentaires = commentaires
+							// Evaluations
 							const evaluations = await db.ZRANGE('evaluations:' + bloc, 0, -1)
 							if (evaluations === null) {
-								donnees.evaluations = []
-								resolve(donnees)
-								return false
-							}
-							const donneesEvaluations = []
-							evaluations.forEach(function (evaluation) {
-								donneesEvaluations.push(JSON.parse(evaluation))
-							})
-							donnees.evaluations = donneesEvaluations
-							const resultat = await db.EXISTS('utilisateurs:' + donnees.identifiant)
-							if (resultat === null) {
-								donnees.nom = ''
-								resolve(donnees)
-								return false
-							}
-							if (resultat === 1) {
-								let utilisateur = await db.HGETALL('utilisateurs:' + donnees.identifiant)
-								utilisateur = Object.assign({}, utilisateur)
-								if (utilisateur === null) {
-									donnees.nom = ''
-									resolve(donnees)
-									return false
-								}
-								donnees.nom = utilisateur.nom
-								resolve(donnees)
+								donneesBloc.evaluations = []
 							} else {
-								const reponse = await db.EXISTS('noms:' + donnees.identifiant)
-								if (reponse === null) {
-									donnees.nom = ''
-									resolve(donnees)
-									return false
-								}
-								if (reponse === 1) {
-									const nom = await db.HGET('noms:' + donnees.identifiant, 'nom')
-									if (nom === null) {
-										donnees.nom = ''
-										resolve(donnees)
-										return false
-									}
-									donnees.nom = nom
-									resolve(donnees)
+								const donneesEvaluations = []
+								evaluations.forEach(function (evaluation) {
+									donneesEvaluations.push(JSON.parse(evaluation))
+								})
+								donneesBloc.evaluations = donneesEvaluations
+							}
+							// Utilisateurs
+							const utilisateurExiste = await db.EXISTS('utilisateurs:' + donneesBloc.identifiant)
+							if (utilisateurExiste === null) {
+								donneesBloc.nom = ''
+							} else if (utilisateurExiste === 1) {
+								let donneesUtilisateur = await db.HGETALL('utilisateurs:' + donneesBloc.identifiant)
+								donneesUtilisateur = Object.assign({}, donneesUtilisateur)
+								if (donneesUtilisateur === null) {
+									donneesBloc.nom = ''
 								} else {
-									donnees.nom = ''
-									resolve(donnees)
+									donneesBloc.nom = donneesUtilisateur.nom
+								}
+							} else {
+								const nomExiste = await db.EXISTS('noms:' + donneesBloc.identifiant)
+								if (nomExiste === null) {
+									donneesBloc.nom = ''
+								} else if (nomExiste === 1) {
+									const donneesNom = await db.HGET('noms:' + donneesBloc.identifiant, 'nom')
+									if (donneesNom === null) {
+										donneesBloc.nom = ''
+									} else {
+										donneesBloc.nom = donneesNom
+									}
+								} else {
+									donneesBloc.nom = ''
 								}
 							}
-						} else {
-							resolve({})
 						}
-					})
+					}
 					donneesBlocs.push(donneesBloc)
 				}
-				Promise.all(donneesBlocs).then(function (resultat) {
-					resultat = resultat.filter(function (element) {
-						return Object.keys(element).length > 0
-					})
-					resolveMain(resultat)
-				})
+			}
+			donneesBlocs = donneesBlocs.filter(function (element) {
+				return Object.keys(element).length > 0
 			})
-			const activitePad = new Promise(async function (resolveMain) {
-				const donneesEntrees = []
-				const entrees = await db.ZRANGE('activite:' + id, 0, -1)
-				if (entrees === null) { resolveMain(donneesEntrees); return false }
+			if (pad.ordre === 'decroissant') {
+				donneesBlocs.reverse()
+			}
+			// Récupérer les entrées du registre d'activité
+			let donneesEntrees = []
+			const entrees = await db.ZRANGE('activite:' + id, 0, -1)
+			if (entrees !== null) {
 				for (let entree of entrees) {
-					entree = JSON.parse(entree)
-					const donneesEntree = new Promise(async function (resolve) {
-						const resultat = await db.EXISTS('utilisateurs:' + entree.identifiant)
-						if (resultat === null) {
-							entree.nom = ''
-							resolve(entree)
-							return false
-						}
-						if (resultat === 1) {
-							let utilisateur = await db.HGETALL('utilisateurs:' + entree.identifiant)
-							utilisateur = Object.assign({}, utilisateur)
-							if (utilisateur === null) {
-								entree.nom = ''
-								resolve(entree)
-								return false
-							}
-							entree.nom = utilisateur.nom
-							resolve(entree)
+					let donneesEntree = JSON.parse(entree)
+					const utilisateurEntreeExiste = await db.EXISTS('utilisateurs:' + donneesEntree.identifiant)
+					if (utilisateurEntreeExiste === null) {
+						donneesEntree.nom = ''
+					} else if (utilisateurEntreeExiste === 1) {
+						let donneesUtilisateurEntree = await db.HGETALL('utilisateurs:' + donneesEntree.identifiant)
+						donneesUtilisateurEntree = Object.assign({}, donneesUtilisateurEntree)
+						if (donneesUtilisateurEntree === null) {
+							donneesEntree.nom = ''
 						} else {
-							const reponse = await db.EXISTS('noms:' + entree.identifiant)
-							if (reponse === null) {
-								entree.nom = ''
-								resolve(entree)
-								return false
-							}
-							if (reponse === 1) {
-								const nom = await db.HGET('noms:' + entree.identifiant, 'nom')
-								if (nom === null) {
-									entree.nom = ''
-									resolve(entree)
-									return false
-								}
-								entree.nom = nom
-								resolve(entree)
-							} else {
-								entree.nom = ''
-								resolve(entree)
-							}
+							donneesEntree.nom = donneesUtilisateurEntree.nom
 						}
-					})
+					} else {
+						const nomEntreeExiste = await db.EXISTS('noms:' + donneesEntree.identifiant)
+						if (nomEntreeExiste === null) {
+							donneesEntree.nom = ''
+						} else if (nomEntreeExiste === 1) {
+							const nomUtilisateurEntree = await db.HGET('noms:' + donneesEntree.identifiant, 'nom')
+							if (nomUtilisateurEntree === null) {
+								donneesEntree.nom = ''
+							} else {
+								donneesEntree.nom = nomUtilisateurEntree
+							}
+						} else {
+							donneesEntree.nom = ''
+						}
+					}
 					donneesEntrees.push(donneesEntree)
 				}
-				Promise.all(donneesEntrees).then(function (resultat) {
-					resolveMain(resultat)
-				})
+			}
+			donneesEntrees = donneesEntrees.filter(function (element) {
+				return Object.keys(element).length > 0 && ((element.hasOwnProperty('type') && element.type.includes('colonne')) || (element.hasOwnProperty('bloc') && listeBlocs.includes(element.bloc)))
 			})
-			Promise.all([blocsPad, activitePad]).then(async function ([blocs, activite]) {
-				const listeBlocs = []
-				blocs = blocs.filter(function (element) {
-					return Object.keys(element).length > 0
-				})
-				blocs.forEach(function (item) {
-					listeBlocs.push(item.bloc)
-					if (!item.hasOwnProperty('couleur') || item.couleur === null || typeof item.couleur !== 'string') {
-						item.couleur = '#242f3d'
-					}
-					// Filtrer HTML
-					let html = item.texte
-					html = v.stripTags(html, ['b', 'i', 'u', 'strike', 'a', 'br', 'div', 'font', 'ul', 'ol', 'li'])
-					html = html.replace(/style=".*?"/mg, '')
-					html = html.replace(/class=".*?"/mg, '')
-					html = DOMPurify.sanitize(html)
-					item.texte = html
-				})
-				activite = activite.filter(function (element) {
-					return Object.keys(element).length > 0 && ((element.hasOwnProperty('type') && element.type.includes('colonne')) || (element.hasOwnProperty('bloc') && listeBlocs.includes(element.bloc)))
-				})
-				if (pad.ordre === 'decroissant') {
-					blocs.reverse()
-				}
-				// Vérifier notification mise à jour pad
-				if (pad.hasOwnProperty('notification') && pad.notification.includes(identifiant) && Array.isArray(pad.notification)) {
-					pad.notification.splice(pad.notification.indexOf(identifiant), 1)
-					await db.HSET('pads:' + id, 'notification', JSON.stringify(pad.notification))
-					resolveData({ pad: pad, blocs: blocs, activite: activite.reverse() })
-				} else {
-					resolveData({ pad: pad, blocs: blocs, activite: activite.reverse() })
-				}
-			})
+			donneesEntrees.reverse()
+			// Vérifier notification mise à jour pad
+			if (pad.hasOwnProperty('notification') && pad.notification.includes(identifiant) && Array.isArray(pad.notification)) {
+				pad.notification.splice(pad.notification.indexOf(identifiant), 1)
+				await db.HSET('pads:' + id, 'notification', JSON.stringify(pad.notification))
+				resolveData({ pad: pad, blocs: donneesBlocs, activite: donneesEntrees })
+			} else {
+				resolveData({ pad: pad, blocs: donneesBlocs, activite: donneesEntrees })
+			}
 		})
 	}
 
@@ -6775,167 +6689,148 @@ async function demarrerServeur () {
 		})
 	}
 
-	function exporterPad (req, res, id, erreur) {
-		const donneesPad = new Promise(async function (resolveMain) {
-			let resultats = await db.HGETALL('pads:' + id)
-			resultats = Object.assign({}, resultats)
-			if (resultats === null) { resolveMain({}); return false }
-			resolveMain(resultats)
-		})
-		const blocsPad = new Promise(async function (resolveMain) {
-			const donneesBlocs = []
-			const blocs = await db.ZRANGE('blocs:' + id, 0, -1)
-			if (blocs === null) { resolveMain(donneesBlocs); return false }
+	async function exporterPad (req, res, id, erreur) {
+		// Récupérer les données du pad
+		let donneesPad = await db.HGETALL('pads:' + id)
+		donneesPad = Object.assign({}, donneesPad)
+		// Récupérer les blocs
+		let donneesBlocs = []
+		const blocs = await db.ZRANGE('blocs:' + id, 0, -1)
+		if (blocs !== null) {
 			for (const bloc of blocs) {
-				const donneesBloc = new Promise(async function (resolve) {
-					let donnees = await db.HGETALL('pad-' + id + ':' + bloc)
-					donnees = Object.assign({}, donnees)
-					if (donnees === null) { resolve({}); return false }
+				let donneesBloc = await db.HGETALL('pad-' + id + ':' + bloc)
+				donneesBloc = Object.assign({}, donneesBloc)
+				const commentaires = await db.ZRANGE('commentaires:' + bloc, 0, -1)
+				if (commentaires !== null) {
 					const donneesCommentaires = []
-					const commentaires = await db.ZRANGE('commentaires:' + bloc, 0, -1)
-					if (commentaires === null) { resolve(donnees); return false }
 					for (let commentaire of commentaires) {
 						donneesCommentaires.push(JSON.parse(commentaire))
 					}
-					donnees.commentaires = donneesCommentaires.length
-					donnees.listeCommentaires = donneesCommentaires
-					const evaluations = await db.ZRANGE('evaluations:' + bloc, 0, -1)
-					if (evaluations === null) { resolve(donnees); return false }
+					donneesBloc.commentaires = donneesCommentaires.length
+					donneesBloc.listeCommentaires = donneesCommentaires
+				}
+				const evaluations = await db.ZRANGE('evaluations:' + bloc, 0, -1)
+				if (evaluations !== null) {
 					const donneesEvaluations = []
 					evaluations.forEach(function (evaluation) {
 						donneesEvaluations.push(JSON.parse(evaluation))
 					})
-					donnees.evaluations = donneesEvaluations.length
-					donnees.listeEvaluations = donneesEvaluations
-					const resultat = await db.EXISTS('noms:' + donnees.identifiant)
-					if (resultat === null) { resolve(donnees); return false }
-					if (resultat === 1) {
-						const nom = await db.HGET('noms:' + donnees.identifiant, 'nom')
-						if (nom === null) { resolve(donnees); return false }
-						donnees.nom = nom
-						donnees.info = formaterDate(donnees, req.session.langue)
-						resolve(donnees)
-					} else {
-						donnees.nom = genererPseudo()
-						donnees.info = formaterDate(donnees, req.session.langue)
-						resolve(donnees)
+					donneesBloc.evaluations = donneesEvaluations.length
+					donneesBloc.listeEvaluations = donneesEvaluations
+				}
+				const nomExiste = await db.EXISTS('noms:' + donneesBloc.identifiant)
+				if (nomExiste === 1) {
+					const nomUtilisateur = await db.HGET('noms:' + donneesBloc.identifiant, 'nom')
+					if (nomUtilisateur !== null) {
+						donneesBloc.nom = nomUtilisateur
+						donneesBloc.info = formaterDate(donneesBloc, req.session.langue)
 					}
-				})
+				} else {
+					donneesBloc.nom = genererPseudo()
+					donneesBloc.info = formaterDate(donneesBloc, req.session.langue)
+				}
 				donneesBlocs.push(donneesBloc)
 			}
-			Promise.all(donneesBlocs).then(function (resultat) {
-				resultat = resultat.filter(function (element) {
-					return Object.keys(element).length > 0
-				})
-				resolveMain(resultat)
-			})
+		}
+		donneesBlocs = donneesBlocs.filter(function (element) {
+			return Object.keys(element).length > 0
 		})
-		const activitePad = new Promise(async function (resolveMain) {
-			const donneesEntrees = []
-			const entrees = await db.ZRANGE('activite:' + id, 0, -1)
-			if (entrees === null) { resolveMain(donneesEntrees); return false }
+		// Récupérer les entrées du registre d'activité
+		let donneesEntrees = []
+		const entrees = await db.ZRANGE('activite:' + id, 0, -1)
+		if (entrees !== null) {
 			for (let entree of entrees) {
-				entree = JSON.parse(entree)
-				const donneesEntree = new Promise(async function (resolve) {
-					const resultat = await db.EXISTS('utilisateurs:' + entree.identifiant)
-					if (resultat === null) { resolve({}) }
-					if (resultat === 1) {
-						resolve(entree)
-					} else {
-						resolve({})
-					}
-				})
+				let donneesEntree = JSON.parse(entree)
+				const utilisateurExiste = await db.EXISTS('utilisateurs:' + donneesEntree.identifiant)
+				if (utilisateurExiste === null || utilisateurExiste === 0) {
+					donneesEntree = {}
+				}
 				donneesEntrees.push(donneesEntree)
 			}
-			Promise.all(donneesEntrees).then(function (resultat) {
-				resultat = resultat.filter(function (element) {
-					return Object.keys(element).length > 0
-				})
-				resolveMain(resultat)
-			})
+		}
+		donneesEntrees = donneesEntrees.filter(function (element) {
+			return Object.keys(element).length > 0
 		})
-		Promise.all([donneesPad, blocsPad, activitePad]).then(async function (donnees) {
-			if (donnees.length > 0 && donnees[0].hasOwnProperty('id')) {
-				const parametres = {}
-				parametres.pad = donnees[0]
-				parametres.blocs = donnees[1]
-				parametres.activite = donnees[2]
-				const html = genererHTML(donnees[0], donnees[1])
-				const chemin = path.join(__dirname, '..', '/static/temp')
-				await fs.mkdirp(path.normalize(chemin + '/' + id))
-				await fs.mkdirp(path.normalize(chemin + '/' + id + '/fichiers'))
-				await fs.mkdirp(path.normalize(chemin + '/' + id + '/static'))
-				await fs.writeFile(path.normalize(chemin + '/' + id + '/donnees.json'), JSON.stringify(parametres, '', 4), 'utf8')
-				await fs.writeFile(path.normalize(chemin + '/' + id + '/index.html'), html, 'utf8')
-				if (!parametres.pad.fond.includes('/img/') && parametres.pad.fond.substring(0, 1) !== '#' && parametres.pad.fond !== '' && typeof parametres.pad.fond === 'string') {
-					const fichierFond = path.basename(parametres.pad.fond)
-					if (stockage === 'fs' && await fs.pathExists(path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + id + '/' + fichierFond))) {
-						await fs.copy(path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + id + '/' + fichierFond), path.normalize(chemin + '/' + id + '/fichiers/' + fichierFond, { overwrite: true }))
-					} else if (stockage === 's3') {
-						try {
-							const fichierMeta = await s3Client.send(new HeadObjectCommand({ Bucket: bucket, Key: id + '/' + fichierFond }))
-							if (fichierMeta.hasOwnProperty('ContentLength')) {
-								await telechargerFichierS3(id + '/' + fichierFond, path.normalize(chemin + '/' + id + '/fichiers/' + fichierFond))
-							}
-						} catch (e) {}
-					}
-				} else if (parametres.pad.fond.includes('/img/') && await fs.pathExists(path.join(__dirname, '..', '/public' + parametres.pad.fond))) {
-					await fs.copy(path.join(__dirname, '..', '/public' + parametres.pad.fond), path.normalize(chemin + '/' + id + '/static' + parametres.pad.fond, { overwrite: true }))
+		if (donneesPad.hasOwnProperty('id')) {
+			const parametres = {}
+			parametres.pad = donneesPad
+			parametres.blocs = donneesBlocs
+			parametres.activite = donneesEntrees
+			const html = genererHTML(donneesPad, donneesBlocs)
+			const chemin = path.join(__dirname, '..', '/static/temp')
+			await fs.mkdirp(path.normalize(chemin + '/' + id))
+			await fs.mkdirp(path.normalize(chemin + '/' + id + '/fichiers'))
+			await fs.mkdirp(path.normalize(chemin + '/' + id + '/static'))
+			await fs.writeFile(path.normalize(chemin + '/' + id + '/donnees.json'), JSON.stringify(parametres, '', 4), 'utf8')
+			await fs.writeFile(path.normalize(chemin + '/' + id + '/index.html'), html, 'utf8')
+			if (!parametres.pad.fond.includes('/img/') && parametres.pad.fond.substring(0, 1) !== '#' && parametres.pad.fond !== '' && typeof parametres.pad.fond === 'string') {
+				const fichierFond = path.basename(parametres.pad.fond)
+				if (stockage === 'fs' && await fs.pathExists(path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + id + '/' + fichierFond))) {
+					await fs.copy(path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + id + '/' + fichierFond), path.normalize(chemin + '/' + id + '/fichiers/' + fichierFond, { overwrite: true }))
+				} else if (stockage === 's3') {
+					try {
+						const fichierMeta = await s3Client.send(new HeadObjectCommand({ Bucket: bucket, Key: id + '/' + fichierFond }))
+						if (fichierMeta.hasOwnProperty('ContentLength')) {
+							await telechargerFichierS3(id + '/' + fichierFond, path.normalize(chemin + '/' + id + '/fichiers/' + fichierFond))
+						}
+					} catch (e) {}
 				}
-				if (await fs.pathExists(path.join(__dirname, '..', '/static/export/css'))) {
-					await fs.copy(path.join(__dirname, '..', '/static/export/css'), path.normalize(chemin + '/' + id + '/static/css'))
+			} else if (parametres.pad.fond.includes('/img/') && await fs.pathExists(path.join(__dirname, '..', '/public' + parametres.pad.fond))) {
+				await fs.copy(path.join(__dirname, '..', '/public' + parametres.pad.fond), path.normalize(chemin + '/' + id + '/static' + parametres.pad.fond, { overwrite: true }))
+			}
+			if (await fs.pathExists(path.join(__dirname, '..', '/static/export/css'))) {
+				await fs.copy(path.join(__dirname, '..', '/static/export/css'), path.normalize(chemin + '/' + id + '/static/css'))
+			}
+			if (await fs.pathExists(path.join(__dirname, '..', '/static/export/js'))) {
+				await fs.copy(path.join(__dirname, '..', '/static/export/js'), path.normalize(chemin + '/' + id + '/static/js'))
+			}
+			await fs.copy(path.join(__dirname, '..', '/public/fonts/MaterialIcons-Regular.woff2'), path.normalize(chemin + '/' + id + '/static/fonts/MaterialIcons-Regular.woff2'))
+			await fs.copy(path.join(__dirname, '..', '/public/fonts/Roboto-Slab-Medium.woff2'), path.normalize(chemin + '/' + id + '/static/fonts/Roboto-Slab-Medium.woff2'))
+			await fs.copy(path.join(__dirname, '..', '/public/img/favicon.png'), path.normalize(chemin + '/' + id + '/static/img/favicon.png'))
+			for (const bloc of parametres.blocs) {
+				if (stockage === 'fs' && Object.keys(bloc).length > 0 && bloc.hasOwnProperty('media') && bloc.media !== '' && bloc.type !== 'embed' && bloc.type !== 'lien' && await fs.pathExists(path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + id + '/' + bloc.media))) {
+					await fs.copy(path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + id + '/' + bloc.media), path.normalize(chemin + '/' + id + '/fichiers/' + bloc.media, { overwrite: true }))
+				} else if (stockage === 's3' && Object.keys(bloc).length > 0 && bloc.hasOwnProperty('media') && bloc.media !== '' && bloc.type !== 'embed' && bloc.type !== 'lien') {
+					try {
+						const fichierMeta = await s3Client.send(new HeadObjectCommand({ Bucket: bucket, Key: id + '/' + bloc.media }))
+						if (fichierMeta.hasOwnProperty('ContentLength')) {
+							await telechargerFichierS3(id + '/' + bloc.media, path.normalize(chemin + '/' + id + '/fichiers/' + bloc.media))
+						}
+					} catch (e) {}
 				}
-				if (await fs.pathExists(path.join(__dirname, '..', '/static/export/js'))) {
-					await fs.copy(path.join(__dirname, '..', '/static/export/js'), path.normalize(chemin + '/' + id + '/static/js'))
-				}
-				await fs.copy(path.join(__dirname, '..', '/public/fonts/MaterialIcons-Regular.woff2'), path.normalize(chemin + '/' + id + '/static/fonts/MaterialIcons-Regular.woff2'))
-				await fs.copy(path.join(__dirname, '..', '/public/fonts/Roboto-Slab-Medium.woff2'), path.normalize(chemin + '/' + id + '/static/fonts/Roboto-Slab-Medium.woff2'))
-				await fs.copy(path.join(__dirname, '..', '/public/img/favicon.png'), path.normalize(chemin + '/' + id + '/static/img/favicon.png'))
-				for (const bloc of parametres.blocs) {
-					if (stockage === 'fs' && Object.keys(bloc).length > 0 && bloc.hasOwnProperty('media') && bloc.media !== '' && bloc.type !== 'embed' && bloc.type !== 'lien' && await fs.pathExists(path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + id + '/' + bloc.media))) {
-						await fs.copy(path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + id + '/' + bloc.media), path.normalize(chemin + '/' + id + '/fichiers/' + bloc.media, { overwrite: true }))
-					} else if (stockage === 's3' && Object.keys(bloc).length > 0 && bloc.hasOwnProperty('media') && bloc.media !== '' && bloc.type !== 'embed' && bloc.type !== 'lien') {
-						try {
-							const fichierMeta = await s3Client.send(new HeadObjectCommand({ Bucket: bucket, Key: id + '/' + bloc.media }))
-							if (fichierMeta.hasOwnProperty('ContentLength')) {
-								await telechargerFichierS3(id + '/' + bloc.media, path.normalize(chemin + '/' + id + '/fichiers/' + bloc.media))
-							}
-						} catch (e) {}
-					}
-					if (Object.keys(bloc).length > 0 && bloc.hasOwnProperty('vignette') && bloc.vignette !== '') {
-						if (typeof bloc.vignette === 'string' && bloc.vignette.includes('/img/') && !verifierURL(bloc.vignette, ['https', 'http']) && await fs.pathExists(path.join(__dirname, '..', '/public' + bloc.vignette))) {
-							await fs.copy(path.join(__dirname, '..', '/public' + bloc.vignette), path.normalize(chemin + '/' + id + '/static' + bloc.vignette, { overwrite: true }))
-						} else if (definirVignettePersonnalisee(bloc.vignette) === true) {
-							const fichierVignette = path.basename(bloc.vignette)
-							if (stockage === 'fs' && await fs.pathExists(path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + id + '/' + fichierVignette))) {
-								await fs.copy(path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + id + '/' + fichierVignette), path.normalize(chemin + '/' + id + '/fichiers/' + fichierVignette, { overwrite: true }))
-							} else if (stockage === 's3') {
-								try {
-									const fichierMeta = await s3Client.send(new HeadObjectCommand({ Bucket: bucket, Key: id + '/' + fichierVignette }))
-									if (fichierMeta.hasOwnProperty('ContentLength')) {
-										await telechargerFichierS3(id + '/' + fichierVignette, path.normalize(chemin + '/' + id + '/fichiers/' + fichierVignette))
-									}
-								} catch (e) {}
-							}
+				if (Object.keys(bloc).length > 0 && bloc.hasOwnProperty('vignette') && bloc.vignette !== '') {
+					if (typeof bloc.vignette === 'string' && bloc.vignette.includes('/img/') && !verifierURL(bloc.vignette, ['https', 'http']) && await fs.pathExists(path.join(__dirname, '..', '/public' + bloc.vignette))) {
+						await fs.copy(path.join(__dirname, '..', '/public' + bloc.vignette), path.normalize(chemin + '/' + id + '/static' + bloc.vignette, { overwrite: true }))
+					} else if (definirVignettePersonnalisee(bloc.vignette) === true) {
+						const fichierVignette = path.basename(bloc.vignette)
+						if (stockage === 'fs' && await fs.pathExists(path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + id + '/' + fichierVignette))) {
+							await fs.copy(path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + id + '/' + fichierVignette), path.normalize(chemin + '/' + id + '/fichiers/' + fichierVignette, { overwrite: true }))
+						} else if (stockage === 's3') {
+							try {
+								const fichierMeta = await s3Client.send(new HeadObjectCommand({ Bucket: bucket, Key: id + '/' + fichierVignette }))
+								if (fichierMeta.hasOwnProperty('ContentLength')) {
+									await telechargerFichierS3(id + '/' + fichierVignette, path.normalize(chemin + '/' + id + '/fichiers/' + fichierVignette))
+								}
+							} catch (e) {}
 						}
 					}
 				}
-				const archiveId = Math.floor((Math.random() * 100000) + 1)
-				const sortie = fs.createWriteStream(path.normalize(chemin + '/pad-' + id + '_' + archiveId + '.zip'))
-				const archive = archiver('zip', {
-					zlib: { level: 9 }
-				})
-				sortie.on('finish', async function () {
-					await fs.remove(path.normalize(chemin + '/' + id))
-					res.send('pad-' + id + '_' + archiveId + '.zip')
-				})
-				archive.pipe(sortie)
-				archive.directory(path.normalize(chemin + '/' + id), false)
-				archive.finalize()
-			} else {
-				res.send(erreur)
 			}
-		})
+			const archiveId = Math.floor((Math.random() * 100000) + 1)
+			const sortie = fs.createWriteStream(path.normalize(chemin + '/pad-' + id + '_' + archiveId + '.zip'))
+			const archive = archiver('zip', {
+				zlib: { level: 9 }
+			})
+			sortie.on('finish', async function () {
+				await fs.remove(path.normalize(chemin + '/' + id))
+				res.send('pad-' + id + '_' + archiveId + '.zip')
+			})
+			archive.pipe(sortie)
+			archive.directory(path.normalize(chemin + '/' + id), false)
+			archive.finalize()
+		} else {
+			res.send(erreur)
+		}
 	}
 
 	async function exporterPadJson (res, id, donnees) {
@@ -7244,12 +7139,6 @@ async function demarrerServeur () {
 			break
 		}
 		return dateFormattee
-	}
-
-	function collecterDechets () {
-		if (global.gc && production) {
-			global.gc()
-		}
 	}
 
 	function genererHTML (pad, blocs) {
