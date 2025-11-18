@@ -3151,18 +3151,49 @@ export default {
 			this.chargement = true
 			axios.post(this.hote + '/api/verifier-mot-de-passe', {
 				pad: this.pad.id,
+				identifiant: this.pad.identifiant,
+				acces: this.accesAutorise,
 				motdepasse: this.motDePasse
 			}).then(function (reponse) {
 				const donnees = reponse.data
-				if (donnees === 'motdepasse_incorrect') {
+				if (donnees.message === 'motdepasse_incorrect') {
 					this.chargement = false
 					this.message = this.$t('motDePassePasCorrect')
-				} else if (donnees === 'erreur') {
+				} else if (donnees.message === 'erreur') {
 					this.chargement = false
 					this.message = this.$t('erreurCommunicationServeur')
-				} else {
-					this.$socket.emit('debloquerpad', this.pad.id, this.pad.identifiant, this.accesAutorise)
+				} else if (donnees.message === 'motdepasse_correct') {
 					this.fermerModaleMotDePasse()
+					this.chargement = false
+					this.accesAutorise = true
+					this.modifierCaracteristique(this.identifiant, 'identifiant', donnees.identifiant)
+					this.modifierCaracteristique(donnees.identifiant, 'nom', donnees.nom)
+					const pads = JSON.parse(JSON.stringify(this.pads))
+					if (!pads.includes(this.pad.id)) {
+						pads.push(this.pad.id)
+					}
+					this.identifiant = donnees.identifiant
+					this.nom = donnees.nom
+					this.langue = donnees.langue
+					this.statut = 'auteur'
+					this.pads = pads
+					this.$socket.emit('connexion', { pad: this.pad.id, identifiant: this.identifiant, nom: this.nom })
+					if (donnees.hasOwnProperty('blocs') && donnees.hasOwnProperty('activite') && donnees.hasOwnProperty('pad')) {
+						this.blocs = donnees.blocs
+						this.activite = donnees.activite
+						this.pad.code = donnees.pad.code
+						this.pad.colonnes = donnees.pad.colonnes
+						this.pad.affichageColonnes = donnees.pad.affichageColonnes
+						if (this.pad.affichage === 'colonnes') {
+							this.definirColonnes(this.blocs)
+							if (!this.mobile) {
+								this.$nextTick(function () {
+									this.activerDefilementHorizontal()
+								}.bind(this))
+							}
+						}
+					}
+					this.notification = this.$t('padDebloque')
 				}
 			}.bind(this)).catch(function () {
 				this.chargement = false
@@ -4222,38 +4253,6 @@ export default {
 					}
 				}
 				this.chargement = false
-			}.bind(this))
-
-			this.$socket.on('debloquerpad', function (donnees) {
-				this.chargement = false
-				this.accesAutorise = true
-				this.modifierCaracteristique(this.identifiant, 'identifiant', donnees.identifiant)
-				this.modifierCaracteristique(donnees.identifiant, 'nom', donnees.nom)
-				const pads = JSON.parse(JSON.stringify(this.pads))
-				if (!pads.includes(this.pad.id)) {
-					pads.push(this.pad.id)
-				}
-				this.identifiant = donnees.identifiant
-				this.nom = donnees.nom
-				this.langue = donnees.langue
-				this.statut = 'auteur'
-				this.pads = pads
-				if (donnees.hasOwnProperty('blocs') && donnees.hasOwnProperty('activite') && donnees.hasOwnProperty('pad')) {
-					this.blocs = donnees.blocs
-					this.activite = donnees.activite
-					this.pad.code = donnees.pad.code
-					this.pad.colonnes = donnees.pad.colonnes
-					this.pad.affichageColonnes = donnees.pad.affichageColonnes
-					if (this.pad.affichage === 'colonnes') {
-						this.definirColonnes(this.blocs)
-						if (!this.mobile) {
-							this.$nextTick(function () {
-								this.activerDefilementHorizontal()
-							}.bind(this))
-						}
-					}
-				}
-				this.notification = this.$t('padDebloque')
 			}.bind(this))
 
 			this.$socket.on('modifiernotification', function (donnees) {
