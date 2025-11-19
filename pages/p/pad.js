@@ -144,7 +144,7 @@ export default {
 	},
 	computed: {
 		admin () {
-			return (this.pad.hasOwnProperty('identifiant') && this.pad.identifiant === this.identifiant) || (this.pad.hasOwnProperty('admins') && this.pad.admins.includes(this.identifiant)) || (this.statut === 'auteur' && this.pad.hasOwnProperty('id') && this.pads.includes(this.pad.id))
+			return ((this.statut === 'utilisateur' && ((this.pad.hasOwnProperty('identifiant') && this.pad.identifiant === this.identifiant) || (this.pad.hasOwnProperty('admins') && this.pad.admins.includes(this.identifiant)))) || (this.statut === 'auteur' && this.pad.hasOwnProperty('identifiant') && this.pad.identifiant === this.identifiant && this.pad.hasOwnProperty('id') && this.pads.includes(parseInt(this.pad.id))))
 		},
 		mobile () {
 			if (((this.userAgent.match(/iPhone/i) || this.userAgent.match(/iPad/i) || this.userAgent.match(/iPod/i)) && this.userAgent.match(/Mobile/i)) || this.userAgent.match(/Android/i)) {
@@ -348,7 +348,8 @@ export default {
 						id: this.pad.id,
 						token: this.pad.token,
 						identifiant: this.identifiant,
-						statut: this.statut
+						statut: this.statut,
+						pads: this.pads
 					}, {
 						headers: { 'Content-Type': 'application/json' }
 					})
@@ -3169,8 +3170,8 @@ export default {
 					this.modifierCaracteristique(this.identifiant, 'identifiant', donnees.identifiant)
 					this.modifierCaracteristique(donnees.identifiant, 'nom', donnees.nom)
 					const pads = JSON.parse(JSON.stringify(this.pads))
-					if (!pads.includes(this.pad.id)) {
-						pads.push(this.pad.id)
+					if (!pads.includes(parseInt(this.pad.id))) {
+						pads.push(parseInt(this.pad.id))
 					}
 					this.identifiant = donnees.identifiant
 					this.nom = donnees.nom
