@@ -678,7 +678,7 @@ async function demarrerServeur () {
 		let donnees = await db.HGETALL('pads:' + pad)
 		donnees = Object.assign({}, donnees)
 		if (donnees === null || !donnees.hasOwnProperty('identifiant')) { res.send('erreur'); return false }
-		if (req.session.identifiant === identifiant && verifierAdmin(pad, donnees, req.session) === true) {
+		if (req.session.identifiant === identifiant && await verifierAdmin(pad, donnees, req.session) === true) {
 			recupererDonneesAuteur(identifiant).then(function (pads) {
 				let padsCrees = pads[0].filter(function (element) {
 					return element !== '' && Object.keys(element).length > 0
@@ -909,11 +909,8 @@ async function demarrerServeur () {
 	app.post('/api/ajouter-pad-favoris', async function (req, res) {
 		const identifiant = req.body.identifiant
 		if (req.session.identifiant && req.session.identifiant === identifiant && req.session.statut === 'utilisateur' && req.session.hasOwnProperty('motdepasse') && req.session.motdepasse !== '') {
-			let donneesUtilisateur = await db.HGETALL('utilisateurs:' + identifiant)
-			donneesUtilisateur = Object.assign({}, donneesUtilisateur)
-			if (donneesUtilisateur === null) { res.send('erreur'); return false }
-			if (await bcrypt.compare(req.session.motdepasse, donneesUtilisateur.motdepasse)) {
-				const pad = req.body.padId
+			const pad = req.body.padId
+			if (await verifierAdminUtilisateur(pad, identifiant, req.session.motdepasse) === true) {
 				await db.SADD('pads-favoris:' + identifiant, pad.toString())
 				res.send('pad_ajoute_favoris')
 			} else {
@@ -928,11 +925,8 @@ async function demarrerServeur () {
 	app.post('/api/supprimer-pad-favoris', async function (req, res) {
 		const identifiant = req.body.identifiant
 		if (req.session.identifiant && req.session.identifiant === identifiant && req.session.statut === 'utilisateur' && req.session.hasOwnProperty('motdepasse') && req.session.motdepasse !== '') {
-			let donneesUtilisateur = await db.HGETALL('utilisateurs:' + identifiant)
-			donneesUtilisateur = Object.assign({}, donneesUtilisateur)
-			if (donneesUtilisateur === null) { res.send('erreur'); return false }
-			if (await bcrypt.compare(req.session.motdepasse, donneesUtilisateur.motdepasse)) {
-				const pad = req.body.padId
+			const pad = req.body.padId
+			if (await verifierAdminUtilisateur(pad, identifiant, req.session.motdepasse) === true) {
 				await db.SREM('pads-favoris:' + identifiant, pad.toString())
 				res.send('pad_supprime_favoris')
 			} else {
@@ -947,11 +941,8 @@ async function demarrerServeur () {
 	app.post('/api/deplacer-pad', async function (req, res) {
 		const identifiant = req.body.identifiant
 		if (req.session.identifiant && req.session.identifiant === identifiant && req.session.statut === 'utilisateur' && req.session.hasOwnProperty('motdepasse') && req.session.motdepasse !== '') {
-			let donneesUtilisateur = await db.HGETALL('utilisateurs:' + identifiant)
-			donneesUtilisateur = Object.assign({}, donneesUtilisateur)
-			if (donneesUtilisateur === null) { res.send('erreur_deplacement'); return false }
-			if (await bcrypt.compare(req.session.motdepasse, donneesUtilisateur.motdepasse)) {
-				const padId = req.body.padId
+			const padId = req.body.padId
+			if (await verifierAdminUtilisateur(padId, identifiant, req.session.motdepasse) === true) {
 				const destination = req.body.destination
 				let donnees = await db.HGETALL('utilisateurs:' + identifiant)
 				donnees = Object.assign({}, donnees)
@@ -984,11 +975,8 @@ async function demarrerServeur () {
 		}
 		const identifiant = req.body.identifiant
 		if (req.session.identifiant && req.session.identifiant === identifiant && req.session.statut === 'utilisateur' && req.session.hasOwnProperty('motdepasse') && req.session.motdepasse !== '') {
-			let donneesUtilisateur = await db.HGETALL('utilisateurs:' + identifiant)
-			donneesUtilisateur = Object.assign({}, donneesUtilisateur)
-			if (donneesUtilisateur === null) { res.send('erreur_duplication'); return false }
-			if (await bcrypt.compare(req.session.motdepasse, donneesUtilisateur.motdepasse)) {
-				const pad = req.body.padId
+			const pad = req.body.padId
+			if (await verifierAdminUtilisateur(pad, identifiant, req.session.motdepasse) === true) {
 				const num = await db.GET('pad')
 				if (num === null) { res.send('erreur_duplication'); return false }
 				const id = parseInt(num) + 1
@@ -1265,15 +1253,7 @@ async function demarrerServeur () {
 				let donneesPad = await db.HGETALL('pads:' + id)
 				donneesPad = Object.assign({}, donneesPad)
 				if (donneesPad === null) { res.send('erreur_export'); return false }
-				const proprietaire = donneesPad.identifiant
-				let motdepasse
-				if (!admin && req.session.statut === 'utilisateur') {
-					let donneesUtilisateur = await db.HGETALL('utilisateurs:' + identifiant)
-					donneesUtilisateur = Object.assign({}, donneesUtilisateur)
-					if (donneesUtilisateur === null) { res.send('erreur_export'); return false }
-					motdepasse = donneesUtilisateur.motdepasse
-				}
-				if (admin || (proprietaire === identifiant && (req.session.statut === 'utilisateur' && await bcrypt.compare(req.session.motdepasse, motdepasse)) || (req.session.statut === 'auteur' && req.session.pads.includes(parseInt(id))))) {
+				if (admin || await verifierAdmin(id, donneesPad, req.session) === true) {
 					exporterPad(req, res, id, 'erreur_export')
 				} else {
 					res.send('non_autorise')
@@ -1525,14 +1505,7 @@ async function demarrerServeur () {
 				donneesPad = Object.assign({}, donneesPad)
 				if (donneesPad === null) { res.send('erreur_suppression'); return false }
 				if (donneesPad.identifiant === identifiant) { // pad créé
-					let motdepasse
-					if (!admin && req.session.statut === 'utilisateur') {
-						let donneesUtilisateur = await db.HGETALL('utilisateurs:' + identifiant)
-						donneesUtilisateur = Object.assign({}, donneesUtilisateur)
-						if (donneesUtilisateur === null) { res.send('erreur_suppression'); return false }
-						motdepasse = donneesUtilisateur.motdepasse
-					}
-					if (admin || (req.session.statut === 'utilisateur' && await bcrypt.compare(req.session.motdepasse, motdepasse)) || (req.session.statut === 'auteur' && req.session.pads.includes(parseInt(pad)))) {
+					if (admin || await verifierAdmin(pad, donneesPad, req.session) === true) {
 						const blocs = await db.ZRANGE('blocs:' + pad, 0, -1)
 						if (blocs === null) { res.send('erreur_suppression'); return false }
 						for (let i = 0; i < blocs.length; i++) {
@@ -1623,14 +1596,7 @@ async function demarrerServeur () {
 				const donneesPad = await fs.readJson(path.join(__dirname, '..', '/static/pads/pad-' + pad + '.json'))
 				if (typeof donneesPad === 'object' && donneesPad !== null) {
 					if (donneesPad.identifiant === identifiant) { // pad créé
-						let motdepasse
-						if (!admin && req.session.statut === 'utilisateur') {
-							let donneesUtilisateur = await db.HGETALL('utilisateurs:' + identifiant)
-							donneesUtilisateur = Object.assign({}, donneesUtilisateur)
-							if (donneesUtilisateur === null) { res.send('erreur_suppression'); return false }
-							motdepasse = donneesUtilisateur.motdepasse
-						}
-						if (admin || (req.session.statut === 'utilisateur' && await bcrypt.compare(req.session.motdepasse, motdepasse)) || (req.session.statut === 'auteur' && req.session.pads.includes(parseInt(pad)))) {
+						if (admin || await verifierAdmin(pad, donneesPad, req.session) === true) {
 							await db.SREM('pads-crees:' + identifiant, pad.toString())
 							const utilisateurs = await db.SMEMBERS('utilisateurs-pads:' + pad)
 							if (utilisateurs === null) { res.send('erreur_suppression'); return false }
@@ -2535,12 +2501,9 @@ async function demarrerServeur () {
 			if (donneesUtilisateur === null) { res.send('erreur_ajout_dossier'); return false }
 			if (await bcrypt.compare(req.session.motdepasse, donneesUtilisateur.motdepasse)) {
 				const nom = req.body.dossier
-				let donnees = await db.HGETALL('utilisateurs:' + identifiant)
-				donnees = Object.assign({}, donnees)
-				if (donnees === null) { res.send('erreur_ajout_dossier'); return false }
 				let dossiers = []
-				if (donnees.hasOwnProperty('dossiers')) {
-					dossiers = JSON.parse(donnees.dossiers)
+				if (donneesUtilisateur.hasOwnProperty('dossiers')) {
+					dossiers = JSON.parse(donneesUtilisateur.dossiers)
 				}
 				const id = Math.random().toString(36).substring(2)
 				dossiers.push({ id: id, nom: nom, pads: [] })
@@ -2564,10 +2527,7 @@ async function demarrerServeur () {
 			if (await bcrypt.compare(req.session.motdepasse, donneesUtilisateur.motdepasse)) {
 				const nom = req.body.dossier
 				const dossierId = req.body.dossierId
-				let donnees = await db.HGETALL('utilisateurs:' + identifiant)
-				donnees = Object.assign({}, donnees)
-				if (donnees === null) { res.send('erreur_modification_dossier'); return false }
-				const dossiers = JSON.parse(donnees.dossiers)
+				const dossiers = JSON.parse(donneesUtilisateur.dossiers)
 				dossiers.forEach(function (dossier, index) {
 					if (dossier.id === dossierId) {
 						dossiers[index].nom = nom
@@ -2592,10 +2552,7 @@ async function demarrerServeur () {
 			if (donneesUtilisateur === null) { res.send('erreur_suppression_dossier'); return false }
 			if (await bcrypt.compare(req.session.motdepasse, donneesUtilisateur.motdepasse)) {
 				const dossierId = req.body.dossierId
-				let donnees = await db.HGETALL('utilisateurs:' + identifiant)
-				donnees = Object.assign({}, donnees)
-				if (donnees === null) { res.send('erreur_suppression_dossier'); return false }
-				const dossiers = JSON.parse(donnees.dossiers)
+				const dossiers = JSON.parse(donneesUtilisateur.dossiers)
 				dossiers.forEach(function (dossier, index) {
 					if (dossier.id === dossierId) {
 						dossiers.splice(index, 1)
@@ -4024,7 +3981,7 @@ async function demarrerServeur () {
 				let donnees = await db.HGETALL('pads:' + pad)
 				donnees = Object.assign({}, donnees)
 				if (donnees === null || !donnees.hasOwnProperty('id') || !donnees.hasOwnProperty('token') || !donnees.hasOwnProperty('identifiant')) { socket.emit('erreur'); return false }
-				const admin = verifierAdmin(pad, donnees, req.session)
+				const admin = await verifierAdmin(pad, donnees, req.session)
 				if (donnees.id === pad && donnees.token === token && (donnees.contributions !== 'fermees' || admin)) {
 					const id = parseInt(donnees.bloc) + 1
 					const date = dayjs().format()
@@ -4104,7 +4061,7 @@ async function demarrerServeur () {
 						let objet = await db.HGETALL('pad-' + pad + ':' + bloc)
 						objet = Object.assign({}, objet)
 						if (objet === null) { socket.emit('erreur'); return false }
-						const admin = verifierAdmin(pad, donnees, req.session)
+						const admin = await verifierAdmin(pad, donnees, req.session)
 						if (objet.identifiant === identifiant || admin || donnees.contributions === 'modifiables') {
 							let visibilite = 'visible'
 							if (objet.hasOwnProperty('visibilite')) {
@@ -4187,7 +4144,7 @@ async function demarrerServeur () {
 				let donnees = await db.HGETALL('pads:' + pad)
 				donnees = Object.assign({}, donnees)
 				if (donnees === null || !donnees.hasOwnProperty('id') || !donnees.hasOwnProperty('token') || !donnees.hasOwnProperty('identifiant')) { socket.emit('erreur'); return false }
-				if (donnees.id === pad && donnees.token === token && verifierAdmin(pad, donnees, req.session) === true) {
+				if (donnees.id === pad && donnees.token === token && await verifierAdmin(pad, donnees, req.session) === true) {
 					const id = parseInt(donnees.bloc) + 1
 					const date = dayjs().format()
 					const activiteId = parseInt(donnees.activite) + 1
@@ -4250,7 +4207,7 @@ async function demarrerServeur () {
 				let donnees = await db.HGETALL('pads:' + pad)
 				donnees = Object.assign({}, donnees)
 				if (donnees === null || !donnees.hasOwnProperty('id') || !donnees.hasOwnProperty('token') || !donnees.hasOwnProperty('identifiant')) { socket.emit('erreur'); return false }
-				if (donnees.id === pad && donnees.token === token && verifierAdmin(pad, donnees, req.session) === true) {
+				if (donnees.id === pad && donnees.token === token && await verifierAdmin(pad, donnees, req.session) === true) {
 					const resultat = await db.EXISTS('pad-' + pad + ':' + item.bloc)
 					if (resultat === null) { socket.emit('erreur'); return false }
 					if (resultat === 1) {
@@ -4301,7 +4258,7 @@ async function demarrerServeur () {
 				let donnees = await db.HGETALL('pads:' + pad)
 				donnees = Object.assign({}, donnees)
 				if (donnees === null || !donnees.hasOwnProperty('id') || !donnees.hasOwnProperty('identifiant')) { socket.emit('erreur'); return false }
-				if (donnees.id === pad && verifierAdmin(pad, donnees, req.session) === true) {
+				if (donnees.id === pad && await verifierAdmin(pad, donnees, req.session) === true) {
 					if (ordre === 'decroissant') {
 						items.reverse()
 					}
@@ -4366,7 +4323,7 @@ async function demarrerServeur () {
 						let objet = await db.HGETALL('pad-' + pad + ':' + bloc)
 						objet = Object.assign({}, objet)
 						if (objet === null) { socket.emit('erreur'); return false }
-						if (objet.identifiant === identifiant || verifierAdmin(pad, donnees, req.session) === true) {
+						if (objet.identifiant === identifiant || await verifierAdmin(pad, donnees, req.session) === true) {
 							if (objet.hasOwnProperty('media') && objet.media !== '' && objet.type !== 'embed' && objet.type !== 'lien') {
 								await supprimerFichier(pad, objet.media)
 							}
@@ -4667,7 +4624,7 @@ async function demarrerServeur () {
 				let donnees = await db.HGETALL('pads:' + pad)
 				donnees = Object.assign({}, donnees)
 				if (donnees === null || !donnees.hasOwnProperty('identifiant')) { socket.emit('erreur'); return false }
-				if (verifierAdmin(pad, donnees, req.session) === true) {
+				if (await verifierAdmin(pad, donnees, req.session) === true) {
 					await db.HSET('pads:' + pad, 'titre', titre)
 					io.to('pad-' + pad).emit('modifiertitre', titre)
 					req.session.cookie.expires = new Date(Date.now() + dureeSession)
@@ -4689,7 +4646,7 @@ async function demarrerServeur () {
 				let donnees = await db.HGETALL('pads:' + pad)
 				donnees = Object.assign({}, donnees)
 				if (donnees === null || !donnees.hasOwnProperty('identifiant')) { socket.emit('erreur'); return false }
-				if (verifierAdmin(pad, donnees, req.session) === true) {
+				if (await verifierAdmin(pad, donnees, req.session) === true) {
 					await db.HSET('pads:' + pad, 'code', code)
 					io.to('pad-' + pad).emit('modifiercodeacces', code)
 					req.session.cookie.expires = new Date(Date.now() + dureeSession)
@@ -4750,7 +4707,7 @@ async function demarrerServeur () {
 				let donnees = await db.HGETALL('pads:' + pad)
 				donnees = Object.assign({}, donnees)
 				if (donnees === null || !donnees.hasOwnProperty('identifiant')) { socket.emit('erreur'); return false }
-				if (verifierAdmin(pad, donnees, req.session) === true) {
+				if (await verifierAdmin(pad, donnees, req.session) === true) {
 					let code = ''
 					if (donnees.hasOwnProperty('code') && donnees.code !== '') {
 						code = donnees.code
@@ -4778,7 +4735,7 @@ async function demarrerServeur () {
 				let donnees = await db.HGETALL('pads:' + pad)
 				donnees = Object.assign({}, donnees)
 				if (donnees === null || !donnees.hasOwnProperty('identifiant')) { socket.emit('erreur'); return false }
-				if (verifierAdmin(pad, donnees, req.session) === true) {
+				if (await verifierAdmin(pad, donnees, req.session) === true) {
 					await db.HSET('pads:' + pad, 'contributions', contributions)
 					io.to('pad-' + pad).emit('modifiercontributions', { contributions: contributions, contributionsPrecedentes: contributionsPrecedentes })
 					req.session.cookie.expires = new Date(Date.now() + dureeSession)
@@ -4800,7 +4757,7 @@ async function demarrerServeur () {
 				let donnees = await db.HGETALL('pads:' + pad)
 				donnees = Object.assign({}, donnees)
 				if (donnees === null || !donnees.hasOwnProperty('identifiant')) { socket.emit('erreur'); return false }
-				if (verifierAdmin(pad, donnees, req.session) === true) {
+				if (await verifierAdmin(pad, donnees, req.session) === true) {
 					await db.HSET('pads:' + pad, 'affichage', affichage)
 					io.to('pad-' + pad).emit('modifieraffichage', affichage)
 					req.session.cookie.expires = new Date(Date.now() + dureeSession)
@@ -4822,7 +4779,7 @@ async function demarrerServeur () {
 				let donnees = await db.HGETALL('pads:' + pad)
 				donnees = Object.assign({}, donnees)
 				if (donnees === null || !donnees.hasOwnProperty('identifiant')) { socket.emit('erreur'); return false }
-				if (verifierAdmin(pad, donnees, req.session) === true) {
+				if (await verifierAdmin(pad, donnees, req.session) === true) {
 					await db.HSET('pads:' + pad, 'ordre', ordre)
 					io.to('pad-' + pad).emit('modifierordre', ordre)
 					req.session.cookie.expires = new Date(Date.now() + dureeSession)
@@ -4844,7 +4801,7 @@ async function demarrerServeur () {
 				let donnees = await db.HGETALL('pads:' + pad)
 				donnees = Object.assign({}, donnees)
 				if (donnees === null || !donnees.hasOwnProperty('identifiant')) { socket.emit('erreur'); return false }
-				if (verifierAdmin(pad, donnees, req.session) === true) {
+				if (await verifierAdmin(pad, donnees, req.session) === true) {
 					await db.HSET('pads:' + pad, 'largeur', largeur)
 					io.to('pad-' + pad).emit('modifierlargeur', largeur)
 					req.session.cookie.expires = new Date(Date.now() + dureeSession)
@@ -4866,7 +4823,7 @@ async function demarrerServeur () {
 				let donnees = await db.HGETALL('pads:' + pad)
 				donnees = Object.assign({}, donnees)
 				if (donnees === null || !donnees.hasOwnProperty('identifiant')) { socket.emit('erreur'); return false }
-				if (verifierAdmin(pad, donnees, req.session) === true) {
+				if (await verifierAdmin(pad, donnees, req.session) === true) {
 					await db.HSET('pads:' + pad, ['fond', fond, 'fondRepete', 'desactive'])
 					io.to('pad-' + pad).emit('modifierfond', fond)
 					if (!ancienfond.includes('/img/') && ancienfond.substring(0, 1) !== '#' && ancienfond !== '' && typeof ancienfond === 'string') {
@@ -4891,7 +4848,7 @@ async function demarrerServeur () {
 				let donnees = await db.HGETALL('pads:' + pad)
 				donnees = Object.assign({}, donnees)
 				if (donnees === null || !donnees.hasOwnProperty('identifiant')) { socket.emit('erreur'); return false }
-				if (verifierAdmin(pad, donnees, req.session) === true) {
+				if (await verifierAdmin(pad, donnees, req.session) === true) {
 					await db.HSET('pads:' + pad, ['fond', fond, 'fondRepete', 'desactive'])
 					io.to('pad-' + pad).emit('modifiercouleurfond', fond)
 					if (!ancienfond.includes('/img/') && ancienfond.substring(0, 1) !== '#' && ancienfond !== '' && typeof ancienfond === 'string') {
@@ -4916,7 +4873,7 @@ async function demarrerServeur () {
 				let donnees = await db.HGETALL('pads:' + pad)
 				donnees = Object.assign({}, donnees)
 				if (donnees === null || !donnees.hasOwnProperty('identifiant')) { socket.emit('erreur'); return false }
-				if (verifierAdmin(pad, donnees, req.session) === true) {
+				if (await verifierAdmin(pad, donnees, req.session) === true) {
 					await db.HSET('pads:' + pad, 'fondRepete', statut)
 					io.to('pad-' + pad).emit('modifierfondrepete', statut)
 					req.session.cookie.expires = new Date(Date.now() + dureeSession)
@@ -4938,7 +4895,7 @@ async function demarrerServeur () {
 				let donnees = await db.HGETALL('pads:' + pad)
 				donnees = Object.assign({}, donnees)
 				if (donnees === null || !donnees.hasOwnProperty('identifiant')) { socket.emit('erreur'); return false }
-				if (verifierAdmin(pad, donnees, req.session) === true) {
+				if (await verifierAdmin(pad, donnees, req.session) === true) {
 					await db.HSET('pads:' + pad, 'registreActivite', statut)
 					io.to('pad-' + pad).emit('modifieractivite', statut)
 					req.session.cookie.expires = new Date(Date.now() + dureeSession)
@@ -4960,7 +4917,7 @@ async function demarrerServeur () {
 				let donnees = await db.HGETALL('pads:' + pad)
 				donnees = Object.assign({}, donnees)
 				if (donnees === null || !donnees.hasOwnProperty('identifiant')) { socket.emit('erreur'); return false }
-				if (verifierAdmin(pad, donnees, req.session) === true) {
+				if (await verifierAdmin(pad, donnees, req.session) === true) {
 					await db.HSET('pads:' + pad, 'conversation', statut)
 					io.to('pad-' + pad).emit('modifierconversation', statut)
 					req.session.cookie.expires = new Date(Date.now() + dureeSession)
@@ -4982,7 +4939,7 @@ async function demarrerServeur () {
 				let donnees = await db.HGETALL('pads:' + pad)
 				donnees = Object.assign({}, donnees)
 				if (donnees === null || !donnees.hasOwnProperty('identifiant')) { socket.emit('erreur'); return false }
-				if (verifierAdmin(pad, donnees, req.session) === true) {
+				if (await verifierAdmin(pad, donnees, req.session) === true) {
 					await db.HSET('pads:' + pad, 'listeUtilisateurs', statut)
 					io.to('pad-' + pad).emit('modifierlisteutilisateurs', statut)
 					req.session.cookie.expires = new Date(Date.now() + dureeSession)
@@ -5004,7 +4961,7 @@ async function demarrerServeur () {
 				let donnees = await db.HGETALL('pads:' + pad)
 				donnees = Object.assign({}, donnees)
 				if (donnees === null || !donnees.hasOwnProperty('identifiant')) { socket.emit('erreur'); return false }
-				if (verifierAdmin(pad, donnees, req.session) === true) {
+				if (await verifierAdmin(pad, donnees, req.session) === true) {
 					await db.HSET('pads:' + pad, 'editionNom', statut)
 					io.to('pad-' + pad).emit('modifiereditionnom', statut)
 					req.session.cookie.expires = new Date(Date.now() + dureeSession)
@@ -5026,7 +4983,7 @@ async function demarrerServeur () {
 				let donnees = await db.HGETALL('pads:' + pad)
 				donnees = Object.assign({}, donnees)
 				if (donnees === null || !donnees.hasOwnProperty('identifiant')) { socket.emit('erreur'); return false }
-				if (verifierAdmin(pad, donnees, req.session) === true) {
+				if (await verifierAdmin(pad, donnees, req.session) === true) {
 					await db.HSET('pads:' + pad, 'fichiers', statut)
 					io.to('pad-' + pad).emit('modifierfichiers', statut)
 					req.session.cookie.expires = new Date(Date.now() + dureeSession)
@@ -5048,7 +5005,7 @@ async function demarrerServeur () {
 				let donnees = await db.HGETALL('pads:' + pad)
 				donnees = Object.assign({}, donnees)
 				if (donnees === null || !donnees.hasOwnProperty('identifiant')) { socket.emit('erreur'); return false }
-				if (verifierAdmin(pad, donnees, req.session) === true) {
+				if (await verifierAdmin(pad, donnees, req.session) === true) {
 					await db.HSET('pads:' + pad, 'enregistrements', statut)
 					io.to('pad-' + pad).emit('modifierenregistrements', statut)
 					req.session.cookie.expires = new Date(Date.now() + dureeSession)
@@ -5070,7 +5027,7 @@ async function demarrerServeur () {
 				let donnees = await db.HGETALL('pads:' + pad)
 				donnees = Object.assign({}, donnees)
 				if (donnees === null || !donnees.hasOwnProperty('identifiant')) { socket.emit('erreur'); return false }
-				if (verifierAdmin(pad, donnees, req.session) === true) {
+				if (await verifierAdmin(pad, donnees, req.session) === true) {
 					await db.HSET('pads:' + pad, 'liens', statut)
 					io.to('pad-' + pad).emit('modifierliens', statut)
 					req.session.cookie.expires = new Date(Date.now() + dureeSession)
@@ -5092,7 +5049,7 @@ async function demarrerServeur () {
 				let donnees = await db.HGETALL('pads:' + pad)
 				donnees = Object.assign({}, donnees)
 				if (donnees === null || !donnees.hasOwnProperty('identifiant')) { socket.emit('erreur'); return false }
-				if (verifierAdmin(pad, donnees, req.session) === true) {
+				if (await verifierAdmin(pad, donnees, req.session) === true) {
 					await db.HSET('pads:' + pad, 'documents', statut)
 					io.to('pad-' + pad).emit('modifierdocuments', statut)
 					req.session.cookie.expires = new Date(Date.now() + dureeSession)
@@ -5114,7 +5071,7 @@ async function demarrerServeur () {
 				let donnees = await db.HGETALL('pads:' + pad)
 				donnees = Object.assign({}, donnees)
 				if (donnees === null || !donnees.hasOwnProperty('identifiant')) { socket.emit('erreur'); return false }
-				if (verifierAdmin(pad, donnees, req.session) === true) {
+				if (await verifierAdmin(pad, donnees, req.session) === true) {
 					await db.HSET('pads:' + pad, 'commentaires', statut)
 					io.to('pad-' + pad).emit('modifiercommentaires', statut)
 					req.session.cookie.expires = new Date(Date.now() + dureeSession)
@@ -5136,7 +5093,7 @@ async function demarrerServeur () {
 				let donnees = await db.HGETALL('pads:' + pad)
 				donnees = Object.assign({}, donnees)
 				if (donnees === null || !donnees.hasOwnProperty('identifiant')) { socket.emit('erreur'); return false }
-				if (verifierAdmin(pad, donnees, req.session) === true) {
+				if (await verifierAdmin(pad, donnees, req.session) === true) {
 					await db.HSET('pads:' + pad, 'evaluations', statut)
 					io.to('pad-' + pad).emit('modifierevaluations', statut)
 					req.session.cookie.expires = new Date(Date.now() + dureeSession)
@@ -5158,7 +5115,7 @@ async function demarrerServeur () {
 				let donnees = await db.HGETALL('pads:' + pad)
 				donnees = Object.assign({}, donnees)
 				if (donnees === null || !donnees.hasOwnProperty('identifiant')) { socket.emit('erreur'); return false }
-				if (verifierAdmin(pad, donnees, req.session) === true) {
+				if (await verifierAdmin(pad, donnees, req.session) === true) {
 					await db.HSET('pads:' + pad, 'copieBloc', statut)
 					io.to('pad-' + pad).emit('modifiercopiebloc', statut)
 					req.session.cookie.expires = new Date(Date.now() + dureeSession)
@@ -5187,7 +5144,7 @@ async function demarrerServeur () {
 				let donnees = await db.HGETALL('pads:' + pad)
 				donnees = Object.assign({}, donnees)
 				if (donnees === null || !donnees.hasOwnProperty('identifiant')) { socket.emit('erreur'); return false }
-				if (verifierAdmin(pad, donnees, req.session) === true) {
+				if (await verifierAdmin(pad, donnees, req.session) === true) {
 					io.to('pad-' + pad).emit('reinitialisermessages')
 					req.session.cookie.expires = new Date(Date.now() + dureeSession)
 					req.session.save()
@@ -5204,7 +5161,7 @@ async function demarrerServeur () {
 				let donnees = await db.HGETALL('pads:' + pad)
 				donnees = Object.assign({}, donnees)
 				if (donnees === null || !donnees.hasOwnProperty('identifiant')) { socket.emit('erreur'); return false }
-				if (verifierAdmin(pad, donnees, req.session) === true) {
+				if (await verifierAdmin(pad, donnees, req.session) === true) {
 					await db.UNLINK('activite:' + pad)
 					io.to('pad-' + pad).emit('reinitialiseractivite')
 					req.session.cookie.expires = new Date(Date.now() + dureeSession)
@@ -5226,7 +5183,7 @@ async function demarrerServeur () {
 				let donnees = await db.HGETALL('pads:' + pad)
 				donnees = Object.assign({}, donnees)
 				if (donnees === null || !donnees.hasOwnProperty('activite') || !donnees.hasOwnProperty('identifiant')) { socket.emit('erreur'); return false }
-				if (verifierAdmin(pad, donnees, req.session) === true) {
+				if (await verifierAdmin(pad, donnees, req.session) === true) {
 					const date = dayjs().format()
 					const activiteId = parseInt(donnees.activite) + 1
 					colonnes.push(titre)
@@ -5258,7 +5215,7 @@ async function demarrerServeur () {
 				let donnees = await db.HGETALL('pads:' + pad)
 				donnees = Object.assign({}, donnees)
 				if (donnees === null || !donnees.hasOwnProperty('colonnes') || !donnees.hasOwnProperty('identifiant')) { socket.emit('erreur'); return false }
-				if (verifierAdmin(pad, donnees, req.session) === true) {
+				if (await verifierAdmin(pad, donnees, req.session) === true) {
 					const colonnes = JSON.parse(donnees.colonnes)
 					colonnes[index] = titre
 					await db.HSET('pads:' + pad, 'colonnes', JSON.stringify(colonnes))
@@ -5282,7 +5239,7 @@ async function demarrerServeur () {
 				let donnees = await db.HGETALL('pads:' + pad)
 				donnees = Object.assign({}, donnees)
 				if (donnees === null || !donnees.hasOwnProperty('identifiant')) { socket.emit('erreur'); return false }
-				if (verifierAdmin(pad, donnees, req.session) === true) {
+				if (await verifierAdmin(pad, donnees, req.session) === true) {
 					let affichageColonnes = []
 					if (donnees.hasOwnProperty('affichageColonnes')) {
 						affichageColonnes = JSON.parse(donnees.affichageColonnes)
@@ -5326,7 +5283,7 @@ async function demarrerServeur () {
 				let donnees = await db.HGETALL('pads:' + pad)
 				donnees = Object.assign({}, donnees)
 				if (donnees === null || !donnees.hasOwnProperty('colonnes') || !donnees.hasOwnProperty('identifiant')) { socket.emit('erreur'); return false }
-				if (verifierAdmin(pad, donnees, req.session) === true) {
+				if (await verifierAdmin(pad, donnees, req.session) === true) {
 					const colonnes = JSON.parse(donnees.colonnes)
 					colonnes.splice(colonne, 1)
 					let affichageColonnes = []
@@ -5437,7 +5394,7 @@ async function demarrerServeur () {
 				let donnees = await db.HGETALL('pads:' + pad)
 				donnees = Object.assign({}, donnees)
 				if (donnees === null || !donnees.hasOwnProperty('colonnes') || !donnees.hasOwnProperty('identifiant')) { socket.emit('erreur'); return false }
-				if (verifierAdmin(pad, donnees, req.session) === true) {
+				if (await verifierAdmin(pad, donnees, req.session) === true) {
 					const colonnes = JSON.parse(donnees.colonnes)
 					let affichageColonnes = []
 					if (donnees.hasOwnProperty('affichageColonnes')) {
@@ -5557,7 +5514,7 @@ async function demarrerServeur () {
 				let donnees = await db.HGETALL('pads:' + pad)
 				donnees = Object.assign({}, donnees)
 				if (donnees === null || !donnees.hasOwnProperty('identifiant')) { socket.emit('erreur'); return false }
-				if (verifierAdmin(pad, donnees, req.session) === true) {
+				if (await verifierAdmin(pad, donnees, req.session) === true) {
 					await db.ZREMRANGEBYSCORE('activite:' + pad, id, id)
 					io.to('pad-' + pad).emit('supprimeractivite', id)
 					req.session.cookie.expires = new Date(Date.now() + dureeSession)
@@ -6881,21 +6838,67 @@ async function demarrerServeur () {
 		}
 	}
 
-	function verifierAdmin (pad, donnees, session) {
-		if (session.hasOwnProperty('identifiant') && session.hasOwnProperty('statut')) {
-			const proprietaire = donnees.identifiant
-			let admins = []
-			if (donnees.hasOwnProperty('admins')) {
-				admins = donnees.admins
-			}
-			if (admins.includes(session.identifiant) || (session.statut === 'utilisateur' && proprietaire === session.identifiant) || (session.statut === 'auteur' && session.hasOwnProperty('pads') && session.pads.includes(parseInt(pad)))) {
-				return true
+	/*async function verifierAdmin (pad, donnees, session) {
+		return new Promise(async function (resolve) {
+			if (session.hasOwnProperty('identifiant') && session.hasOwnProperty('statut')) {
+				const proprietaire = donnees.identifiant
+				let admins = []
+				if (donnees.hasOwnProperty('admins')) {
+					admins = donnees.admins
+				}
+				if (admins.includes(session.identifiant) || (session.statut === 'utilisateur' && proprietaire === session.identifiant) || (session.statut === 'auteur' && session.hasOwnProperty('pads') && session.pads.includes(parseInt(pad)))) {
+					resolve(true)
+				} else {
+					resolve(false)
+				}
 			} else {
-				return false
+				resolve(false)
 			}
-		} else {
-			return false
-		}
+		})
+	}*/
+
+	async function verifierAdmin (pad, donnees, session) {
+		return new Promise(async function (resolve) {
+			if (session.hasOwnProperty('identifiant') && session.hasOwnProperty('statut') && session.statut === 'utilisateur' && session.hasOwnProperty('motdepasse')) {
+				const proprietaire = donnees.identifiant
+				let admins = []
+				if (donnees.hasOwnProperty('admins')) {
+					admins = donnees.admins
+				}
+				let donneesUtilisateur = await db.HGETALL('utilisateurs:' + session.identifiant)
+				donneesUtilisateur = Object.assign({}, donneesUtilisateur)
+				if (donneesUtilisateur === null) { resolve('erreur'); return false }
+				if ((proprietaire === session.identifiant || admins.includes(session.identifiant)) && await bcrypt.compare(session.motdepasse, donneesUtilisateur.motdepasse)) {
+					resolve(true)
+				} else {
+					resolve(false)
+				}
+			} else if (session.hasOwnProperty('statut') && session.statut === 'auteur' && session.hasOwnProperty('pads') && session.pads.includes(parseInt(pad))) {
+				resolve(true)
+			} else {
+				resolve(false)
+			}
+		})
+	}
+
+	async function verifierAdminUtilisateur (pad, identifiant, motdepasse) {
+		return new Promise(async function (resolve) {
+			let donneesPad = await db.HGETALL('pads:' + pad)
+			donneesPad = Object.assign({}, donneesPad)
+			if (donneesPad === null) { resolve('erreur'); return false }
+			let admins = []
+			if (donneesPad.hasOwnProperty('admins')) {
+				admins = donneesPad.admins
+			}
+			let donneesUtilisateur = await db.HGETALL('utilisateurs:' + identifiant)
+			donneesUtilisateur = Object.assign({}, donneesUtilisateur)
+			if (donneesUtilisateur === null) { resolve('erreur'); return false }
+			if ((donneesPad.identifiant === identifiant || admins.includes(identifiant)) && await bcrypt.compare(motdepasse, donneesUtilisateur.motdepasse)) {
+				resolve(true)
+			} else {
+				resolve(false)
+			}
+		})
 	}
 
 	function supprimerSession (req) {
