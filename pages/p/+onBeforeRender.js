@@ -14,7 +14,8 @@ async function onBeforeRender (pageContext) {
 		id: id,
 		token: token,
 		identifiant: identifiant,
-		statut: statut
+		statut: statut,
+		pads: pads
 	}, {
 		headers: { 'Content-Type': 'application/json' }
 	}).catch(function () {
@@ -30,7 +31,7 @@ async function onBeforeRender (pageContext) {
 		pageProps = { redirection }
 	} else {
 		let admin = false
-		if ((reponse.data.pad.hasOwnProperty('identifiant') && reponse.data.pad.identifiant === identifiant) || (reponse.data.pad.hasOwnProperty('admins') && reponse.data.pad.admins.includes(identifiant)) || (statut === 'auteur' && reponse.data.pad.hasOwnProperty('id') && pads.includes(reponse.data.pad.id))) {
+		if ((statut === 'utilisateur' && ((reponse.data.pad.hasOwnProperty('identifiant') && reponse.data.pad.identifiant === identifiant) || (reponse.data.pad.hasOwnProperty('admins') && reponse.data.pad.admins.includes(identifiant)))) || (statut === 'auteur' && reponse.data.pad.hasOwnProperty('identifiant') && reponse.data.pad.identifiant === identifiant && reponse.data.pad.hasOwnProperty('id') && pads.includes(parseInt(reponse.data.pad.id)))) {
 			admin = true
 		}
 		if (!admin && reponse.data.pad.acces === 'prive' && statut === 'utilisateur') {
