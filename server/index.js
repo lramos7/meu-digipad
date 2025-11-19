@@ -992,121 +992,116 @@ async function demarrerServeur () {
 							let donnees = await db.HGETALL('pads:' + pad)
 							donnees = Object.assign({}, donnees)
 							if (donnees === null || !donnees.hasOwnProperty('identifiant')) { res.send('erreur_duplication'); return false }
-							const proprietaire = donnees.identifiant
-							if (proprietaire === identifiant) {
-								const donneesBlocs = []
-								const blocs = await db.ZRANGE('blocs:' + pad, 0, -1)
-								if (blocs === null) { res.send('erreur_duplication'); return false }
-								for (const [indexBloc, bloc] of blocs.entries()) {
-									const donneesBloc = new Promise(async function (resolve) {
-										let infos = await db.HGETALL('pad-' + pad + ':' + bloc)
-										infos = Object.assign({}, infos)
-										if (infos === null) { resolve({}); return false }
-										const date = dayjs().format()
-										if (infos.hasOwnProperty('vignette') && definirVignettePersonnalisee(infos.vignette) === true) {
-											infos.vignette = path.basename(infos.vignette)
-										}
-										let visibilite = 'visible'
-										if (infos.hasOwnProperty('visibilite')) {
-											visibilite = infos.visibilite
-										}
-										if (infos.hasOwnProperty('iframe') && infos.iframe !== '' && infos.iframe.includes(etherpad)) {
-											const etherpadId = infos.iframe.replace(etherpad + '/p/', '')
-											const destinationId = 'pad-' + id + '-' + Math.random().toString(16).slice(2)
-											const url = etherpad + '/api/1.2.14/copyPad?apikey=' + etherpadApi + '&sourceID=' + etherpadId + '&destinationID=' + destinationId
-											axios.get(url)
-											infos.iframe = etherpad + '/p/' + destinationId
-											infos.media = etherpad + '/p/' + destinationId
-										}
-										const blocId = 'bloc-id-' + (new Date()).getTime() + Math.random().toString(16).slice(10)
-										await db
-										.multi()
-										.HSET('pad-' + id + ':' + blocId, ['id', infos.id, 'bloc', blocId, 'titre', infos.titre, 'texte', infos.texte, 'media', infos.media, 'iframe', infos.iframe, 'type', infos.type, 'source', infos.source, 'vignette', infos.vignette, 'date', date, 'identifiant', infos.identifiant, 'commentaires', 0, 'evaluations', 0, 'colonne', infos.colonne, 'visibilite', visibilite])
-										.ZADD('blocs:' + id, [{ score: indexBloc, value: blocId }])
-										.exec()
-										resolve(blocId)
-									})
-									donneesBlocs.push(donneesBloc)
-								}
-								Promise.all(donneesBlocs).then(async function () {
-									const token = Math.random().toString(16).slice(2)
+							const donneesBlocs = []
+							const blocs = await db.ZRANGE('blocs:' + pad, 0, -1)
+							if (blocs === null) { res.send('erreur_duplication'); return false }
+							for (const [indexBloc, bloc] of blocs.entries()) {
+								const donneesBloc = new Promise(async function (resolve) {
+									let infos = await db.HGETALL('pad-' + pad + ':' + bloc)
+									infos = Object.assign({}, infos)
+									if (infos === null) { resolve({}); return false }
 									const date = dayjs().format()
-									const code = Math.floor(100000 + Math.random() * 900000)
-									let registreActivite = 'active'
-									let conversation = 'desactivee'
-									let listeUtilisateurs = 'activee'
-									let editionNom = 'desactivee'
-									let ordre = 'croissant'
-									let largeur = 'normale'
-									let enregistrements = 'desactives'
-									let copieBloc = 'desactivee'
-									let affichageColonnes = []
-									if (donnees.hasOwnProperty('registreActivite')) {
-										registreActivite = donnees.registreActivite
+									if (infos.hasOwnProperty('vignette') && definirVignettePersonnalisee(infos.vignette) === true) {
+										infos.vignette = path.basename(infos.vignette)
 									}
-									if (donnees.hasOwnProperty('conversation')) {
-										conversation = donnees.conversation
+									let visibilite = 'visible'
+									if (infos.hasOwnProperty('visibilite')) {
+										visibilite = infos.visibilite
 									}
-									if (donnees.hasOwnProperty('listeUtilisateurs')) {
-										listeUtilisateurs = donnees.listeUtilisateurs
+									if (infos.hasOwnProperty('iframe') && infos.iframe !== '' && infos.iframe.includes(etherpad)) {
+										const etherpadId = infos.iframe.replace(etherpad + '/p/', '')
+										const destinationId = 'pad-' + id + '-' + Math.random().toString(16).slice(2)
+										const url = etherpad + '/api/1.2.14/copyPad?apikey=' + etherpadApi + '&sourceID=' + etherpadId + '&destinationID=' + destinationId
+										axios.get(url)
+										infos.iframe = etherpad + '/p/' + destinationId
+										infos.media = etherpad + '/p/' + destinationId
 									}
-									if (donnees.hasOwnProperty('editionNom')) {
-										editionNom = donnees.editionNom
-									}
-									if (donnees.hasOwnProperty('ordre')) {
-										ordre = donnees.ordre
-									}
-									if (donnees.hasOwnProperty('largeur')) {
-										largeur = donnees.largeur
-									}
-									if (donnees.hasOwnProperty('enregistrements')) {
-										enregistrements = donnees.enregistrements
-									}
-									if (donnees.hasOwnProperty('copieBloc')) {
-										copieBloc = donnees.copieBloc
-									}
-									if (donnees.hasOwnProperty('affichageColonnes')) {
-										affichageColonnes = JSON.parse(donnees.affichageColonnes)
-									} else {
-										JSON.parse(donnees.colonnes).forEach(function () {
-											affichageColonnes.push(true)
-										})
-									}
-									if (!donnees.fond.includes('/img/') && donnees.fond.substring(0, 1) !== '#' && donnees.fond !== '' && typeof donnees.fond === 'string') {
-										donnees.fond = path.basename(donnees.fond)
-									}
-									if (donnees.hasOwnProperty('code')) {
-										await db
-										.multi()
-										.INCR('pad')
-										.HSET('pads:' + id, ['id', id, 'token', token, 'titre', 'Copie de ' + donnees.titre, 'identifiant', identifiant, 'fond', donnees.fond, 'acces', donnees.acces, 'code', code, 'contributions', donnees.contributions, 'affichage', donnees.affichage, 'registreActivite', registreActivite, 'conversation', conversation, 'listeUtilisateurs', listeUtilisateurs, 'editionNom', editionNom, 'fichiers', donnees.fichiers, 'enregistrements', enregistrements, 'liens', donnees.liens, 'documents', donnees.documents, 'commentaires', donnees.commentaires, 'evaluations', donnees.evaluations, 'copieBloc', copieBloc, 'ordre', ordre, 'largeur', largeur, 'date', date, 'colonnes', donnees.colonnes, 'affichageColonnes', JSON.stringify(affichageColonnes), 'bloc', donnees.bloc, 'activite', 0, 'vues', 0, 'digidrive', 0])
-										.SADD('pads-crees:' + identifiant, id.toString())
-										.SADD('utilisateurs-pads:' + id, identifiant)
-										.exec()
-									} else {
-										await db
-										.multi()
-										.INCR('pad')
-										.HSET('pads:' + id, ['id', id, 'token', token, 'titre', 'Copie de ' + donnees.titre, 'identifiant', identifiant, 'fond', donnees.fond, 'acces', donnees.acces, 'contributions', donnees.contributions, 'affichage', donnees.affichage, 'registreActivite', registreActivite, 'conversation', conversation, 'listeUtilisateurs', listeUtilisateurs, 'editionNom', editionNom, 'fichiers', donnees.fichiers, 'enregistrements', enregistrements, 'liens', donnees.liens, 'documents', donnees.documents, 'commentaires', donnees.commentaires, 'evaluations', donnees.evaluations, 'copieBloc', copieBloc, 'ordre', ordre, 'largeur', largeur, 'date', date, 'colonnes', donnees.colonnes, 'affichageColonnes', JSON.stringify(affichageColonnes), 'bloc', donnees.bloc, 'activite', 0, 'vues', 0, 'digidrive', 0])
-										.SADD('pads-crees:' + identifiant, id.toString())
-										.SADD('utilisateurs-pads:' + id, identifiant)
-										.exec()
-									}
-									if (stockage === 'fs' && await fs.pathExists(path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + pad))) {
-										await fs.copy(path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + pad), path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + id))
-									} else if (stockage === 's3') {
-										const liste = await s3Client.send(new ListObjectsV2Command({ Bucket: bucket, Prefix: pad + '/' }))
-										if (liste !== null && liste.hasOwnProperty('Contents') && liste.Contents instanceof Array) {
-											for (let i = 0; i < liste.Contents.length; i++) {
-												await s3Client.send(new CopyObjectCommand({ Bucket: bucket, Key: id + '/' + liste.Contents[i].Key.replace(pad + '/', ''), CopySource: '/' + bucket + '/' + liste.Contents[i].Key, ACL: 'public-read' }))
-											}
+									const blocId = 'bloc-id-' + (new Date()).getTime() + Math.random().toString(16).slice(10)
+									await db
+									.multi()
+									.HSET('pad-' + id + ':' + blocId, ['id', infos.id, 'bloc', blocId, 'titre', infos.titre, 'texte', infos.texte, 'media', infos.media, 'iframe', infos.iframe, 'type', infos.type, 'source', infos.source, 'vignette', infos.vignette, 'date', date, 'identifiant', infos.identifiant, 'commentaires', 0, 'evaluations', 0, 'colonne', infos.colonne, 'visibilite', visibilite])
+									.ZADD('blocs:' + id, [{ score: indexBloc, value: blocId }])
+									.exec()
+									resolve(blocId)
+								})
+								donneesBlocs.push(donneesBloc)
+							}
+							Promise.all(donneesBlocs).then(async function () {
+								const token = Math.random().toString(16).slice(2)
+								const date = dayjs().format()
+								const code = Math.floor(100000 + Math.random() * 900000)
+								let registreActivite = 'active'
+								let conversation = 'desactivee'
+								let listeUtilisateurs = 'activee'
+								let editionNom = 'desactivee'
+								let ordre = 'croissant'
+								let largeur = 'normale'
+								let enregistrements = 'desactives'
+								let copieBloc = 'desactivee'
+								let affichageColonnes = []
+								if (donnees.hasOwnProperty('registreActivite')) {
+									registreActivite = donnees.registreActivite
+								}
+								if (donnees.hasOwnProperty('conversation')) {
+									conversation = donnees.conversation
+								}
+								if (donnees.hasOwnProperty('listeUtilisateurs')) {
+									listeUtilisateurs = donnees.listeUtilisateurs
+								}
+								if (donnees.hasOwnProperty('editionNom')) {
+									editionNom = donnees.editionNom
+								}
+								if (donnees.hasOwnProperty('ordre')) {
+									ordre = donnees.ordre
+								}
+								if (donnees.hasOwnProperty('largeur')) {
+									largeur = donnees.largeur
+								}
+								if (donnees.hasOwnProperty('enregistrements')) {
+									enregistrements = donnees.enregistrements
+								}
+								if (donnees.hasOwnProperty('copieBloc')) {
+									copieBloc = donnees.copieBloc
+								}
+								if (donnees.hasOwnProperty('affichageColonnes')) {
+									affichageColonnes = JSON.parse(donnees.affichageColonnes)
+								} else {
+									JSON.parse(donnees.colonnes).forEach(function () {
+										affichageColonnes.push(true)
+									})
+								}
+								if (!donnees.fond.includes('/img/') && donnees.fond.substring(0, 1) !== '#' && donnees.fond !== '' && typeof donnees.fond === 'string') {
+									donnees.fond = path.basename(donnees.fond)
+								}
+								if (donnees.hasOwnProperty('code')) {
+									await db
+									.multi()
+									.INCR('pad')
+									.HSET('pads:' + id, ['id', id, 'token', token, 'titre', 'Copie de ' + donnees.titre, 'identifiant', identifiant, 'fond', donnees.fond, 'acces', donnees.acces, 'code', code, 'contributions', donnees.contributions, 'affichage', donnees.affichage, 'registreActivite', registreActivite, 'conversation', conversation, 'listeUtilisateurs', listeUtilisateurs, 'editionNom', editionNom, 'fichiers', donnees.fichiers, 'enregistrements', enregistrements, 'liens', donnees.liens, 'documents', donnees.documents, 'commentaires', donnees.commentaires, 'evaluations', donnees.evaluations, 'copieBloc', copieBloc, 'ordre', ordre, 'largeur', largeur, 'date', date, 'colonnes', donnees.colonnes, 'affichageColonnes', JSON.stringify(affichageColonnes), 'bloc', donnees.bloc, 'activite', 0, 'vues', 0, 'digidrive', 0])
+									.SADD('pads-crees:' + identifiant, id.toString())
+									.SADD('utilisateurs-pads:' + id, identifiant)
+									.exec()
+								} else {
+									await db
+									.multi()
+									.INCR('pad')
+									.HSET('pads:' + id, ['id', id, 'token', token, 'titre', 'Copie de ' + donnees.titre, 'identifiant', identifiant, 'fond', donnees.fond, 'acces', donnees.acces, 'contributions', donnees.contributions, 'affichage', donnees.affichage, 'registreActivite', registreActivite, 'conversation', conversation, 'listeUtilisateurs', listeUtilisateurs, 'editionNom', editionNom, 'fichiers', donnees.fichiers, 'enregistrements', enregistrements, 'liens', donnees.liens, 'documents', donnees.documents, 'commentaires', donnees.commentaires, 'evaluations', donnees.evaluations, 'copieBloc', copieBloc, 'ordre', ordre, 'largeur', largeur, 'date', date, 'colonnes', donnees.colonnes, 'affichageColonnes', JSON.stringify(affichageColonnes), 'bloc', donnees.bloc, 'activite', 0, 'vues', 0, 'digidrive', 0])
+									.SADD('pads-crees:' + identifiant, id.toString())
+									.SADD('utilisateurs-pads:' + id, identifiant)
+									.exec()
+								}
+								if (stockage === 'fs' && await fs.pathExists(path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + pad))) {
+									await fs.copy(path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + pad), path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + id))
+								} else if (stockage === 's3') {
+									const liste = await s3Client.send(new ListObjectsV2Command({ Bucket: bucket, Prefix: pad + '/' }))
+									if (liste !== null && liste.hasOwnProperty('Contents') && liste.Contents instanceof Array) {
+										for (let i = 0; i < liste.Contents.length; i++) {
+											await s3Client.send(new CopyObjectCommand({ Bucket: bucket, Key: id + '/' + liste.Contents[i].Key.replace(pad + '/', ''), CopySource: '/' + bucket + '/' + liste.Contents[i].Key, ACL: 'public-read' }))
 										}
 									}
-									res.json({ id: id, token: token, titre: 'Copie de ' + donnees.titre, identifiant: identifiant, fond: donnees.fond, acces: donnees.acces, code: code, contributions: donnees.contributions, affichage: donnees.affichage, registreActivite: registreActivite, conversation: conversation, listeUtilisateurs: listeUtilisateurs, editionNom: editionNom, fichiers: donnees.fichiers, enregistrements: enregistrements, liens: donnees.liens, documents: donnees.documents, commentaires: donnees.commentaires, evaluations: donnees.evaluations, copieBloc: copieBloc, ordre: ordre, largeur: largeur, date: date, colonnes: donnees.colonnes, affichageColonnes: affichageColonnes, bloc: donnees.bloc, activite: 0 })
-								})
-							} else {
-								res.send('non_autorise')
-							}
+								}
+								res.json({ id: id, token: token, titre: 'Copie de ' + donnees.titre, identifiant: identifiant, fond: donnees.fond, acces: donnees.acces, code: code, contributions: donnees.contributions, affichage: donnees.affichage, registreActivite: registreActivite, conversation: conversation, listeUtilisateurs: listeUtilisateurs, editionNom: editionNom, fichiers: donnees.fichiers, enregistrements: enregistrements, liens: donnees.liens, documents: donnees.documents, commentaires: donnees.commentaires, evaluations: donnees.evaluations, copieBloc: copieBloc, ordre: ordre, largeur: largeur, date: date, colonnes: donnees.colonnes, affichageColonnes: affichageColonnes, bloc: donnees.bloc, activite: 0 })
+							})
 						} else if (resultat !== 1 && isNaN(parseInt(pad)) === false && await fs.pathExists(path.join(__dirname, '..', '/static/pads/' + pad + '.json'))) {
 							const donnees = await fs.readJson(path.join(__dirname, '..', '/static/pads/' + pad + '.json'))
 							if (typeof donnees === 'object' && donnees !== null && donnees.hasOwnProperty('pad') && donnees.hasOwnProperty('blocs') && donnees.hasOwnProperty('activite')) {
