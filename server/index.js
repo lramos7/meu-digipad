@@ -189,6 +189,7 @@ async function demarrerServeur () {
 				"default-src": ["'self'", "https:", "ws:"],
 				"script-src": ["'self'", process.env.VITE_MATOMO, "'unsafe-inline'", "'unsafe-eval'"],
 				"media-src": ["'self'", "https:", "data:", "blob:"],
+				"worker-src": ["'self'", "https:", "data:", "blob:"],
 				"img-src": ["'self'", "https:", "data:"],
 				"frame-ancestors": ["*"],
 				"frame-src": ["*", "blob:"]
@@ -1253,7 +1254,7 @@ async function demarrerServeur () {
 				} else {
 					res.send('non_autorise')
 				}
-			} else if (resultat !== 1 && isNaN(parseInt(id)) === false) {
+			} else if (resultat !== 1 && isNaN(parseInt(id)) === false && await fs.pathExists(path.join(__dirname, '..', '/static/pads/' + id + '.json'))) {
 				const donnees = await fs.readJson(path.join(__dirname, '..', '/static/pads/' + id + '.json'))
 				if (typeof donnees === 'object' && donnees !== null && donnees.hasOwnProperty('pad') && donnees.hasOwnProperty('blocs') && donnees.hasOwnProperty('activite')) {
 					if (donnees.pad.identifiant === identifiant || (admin !== '' && admin === motdepasseAdmin)) {
