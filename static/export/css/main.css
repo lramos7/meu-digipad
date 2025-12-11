@@ -67,6 +67,11 @@ body {
 	-webkit-tap-highlight-color: rgba(0, 0, 0, 0);
 }
 
+*:focus {
+	outline: 2px solid #ed5b00;
+  	outline-offset: 1px;
+}
+
 audio {
 	width: 100%;
 }
@@ -90,7 +95,6 @@ ul {
 }
 
 button {
-	outline: 0;
 	appearance: none;
     -webkit-appearance: none;
 }

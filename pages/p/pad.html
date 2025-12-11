@@ -16,8 +16,8 @@
 	</div>
 
 	<nav id="nav">
-		<span id="compte" role="button" :tabindex="definirTabIndex()" :title="$t('compteUtilisateur')" @click="allerCompte" @keydown.enter="allerCompte" v-if="statut === 'utilisateur'"><i class="material-icons">arrow_back</i></span>
-		<span id="accueil" role="button" :tabindex="definirTabIndex()" :title="$t('accueil')" @click="allerAccueil" @keydown.enter="allerAccueil" v-else><i class="material-icons">home</i></span>
+		<span id="compte" role="button" :tabindex="definirTabIndex()" :title="$t('compteUtilisateur')" @click="allerCompte" @keydown.enter="allerCompte" v-if="statut === 'utilisateur' && !integration"><i class="material-icons">arrow_back</i></span>
+		<span id="accueil" role="button" :tabindex="definirTabIndex()" :title="$t('accueil')" @click="allerAccueil" @keydown.enter="allerAccueil" v-else-if="!integration"><i class="material-icons">home</i></span>
 		<span id="recherche" role="button" :tabindex="definirTabIndex()" :class="{'active': recherche, 'desactive': action === 'organiser'}" :title="$t('recherche')" @click="gererRecherche" @keydown.enter="gererRecherche"><i class="material-icons">search</i></span>
 		<span id="activite" role="button" :tabindex="definirTabIndex()" :title="$t('activitePad')" @click="afficherActivite" @keydown.enter="afficherActivite" v-if="accesAutorise && (!pad.registreActivite || (pad.registreActivite && pad.registreActivite === 'active'))"><i class="material-icons">schedule</i></span>
 		<span id="chat" role="button" :tabindex="definirTabIndex()" :title="$t('conversation')" @click="afficherChat" @keydown.enter="afficherChat" v-if="accesAutorise && (!pad.conversation || (pad.conversation && pad.conversation === 'activee'))">
@@ -42,7 +42,7 @@
 				<span class="fermer" role="button" :tabindex="definirTabIndex()" @click="fermerMenu" @keydown.enter="fermerMenu"><i class="material-icons">close</i></span>
 			</span>
 		</div>
-		<div class="contenu ascenseur" tabindex="-1">
+		<div class="contenu ascenseur">
 			<ul id="entrees">
 				<template v-for="(entree, indexEntree) in activite">
 					<li v-if="entree.type === 'bloc-ajoute'" :data-bloc="entree.bloc" :key="'bloc-ajoute_' + indexEntree">
@@ -112,7 +112,7 @@
 				<span class="fermer" role="button" :tabindex="definirTabIndex()" @click="fermerMenu" @keydown.enter="fermerMenu"><i class="material-icons">close</i></span>
 			</span>
 		</div>
-		<div class="contenu ascenseur" tabindex="-1">
+		<div class="contenu ascenseur">
 			<ul id="messages">
 				<li v-for="(messageConversation, indexMessageConversation) in messagesChat" :key="'conversation_' + indexMessageConversation"><span>{{ definirNom(messageConversation) }}</span>{{ messageConversation.texte }}</li>
 			</ul>
@@ -128,7 +128,7 @@
 			<span class="titre">{{ $t('parametresPad') }}</span>
 			<span class="fermer" role="button" :tabindex="definirTabIndex()" @click="fermerMenuOptions" @keydown.enter="fermerMenuOptions"><i class="material-icons">close</i></span>
 		</div>
-		<div class="contenu ascenseur" tabindex="-1">
+		<div class="contenu ascenseur">
 			<div class="conteneur">
 				<label for="titre-pad">{{ $t('titre') }}</label>
 				<input id="titre-pad"  type="text" :disabled="viaDigidrive" :value="pad.titre" @keydown.enter="modifierTitre">
@@ -384,7 +384,7 @@
 			<span class="titre">{{ $t('languePad') }}</span>
 			<span class="fermer" role="button" :tabindex="definirTabIndex()" @click="fermerMenuOptions" @keydown.enter="fermerMenuOptions"><i class="material-icons">close</i></span>
 		</div>
-		<div class="contenu ascenseur" tabindex="-1">
+		<div class="contenu ascenseur">
 			<div class="conteneur">
 				<div id="langues">
 					<span role="button" :tabindex="definirTabIndex()" :class="{'selectionne': langue === 'fr'}" @click="modifierLangue('fr')" @keydown.enter="modifierLangue('fr')">FR</span>
@@ -403,7 +403,7 @@
 			<span class="titre">{{ $t('utilisateursConnectes') }}</span>
 			<span class="fermer" role="button" :tabindex="definirTabIndex()" @click="fermerMenu" @keydown.enter="fermerMenu"><i class="material-icons">close</i></span>
 		</div>
-		<div class="contenu ascenseur" tabindex="-1">
+		<div class="contenu ascenseur">
 			<ul id="utilisateurs">
 				<template v-for="(utilisateurConnecte, indexUtilisateurConnecte) in utilisateurs">
 					<li class="moi" v-if="utilisateurConnecte.identifiant === identifiant" :key="'utilisateur_moi_' + indexUtilisateurConnecte">
@@ -552,12 +552,12 @@
 	</div>
 
 	<div class="conteneur-modale" v-else-if="modale === 'bloc'">
-		<div id="bloc" class="modale" role="dialog">
+		<div id="bloc" class="modale ascenseur" role="dialog">
 			<div class="en-tete">
 				<span class="titre">{{ titreModale }}</span>
 				<span class="fermer" role="button" :tabindex="definirTabIndexModale()" @click="fermerModaleBloc" @keydown.enter="fermerModaleBloc"><i class="material-icons">close</i></span>
 			</div>
-			<div class="conteneur ascenseur" tabindex="-1">
+			<div class="conteneur">
 				<div class="contenu">
 					<div class="conteneur-interrupteur" v-if="admin">
 						<span>{{ $t('capsulePrivee') }}</span>
@@ -594,18 +594,7 @@
 					<div class="separateur" v-if="media === '' && progressionFichier === 0 && !chargementLien && !enregistrement && pad.fichiers === 'actives' && pad.enregistrements === 'actives'">
 						<span>{{ $t('ou') }}</span>
 					</div>
-					<div class="enregistrer audio" v-if="media === '' && progressionFichier === 0 && !chargementLien && pad.enregistrements === 'actives'">
-						<template v-if="!enregistrement">
-							<span id="enregistrer" class="bouton" role="button" :tabindex="definirTabIndexModale()" @click="enregistrerAudio" @keydown.enter="enregistrerAudio"><i class="material-icons">fiber_manual_record</i><span>{{ $t('enregistrerAudio') }}</span></span>
-						</template>
-						<div id="enregistrement" v-else>
-							<canvas id="visualisation" width="360" height="60" />
-							<div class="enregistrement">
-								<span class="bouton stopper" role="button" :tabindex="definirTabIndexModale()" @click="arreterEnregistrementAudio" @keydown.enter="arreterEnregistrementAudio"><i class="material-icons">stop</i></span>
-								<span class="duree">{{ dureeEnregistrement }}</span>
-							</div>
-						</div>
-					</div>
+					<Enregistrement v-if="media === '' && progressionFichier === 0 && !chargementLien && pad.enregistrements === 'actives'" />
 					<div class="separateur" v-if="media === '' && progressionFichier === 0 && !chargementLien && !enregistrement && (pad.fichiers === 'actives' || pad.enregistrements === 'actives') && pad.liens === 'actives'">
 						<span>{{ $t('ou') }}</span>
 					</div>
@@ -732,7 +721,7 @@
 				<span class="titre">{{ $t('commentairesCapsule') }}</span>
 				<span class="fermer" role="button" :tabindex="definirTabIndexModale()" @click="fermerModaleCommentaires" @keydown.enter="fermerModaleCommentaires"><i class="material-icons">close</i></span>
 			</div>
-			<ul class="commentaires ascenseur" tabindex="-1">
+			<ul class="commentaires ascenseur">
 				<li :id="'commentaire-' + entreeCommentaire.id" :tabindex="definirTabIndexModale()" :class="{'edition': editionCommentaire && commentaireId === entreeCommentaire.id, 'focus': focusId === entreeCommentaire.id}" v-for="(entreeCommentaire, indexEntreeCommentaire) in commentaires" @focus="focusId = entreeCommentaire.id" :key="'commentaire_' + indexEntreeCommentaire">
 					<span class="meta" :class="{'auteur': entreeCommentaire.identifiant === identifiant || admin}">{{ $t('par') }} {{ definirNom(entreeCommentaire) }}, {{ $formaterDateRelative(entreeCommentaire.date, langue) }}</span>
 					<div class="action" v-if="entreeCommentaire.identifiant === identifiant || admin">
@@ -889,7 +878,7 @@
 				<span class="titre"><span>{{ donneesBloc.titre }}</span> <span>{{ $t('par') }} {{ definirNom(donneesBloc) }}</span></span>
 				<span class="fermer" role="button" :tabindex="definirTabIndexModaleDiaporama()" @click="fermerModaleDiaporama" @keydown.enter="fermerModaleDiaporama"><i class="material-icons">close</i></span>
 			</div>
-			<div class="contenu ascenseur" tabindex="-1" :class="{'vide': donneesBloc.texte === '' && donneesBloc.media === '' && pad.evaluations === 'desactivees' && pad.commentaires === 'desactives' && ((pad.contributions !== 'moderees') || (pad.contributions === 'moderees' && donneesBloc.visibilite === 'visible'))}">
+			<div class="contenu ascenseur" :class="{'vide': donneesBloc.texte === '' && donneesBloc.media === '' && pad.evaluations === 'desactivees' && pad.commentaires === 'desactives' && ((pad.contributions !== 'moderees') || (pad.contributions === 'moderees' && donneesBloc.visibilite === 'visible'))}">
 				<div class="conteneur conteneur-texte" v-if="donneesBloc.texte !== ''">
 					<div class="texte" v-html="donneesBloc.texte" />
 				</div>

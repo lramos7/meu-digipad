@@ -15,6 +15,7 @@ import Notification from '#root/components/notification.vue'
 import Capsule from '#root/components/capsule.vue'
 import CapsuleAlt from '#root/components/capsuleAlt.vue'
 import Emojis from '#root/components/emojis.vue'
+import Enregistrement from '#root/components/enregistrement.vue'
 import { VueDraggableNext } from 'vue-draggable-next'
 
 export default {
@@ -27,6 +28,7 @@ export default {
 		Capsule,
 		CapsuleAlt,
 		Emojis,
+		Enregistrement,
 		draggable: VueDraggableNext
 	},
 	data () {
@@ -110,15 +112,11 @@ export default {
 			admins: [],
 			blob: '',
 			transcodage: false,
-			mediaRecorder: '',
-			flux: [],
-			contexte: '',
-			intervalle: '',
 			enregistrement: false,
-			dureeEnregistrement: '00 : 00',
 			donneesUtilisateur: {},
 			padDestination: '',
 			colonneDestination: '',
+			integration: false,
 			elementPrecedent: null,
 			hote: this.$pageContext.pageProps.hote,
 			hoteTeleversement: this.$pageContext.pageProps.hoteTeleversement,
@@ -369,7 +367,7 @@ export default {
 	mounted () {
 		document.getElementsByTagName('html')[0].setAttribute('lang', this.langue)
 
-		imagesLoaded('#pad', { background: true }, function () {
+		imagesLoaded('#pad', { background: true }, async function () {
 			if (Object.keys(this.pad).length > 0) {
 				document.documentElement.setAttribute('lang', this.langue)
 				document.addEventListener('mousedown', this.surlignerBloc, false)
@@ -479,6 +477,28 @@ export default {
 						this.ajouterFichier(event.clipboardData)
 					}
 				}.bind(this), false)
+
+				if (!navigator.mediaDevices || !navigator.mediaDevices?.enumerateDevices) {
+					this.enregistrementSupporte = false
+				} else {
+					navigator.mediaDevices.enumerateDevices().then(function (devices) {
+						for (const device of devices) {
+							if (device.kind === 'audioinput') {
+								this.entreeAudio = true
+								break
+							}
+						}
+						if (this.entreeAudio === true) {
+							if (!navigator.mediaDevices?.getUserMedia) {
+								this.enregistrementSupporte = false
+							}
+						}
+					}.bind(this))
+				}
+
+				if (window !== window.parent) {
+					this.integration = true
+				}
 			}
 		}.bind(this))
 	},
@@ -902,12 +922,6 @@ export default {
 						pell.exec('insertText', event.clipboardData.getData('text/plain'))
 					}
 				}
-				document.querySelector('#texte .contenu-editeur').addEventListener('focus', function () {
-					document.querySelector('#texte').classList.add('focus')
-				})
-				document.querySelector('#texte .contenu-editeur').addEventListener('blur', function () {
-					document.querySelector('#texte').classList.remove('focus')
-				})
 				document.querySelector('#couleur-texte').addEventListener('change', this.modifierCouleurTexte)
 			}.bind(this))
 		},
@@ -1094,135 +1108,6 @@ export default {
 				}.bind(this)
 				fileReader.readAsArrayBuffer(this.blob)
 			}.bind(this))
-		},
-		enregistrerAudio () {
-			if (!navigator.mediaDevices || !navigator.mediaDevices?.enumerateDevices) {
-				this.notification = this.$t('enregistrementNonSupporte')
-			} else {
-				navigator.mediaDevices.enumerateDevices().then(function (devices) {
-					let entreeAudio = false
-					for (const device of devices) {
-						if (device.kind === 'audioinput') {
-							entreeAudio = true
-							break
-						}
-					}
-					if (entreeAudio === true) {
-						if (!navigator.mediaDevices?.getUserMedia) {
-							this.notification = this.$t('enregistrementNonSupporte')
-						} else {
-							navigator.mediaDevices.getUserMedia({ audio: true }).then(function (flux) {
-								this.mediaRecorder = new MediaRecorder(flux)
-								this.mediaRecorder.start()
-								this.$nextTick(function () {
-									this.visualiser(flux)
-								}.bind(this))
-								this.enregistrement = true
-								const temps = Date.now()
-								this.intervalle = setInterval(function () {
-									const delta = Date.now() - temps
-									let secondes = Math.floor((delta / 1000) % 60)
-									let minutes = Math.floor((delta / 1000 / 60) << 0)
-									if (secondes < 10) {
-										secondes = '0' + secondes
-									}
-									if (minutes < 10) {
-										minutes = '0' + minutes
-									}
-									this.dureeEnregistrement = minutes + ' : ' + secondes
-									if (this.dureeEnregistrement === '02 : 00') {
-										this.arreterEnregistrementAudio()
-									}
-								}.bind(this), 100)
-								this.mediaRecorder.onstop = function () {
-									if (this.flux.length > 0) {
-										this.blob = new Blob(this.flux, { type: 'audio/wav' })
-										this.enregistrement = false
-										this.media = URL.createObjectURL(this.blob)
-										this.type = 'enregistrement'
-										const donnees = {}
-										donnees.type = this.type
-										const vignette = this.definirVignette(donnees)
-										this.vignette = vignette
-										this.vignetteDefaut = vignette
-										this.mediaRecorder = ''
-										this.flux = []
-										this.contexte = ''
-										this.dureeEnregistrement = '00 : 00'
-										if (this.intervalle !== '') {
-											clearInterval(this.intervalle)
-											this.intervalle = ''
-										}
-									}
-								}.bind(this)
-								this.mediaRecorder.ondataavailable = function (e) {
-									this.flux.push(e.data)
-								}.bind(this)
-							}.bind(this)).catch(function () {
-								this.enregistrement = false
-								this.mediaRecorder = ''
-								this.flux = []
-								this.contexte = ''
-								this.notification = this.$t('erreurMicro')
-							}.bind(this))
-						}
-					} else {
-						this.notification = this.$t('aucuneEntreeAudio')
-					}
-				}.bind(this))
-			}
-		},
-		arreterEnregistrementAudio () {
-			this.mediaRecorder.stop()
-		},
-		visualiser (flux) {
-			if (!this.contexte) {
-				this.contexte = new AudioContext()
-			}
-			const source = this.contexte.createMediaStreamSource(flux)
-			const analyser = this.contexte.createAnalyser()
-			analyser.fftSize = 2048
-			const bufferLength = analyser.frequencyBinCount
-			const dataArray = new Uint8Array(bufferLength)
-			source.connect(analyser)
-
-			this.$nextTick(function () {
-				draw()
-			})
-
-			function draw () {
-				if (document.querySelector('#visualisation')) {
-					const canvas = document.querySelector('#visualisation')
-					const canvasCtx = canvas.getContext('2d')
-					const largeur = document.querySelector('#enregistrement').offsetWidth
-					const hauteur = canvas.height
-					canvas.width = largeur
-					requestAnimationFrame(draw)
-					analyser.getByteTimeDomainData(dataArray)
-
-					canvasCtx.fillStyle = '#eeeeee'
-					canvasCtx.fillRect(0, 0, largeur, hauteur)
-					canvasCtx.lineWidth = 2
-					canvasCtx.strokeStyle = '#000000'
-					canvasCtx.beginPath()
-
-					const sliceWidth = largeur * 1.0 / bufferLength
-					let x = 0
-
-					for (let i = 0; i < bufferLength; i++) {
-						const v = dataArray[i] / 128.0
-						const y = v * hauteur / 2
-						if (i === 0) {
-							canvasCtx.moveTo(x, y)
-						} else {
-							canvasCtx.lineTo(x, y)
-						}
-						x += sliceWidth
-					}
-					canvasCtx.lineTo(canvas.width, canvas.height / 2)
-					canvasCtx.stroke()
-				}
-			}
 		},
 		ajouterLien () {
 			if (this.lien !== '') {
@@ -1573,14 +1458,6 @@ export default {
 			this.donneesBloc = {}
 			this.blob = ''
 			this.enregistrement = false
-			this.mediaRecorder = ''
-			this.flux = []
-			this.contexte = ''
-			this.dureeEnregistrement = '00 : 00'
-			if (this.intervalle !== '') {
-				clearInterval(this.intervalle)
-				this.intervalle = ''
-			}
 			this.transcodage = false
 			this.gererFocus()
 		},
@@ -3389,7 +3266,6 @@ export default {
 			setUint32(0x46464952)
 			setUint32(btwLength - 8)
 			setUint32(0x45564157)
-			// eslint-disable-next-line
 			setUint32(0x20746d66)
 			setUint32(16)
 			setUint16(1)
@@ -3442,7 +3318,7 @@ export default {
 
 			function wavToMp3 (channels, sampleRate, left, right = null) {
 				const buffer = []
-				const mp3enc = new lamejs.Mp3Encoder(channels, sampleRate, 96)
+				const mp3enc = new lamejs.Mp3Encoder(channels, sampleRate, 128)
 				let remaining = left.length
 				const samplesPerFrame = 1152
 				for (let i = 0; remaining >= samplesPerFrame; i += samplesPerFrame) {

@@ -233,20 +233,28 @@
 }
 
 #bloc {
-	height: 90%;
+	max-height: 90%;
 	max-width: 75rem;
+	overflow: auto;
+}
+
+#bloc .en-tete {
+	position: sticky;
+	top: 0;
+	background-color: #fff;
+	z-index: 10;
+}
+
+#bloc .conteneur {
+	height: auto!important;
+	overflow: initial!important;
 }
 
 #texte {
 	border: 1px solid #ddd;
     width: 100%;
-	outline: 0;
 	border-radius: 4px;
 	margin-bottom: 20px;
-}
-
-#texte.focus {
-	border-color: #001d1d;
 }
 
 #texte.mobile {
@@ -264,7 +272,7 @@
 	text-transform: uppercase;
 	color: #fff;
 	background: #242f3d;
-	bottom: 0;
+	bottom: 20px;
 	height: 5rem;
 	cursor: pointer;
 	letter-spacing: 1px;
@@ -285,13 +293,11 @@
 	background: #aaa;
 }
 
-.enregistrer.audio,
 .televerser.fichier {
 	font-size: 0;
 	text-align: center;
 }
 
-.enregistrer.audio .bouton,
 .televerser.fichier .bouton {
 	margin-bottom: 1.5rem;
 }
@@ -387,62 +393,6 @@
     padding-right: 1.5rem;
     vertical-align: middle;
     background-color: #fff;
-}
-
-#enregistrer i {
-	font-size: 24px;
-	margin-right: 1rem;
-	color: #ff1f1f;
-}
-
-#enregistrement .enregistrement {
-	display: flex;
-	justify-content: center;
-	align-items: center;
-}
-
-#enregistrement .enregistrement .duree {
-	font-size: 3rem;
-	font-weight: 500;
-	margin-left: 2.5rem;
-}
-
-#enregistrement .enregistrement .bouton {
-	background-color: #fff;
-	border-color: #001d1d;
-	border-width: 1px;
-	border-radius: 0;
-	line-height: 1;
-	height: auto;
-	padding: 1rem;
-	margin-bottom: 0;
-}
-
-#enregistrement .enregistrement .bouton i {
-	font-size: 48px;
-	line-height: 1;
-	margin: 0;
-}
-
-#enregistrement .enregistrement .bouton.stopper {
-	color: #001d1d;
-    animation: couleur ease-in 2s infinite;
-}
-
-#visualisation {
-	margin-bottom: 1.5rem;
-}
-
-@keyframes couleur {
-    0% {
-		background: #fff;
-	}
-    50% {
-		background: #ff1f1f;
-	}
-    100% {
-		background: #fff;
-	}
 }
 
 #transcodage {
@@ -1241,26 +1191,9 @@
 	width: 3.5rem;
 	height: 3.5rem;
 	padding: 0;
+	border-radius: 0;
 	border: none;
 	cursor: pointer;
-}
-
-.menu .couleurs input[type="color"] {
-	width: 2.5rem;
-	height: 2.5rem;
-	padding: 0;
-	border: none;
-	cursor: pointer;
-}
-
-.menu .couleurs input[type="color"]::-moz-color-swatch {
-	border: 1px solid #ddd;
-	border-radius: 50%;
-}
-
-.menu .couleurs input[type="color"]:focus::-moz-color-swatch {
-	border: 1px solid #001d1d;
-	border-radius: 50%;
 }
 
 .menu .conteneur .fonds input[type="color"]::-moz-color-swatch {
@@ -1268,41 +1201,9 @@
 	border-radius: 50%;
 }
 
-.menu .conteneur .fonds input[type="color"]:focus::-moz-color-swatch {
-	border: 1px solid #001d1d;
-	border-radius: 50%;
-}
-
-.menu .couleurs input[type="color"]::-webkit-color-swatch {
-	border: 1px solid #ddd;
-	border-radius: 50%;
-}
-
-.menu .couleurs input[type="color"]:focus::-webkit-color-swatch {
-	border: 1px solid #001d1d;
-	border-radius: 50%;
-}
-
 .menu .conteneur .fonds input[type="color"]::-webkit-color-swatch {
 	border: 1px solid #ddd;
 	border-radius: 50%;
-}
-
-.menu .conteneur .fonds input[type="color"]:focus::-webkit-color-swatch {
-	border: 1px solid #001d1d;
-	border-radius: 50%;
-}
-
-.menu .couleurs .actif input[type="color"]::-moz-color-swatch {
-	border: 2px solid #242f3d;
-}
-
-.menu .couleurs .actif input[type="color"]::-webkit-color-swatch {
-	border: 2px solid #242f3d;
-}
-
-.menu .couleurs input[type="color"]::-webkit-color-swatch-wrapper {
-	padding: 0;
 }
 
 .menu .conteneur .fonds input[type="color"]::-webkit-color-swatch-wrapper {
@@ -1325,6 +1226,7 @@
 	margin-right: 10px;
 	cursor: pointer;
 	flex: 0 0 auto;
+	outline: none;
 }
 
 .modale #couleurs span.icone {
@@ -1482,7 +1384,9 @@
 @media screen and (max-width: 499px) {
 	#bloc {
 		width: 100%;
+		max-width: 100%;
 		height: 100%;
+		max-height: 100%;
 		border-radius: 0;
 	}
 }
@@ -1492,6 +1396,7 @@
 		width: 100%;
 		max-width: 100%;
 		height: 100%;
+		max-height: 100%;
 		border-radius: 0;
 	}
 }
