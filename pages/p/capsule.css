@@ -312,6 +312,7 @@
 
 #blocs .bloc .media span a {
 	display: block;
+	outline: 0;
 }
 
 #blocs .bloc .titre + .media {
