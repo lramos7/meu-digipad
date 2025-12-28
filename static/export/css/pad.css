@@ -19,7 +19,7 @@
 }
 
 #pad.fond-personnalise-repete {
-	background-size: contain;
+	background-size: auto;
 }
 
 .colonnes #pad {
