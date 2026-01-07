@@ -14,8 +14,8 @@
 	"remplirChamps": "Completare tutti campi del form.",
 	"identifiantExisteDeja": "L'utente <i>{identifiant}<\/i> è già registrato.",
 	"motsDePassePasIdentiques": "Le password non corrispondono.",
-	"monCompte": "Il mio profilo",
-	"parametresCompte": "Impostazioni del profilo",
+	"monCompte": "Mio account Digipad",
+	"parametresCompte": "Impostazioni dell'account",
 	"rechercher": "Cerca",
 	"recherche": "Cerca",
 	"deconnexion": "Logout",
@@ -395,5 +395,9 @@
 	"parametreFondModifie": "Parametro di ripetizione dell'immagine di sfondo modificato.",
 	"couleur": "Colore",
 	"aValideCapsule": "ha approvato la capsula «&nbsp;{titre}&nbsp;»",
-	"aValideUneCapsule": "ha approvato una capsula"
+	"aValideUneCapsule": "ha approvato una capsula",
+	"corbeille": "Cestino",
+	"restaurer": "Ripristina",
+	"padRestaure": "Pad ripristinato.",
+	"padDansCorbeille": "Pad cestinato."
 }

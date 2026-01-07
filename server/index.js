@@ -264,20 +264,29 @@ async function demarrerServeur () {
 			if (await bcrypt.compare(req.session.motdepasse, donneesUtilisateur.motdepasse)) {
 				recupererDonneesUtilisateur(identifiant).then(async function (pads) {
 					// Vérification des données des pads
+					let contenusSupprimes = []
+					let favorisSupprimes = []
 					let padsCrees = pads[0].filter(function (element) {
 						return element !== '' && Object.keys(element).length > 0 && element.hasOwnProperty('id') && element.hasOwnProperty('token') && element.hasOwnProperty('identifiant') && element.hasOwnProperty('titre') && element.hasOwnProperty('fond') && element.hasOwnProperty('date')
 					})
-					let padsRejoints = pads[1].filter(function (element) {
+					let padsCorbeille = pads[1].filter(function (element) {
 						return element !== '' && Object.keys(element).length > 0 && element.hasOwnProperty('id') && element.hasOwnProperty('token') && element.hasOwnProperty('identifiant') && element.hasOwnProperty('titre') && element.hasOwnProperty('fond') && element.hasOwnProperty('date')
 					})
-					let padsAdmins = pads[2].filter(function (element) {
+					let padsRejoints = pads[2].filter(function (element) {
 						return element !== '' && Object.keys(element).length > 0 && element.hasOwnProperty('id') && element.hasOwnProperty('token') && element.hasOwnProperty('identifiant') && element.hasOwnProperty('titre') && element.hasOwnProperty('fond') && element.hasOwnProperty('date')
 					})
-					let padsFavoris = pads[3].filter(function (element) {
+					let padsAdmins = pads[3].filter(function (element) {
+						return element !== '' && Object.keys(element).length > 0 && element.hasOwnProperty('id') && element.hasOwnProperty('token') && element.hasOwnProperty('identifiant') && element.hasOwnProperty('titre') && element.hasOwnProperty('fond') && element.hasOwnProperty('date')
+					})
+					let padsFavoris = pads[4].filter(function (element) {
 						return element !== '' && Object.keys(element).length > 0 && element.hasOwnProperty('id') && element.hasOwnProperty('token') && element.hasOwnProperty('identifiant') && element.hasOwnProperty('titre') && element.hasOwnProperty('fond') && element.hasOwnProperty('date')
 					})
 					padsCrees.forEach(function (pad, indexPad) {
 						padsCrees[indexPad].id = parseInt(pad.id)
+					})
+					padsCorbeille.forEach(function (pad, indexPad) {
+						contenusSupprimes.push(parseInt(pad.id))
+						padsCorbeille[indexPad].id = parseInt(pad.id)
 					})
 					padsRejoints.forEach(function (pad, indexPad) {
 						padsRejoints[indexPad].id = parseInt(pad.id)
@@ -287,6 +296,13 @@ async function demarrerServeur () {
 					})
 					padsFavoris.forEach(function (pad, indexPad) {
 						padsFavoris[indexPad].id = parseInt(pad.id)
+						if (contenusSupprimes.includes(parseInt(pad.id))) {
+							favorisSupprimes.push(parseInt(pad.id))
+						}
+					})
+					// Supprimer pads corbeille des favoris
+					padsFavoris = padsFavoris.filter(function (element) {
+						return !contenusSupprimes.includes(element.id)
 					})
 					// Suppresion redondances pads rejoints et pads administrés
 					padsRejoints.forEach(function (pad, indexPad) {
@@ -298,6 +314,11 @@ async function demarrerServeur () {
 					})
 					// Supprimer doublons
 					padsCrees = padsCrees.filter((valeur, index, self) =>
+						index === self.findIndex((t) => (
+							t.id === valeur.id && t.token === valeur.token
+						))
+					)
+					padsCorbeille = padsCorbeille.filter((valeur, index, self) =>
 						index === self.findIndex((t) => (
 							t.id === valeur.id && t.token === valeur.token
 						))
@@ -317,6 +338,8 @@ async function demarrerServeur () {
 							t.id === valeur.id && t.token === valeur.token
 						))
 					)
+					// Dossiers
+					let contenusSupprimesDansDossiers = []
 					let dossiers = []
 					if (donneesUtilisateur.hasOwnProperty('dossiers')) {
 						try {
@@ -329,6 +352,9 @@ async function demarrerServeur () {
 					dossiers.forEach(function (dossier, indexDossier) {
 						dossier.pads.forEach(function (pad, indexPad) {
 							dossiers[indexDossier].pads[indexPad] = parseInt(pad)
+							if (contenusSupprimes.includes(parseInt(pad))) {
+								contenusSupprimesDansDossiers.push({ pad: parseInt(pad), dossier: dossier.id })
+							}
 							if (!listePadsDossiers.includes(parseInt(pad))) {
 								listePadsDossiers.push(parseInt(pad))
 							}
@@ -359,6 +385,20 @@ async function demarrerServeur () {
 								})
 							}
 						})
+						// Préparer contenus corbeille avec favoris et dossiers
+						padsCorbeille.forEach(function (pad, indexPad) {
+							if (favorisSupprimes.includes(pad.id)) {
+								padsCorbeille[indexPad].favori = true
+							} else {
+								padsCorbeille[indexPad].favori = false
+							}
+							if (contenusSupprimesDansDossiers.map(function (e) { return e.pad }).includes(pad.id)) {
+								const index = contenusSupprimesDansDossiers.map(function (e) { return e.pad }).indexOf(pad.id)
+								padsCorbeille[indexPad].dossier = contenusSupprimesDansDossiers[index].dossier
+							} else {
+								padsCorbeille[indexPad].dossier = ''
+							}
+						})
 						// Supprimer doublons dans dossiers
 						dossiers.forEach(function (dossier, indexDossier) {
 							const pads = []
@@ -371,6 +411,14 @@ async function demarrerServeur () {
 							})
 						})
 						await db.HSET('utilisateurs:' + identifiant, 'dossiers', JSON.stringify(dossiers))
+						// Supprimer contenus corbeille dans dossiers
+						dossiers.forEach(function (dossier, indexDossier) {
+							dossier.pads.forEach(function () {
+								dossiers[indexDossier].pads = dossiers[indexDossier].pads.filter(function (element) {
+									return !contenusSupprimes.includes(element)
+								})
+							})
+						})
 						const pageContextInit = {
 							urlOriginal: req.originalUrl,
 							params: req.query,
@@ -384,6 +432,7 @@ async function demarrerServeur () {
 							affichage: donneesUtilisateur.affichage,
 							classement: donneesUtilisateur.classement,
 							padsCrees: padsCrees,
+							padsCorbeille: padsCorbeille,
 							padsRejoints: padsRejoints,
 							padsAdmins: padsAdmins,
 							padsFavoris: padsFavoris,
@@ -759,33 +808,33 @@ async function demarrerServeur () {
 				const titre = req.body.titre
 				const token = Math.random().toString(16).slice(2)
 				const date = dayjs().format()
+				let id = 1
 				const resultat = await db.EXISTS('pad')
 				if (resultat === null) { res.send('erreur_creation'); return false }
 				if (resultat === 1) {
 					const reponse = await db.GET('pad')
 					if (reponse === null) { res.send('erreur_creation'); return false }
-					const id = parseInt(reponse) + 1
-					const creation = await creerPad(id, token, titre, date, identifiant)
-					if (creation === true) {
-						if (stockage === 'fs') {
-							const chemin = path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + id)
-							await fs.mkdirp(chemin)
-						}
-						res.json({ id: id, token: token, titre: titre, identifiant: identifiant, fond: '/img/fond1.png', acces: 'public', contributions: 'ouvertes', affichage: 'mur', registreActivite: 'active', conversation: 'desactivee', listeUtilisateurs: 'activee', editionNom: 'desactivee', fichiers: 'actives', enregistrements: 'desactives', liens: 'actives', documents: 'desactives', commentaires: 'desactives', evaluations: 'desactivees', copieBloc: 'desactivee', ordre: 'croissant', largeur: 'normale', date: date, colonnes: [], affichageColonnes: [], bloc: 0, activite: 0, admins: [] })
-					} else {
-						res.send('erreur_creation')
+					id = parseInt(reponse) + 1
+				}
+				const creation = await creerPad(id, token, titre, date, identifiant)
+				if (creation === true) {
+					if (stockage === 'fs') {
+						const chemin = path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + id)
+						await fs.mkdirp(chemin)
 					}
+					const destination = req.body.dossier
+					if (destination !== '') {
+						const dossiers = JSON.parse(donneesUtilisateur.dossiers)
+						dossiers.forEach(function (dossier, indexDossier) {
+							if (dossier.id === destination) {
+								dossiers[indexDossier].pads.push(id)
+							}
+						})
+						await db.HSET('utilisateurs:' + identifiant, 'dossiers', JSON.stringify(dossiers))
+					}
+					res.json({ id: id, token: token, titre: titre, identifiant: identifiant, fond: '/img/fond1.png', acces: 'public', contributions: 'ouvertes', affichage: 'mur', registreActivite: 'active', conversation: 'desactivee', listeUtilisateurs: 'activee', editionNom: 'desactivee', fichiers: 'actives', enregistrements: 'desactives', liens: 'actives', documents: 'desactives', commentaires: 'desactives', evaluations: 'desactivees', copieBloc: 'desactivee', ordre: 'croissant', largeur: 'normale', date: date, colonnes: [], affichageColonnes: [], bloc: 0, activite: 0, admins: [] })
 				} else {
-					const creation = await creerPad(1, token, titre, date, identifiant)
-					if (creation === true) {
-						if (stockage === 'fs') {
-							const chemin = path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/1')
-							await fs.mkdirp(chemin)
-						}
-						res.json({ id: 1, token: token, titre: titre, identifiant: identifiant, fond: '/img/fond1.png', acces: 'public', contributions: 'ouvertes', affichage: 'mur', registreActivite: 'active', conversation: 'desactivee', listeUtilisateurs: 'activee', editionNom: 'desactivee', fichiers: 'actives', enregistrements: 'desactives', liens: 'actives', documents: 'desactives', commentaires: 'desactives', evaluations: 'desactivees', copieBloc: 'desactivee', ordre: 'croissant', largeur: 'normale', date: date, colonnes: [], affichageColonnes: [], bloc: 0, activite: 0, admins: [] })
-					} else {
-						res.send('erreur_creation')
-					}
+					res.send('erreur_creation')
 				}
 			} else {
 				res.send('non_connecte')
@@ -823,6 +872,7 @@ async function demarrerServeur () {
 			const hash = await bcrypt.hash(motdepasse, 10)
 			const token = Math.random().toString(16).slice(2)
 			const date = dayjs().format()
+			let id = 1
 			let langue = 'fr'
 			if (req.session.hasOwnProperty('langue') && req.session.langue !== '' && req.session.langue !== undefined) {
 				langue = req.session.langue
@@ -832,38 +882,22 @@ async function demarrerServeur () {
 			if (resultat === 1) {
 				const reponse = await db.GET('pad')
 				if (reponse === null) { res.send('erreur_creation'); return false }
-				const id = parseInt(reponse) + 1
-				const creation = await creerPadSansCompte(id, token, titre, hash, date, identifiant, nom, langue, '')
-				if (creation === true) {
-					if (stockage === 'fs') {
-						const chemin = path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + id)
-						await fs.mkdirp(chemin)
-					}
-					req.session.motdepasse = ''
-					req.session.langue = langue
-					req.session.statut = 'auteur'
-					req.session.pads.push(id)
-					req.session.cookie.expires = new Date(Date.now() + dureeSession)
-					res.json({ id: id, token: token, titre: titre, identifiant: identifiant, fond: '/img/fond1.png', acces: 'public', contributions: 'ouvertes', affichage: 'mur', registreActivite: 'active', conversation: 'desactivee', listeUtilisateurs: 'activee', editionNom: 'desactivee', fichiers: 'actives', enregistrements: 'desactives', liens: 'actives', liens: 'actives', documents: 'desactives', commentaires: 'desactives', evaluations: 'desactivees', copieBloc: 'desactivee', ordre: 'croissant', largeur: 'normale', date: date, colonnes: [], affichageColonnes: [], bloc: 0, activite: 0 })
-				} else {
-					res.send('erreur_creation')
+				id = parseInt(reponse) + 1
+			}
+			const creation = await creerPadSansCompte(id, token, titre, hash, date, identifiant, nom, langue, '')
+			if (creation === true) {
+				if (stockage === 'fs') {
+					const chemin = path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/' + id)
+					await fs.mkdirp(chemin)
 				}
+				req.session.motdepasse = ''
+				req.session.langue = langue
+				req.session.statut = 'auteur'
+				req.session.pads.push(id)
+				req.session.cookie.expires = new Date(Date.now() + dureeSession)
+				res.json({ id: id, token: token, titre: titre, identifiant: identifiant, fond: '/img/fond1.png', acces: 'public', contributions: 'ouvertes', affichage: 'mur', registreActivite: 'active', conversation: 'desactivee', listeUtilisateurs: 'activee', editionNom: 'desactivee', fichiers: 'actives', enregistrements: 'desactives', liens: 'actives', liens: 'actives', documents: 'desactives', commentaires: 'desactives', evaluations: 'desactivees', copieBloc: 'desactivee', ordre: 'croissant', largeur: 'normale', date: date, colonnes: [], affichageColonnes: [], bloc: 0, activite: 0 })
 			} else {
-				const creation = await creerPadSansCompte(1, token, titre, hash, date, identifiant, nom, langue, '')
-				if (creation === true) {
-					if (stockage === 'fs') {
-						const chemin = path.join(__dirname, '..', '/static' + definirCheminFichiers() + '/1')
-						await fs.mkdirp(chemin)
-					}
-					req.session.motdepasse = ''
-					req.session.langue = langue
-					req.session.statut = 'auteur'
-					req.session.pads.push(1)
-					req.session.cookie.expires = new Date(Date.now() + dureeSession)
-					res.json({ id: 1, token: token, titre: titre, identifiant: identifiant, fond: '/img/fond1.png', acces: 'public', contributions: 'ouvertes', affichage: 'mur', registreActivite: 'active', conversation: 'desactivee', listeUtilisateurs: 'activee', editionNom: 'desactivee', fichiers: 'actives', enregistrements: 'desactives', liens: 'actives', liens: 'actives', documents: 'desactives', commentaires: 'desactives', evaluations: 'desactivees', copieBloc: 'desactivee', ordre: 'croissant', largeur: 'normale', date: date, colonnes: [], affichageColonnes: [], bloc: 0, activite: 0 })
-				} else {
-					res.send('erreur_creation')
-				}
+				res.send('erreur_creation')
 			}
 		} else {
 			res.send('non_autorise')
@@ -910,8 +944,11 @@ async function demarrerServeur () {
 	app.post('/api/ajouter-pad-favoris', async function (req, res) {
 		const identifiant = req.body.identifiant
 		if (req.session.identifiant && req.session.identifiant === identifiant && req.session.statut === 'utilisateur' && req.session.hasOwnProperty('motdepasse') && req.session.motdepasse !== '') {
-			const pad = req.body.padId
-			if (await verifierAdminUtilisateur(pad, identifiant, req.session.motdepasse) === true) {
+			let donneesUtilisateur = await db.HGETALL('utilisateurs:' + identifiant)
+			donneesUtilisateur = Object.assign({}, donneesUtilisateur)
+			if (donneesUtilisateur === null) { res.send('erreur'); return false }
+			if (await bcrypt.compare(req.session.motdepasse, donneesUtilisateur.motdepasse)) {
+				const pad = req.body.padId
 				await db.SADD('pads-favoris:' + identifiant, pad.toString())
 				res.send('pad_ajoute_favoris')
 			} else {
@@ -926,8 +963,11 @@ async function demarrerServeur () {
 	app.post('/api/supprimer-pad-favoris', async function (req, res) {
 		const identifiant = req.body.identifiant
 		if (req.session.identifiant && req.session.identifiant === identifiant && req.session.statut === 'utilisateur' && req.session.hasOwnProperty('motdepasse') && req.session.motdepasse !== '') {
-			const pad = req.body.padId
-			if (await verifierAdminUtilisateur(pad, identifiant, req.session.motdepasse) === true) {
+			let donneesUtilisateur = await db.HGETALL('utilisateurs:' + identifiant)
+			donneesUtilisateur = Object.assign({}, donneesUtilisateur)
+			if (donneesUtilisateur === null) { res.send('erreur'); return false }
+			if (await bcrypt.compare(req.session.motdepasse, donneesUtilisateur.motdepasse)) {
+				const pad = req.body.padId
 				await db.SREM('pads-favoris:' + identifiant, pad.toString())
 				res.send('pad_supprime_favoris')
 			} else {
@@ -942,13 +982,13 @@ async function demarrerServeur () {
 	app.post('/api/deplacer-pad', async function (req, res) {
 		const identifiant = req.body.identifiant
 		if (req.session.identifiant && req.session.identifiant === identifiant && req.session.statut === 'utilisateur' && req.session.hasOwnProperty('motdepasse') && req.session.motdepasse !== '') {
-			const padId = req.body.padId
-			if (await verifierAdminUtilisateur(padId, identifiant, req.session.motdepasse) === true) {
+			let donneesUtilisateur = await db.HGETALL('utilisateurs:' + identifiant)
+			donneesUtilisateur = Object.assign({}, donneesUtilisateur)
+			if (donneesUtilisateur === null) { res.send('erreur'); return false }
+			if (await bcrypt.compare(req.session.motdepasse, donneesUtilisateur.motdepasse)) {
+				const padId = req.body.padId
 				const destination = req.body.destination
-				let donnees = await db.HGETALL('utilisateurs:' + identifiant)
-				donnees = Object.assign({}, donnees)
-				if (donnees === null) { res.send('erreur_deplacement'); return false }
-				const dossiers = JSON.parse(donnees.dossiers)
+				const dossiers = JSON.parse(donneesUtilisateur.dossiers)
 				dossiers.forEach(function (dossier, indexDossier) {
 					if (dossier.pads.includes(padId)) {
 						const indexPad = dossier.pads.indexOf(padId)
@@ -1101,6 +1141,20 @@ async function demarrerServeur () {
 										}
 									}
 								}
+								const destination = req.body.dossier
+								if (destination !== '') {
+									let donneesUtilisateur = await db.HGETALL('utilisateurs:' + identifiant)
+									donneesUtilisateur = Object.assign({}, donneesUtilisateur)
+									if (donneesUtilisateur !== null) {
+										const dossiers = JSON.parse(donneesUtilisateur.dossiers)
+										dossiers.forEach(function (dossier, indexDossier) {
+											if (dossier.id === destination) {
+												dossiers[indexDossier].pads.push(id)
+											}
+										})
+										await db.HSET('utilisateurs:' + identifiant, 'dossiers', JSON.stringify(dossiers))
+									}
+								}
 								res.json({ id: id, token: token, titre: 'Copie de ' + donnees.titre, identifiant: identifiant, fond: donnees.fond, acces: donnees.acces, code: code, contributions: donnees.contributions, affichage: donnees.affichage, registreActivite: registreActivite, conversation: conversation, listeUtilisateurs: listeUtilisateurs, editionNom: editionNom, fichiers: donnees.fichiers, enregistrements: enregistrements, liens: donnees.liens, documents: donnees.documents, commentaires: donnees.commentaires, evaluations: donnees.evaluations, copieBloc: copieBloc, ordre: ordre, largeur: largeur, date: date, colonnes: donnees.colonnes, affichageColonnes: affichageColonnes, bloc: donnees.bloc, activite: 0 })
 							})
 						} else if (resultat !== 1 && isNaN(parseInt(pad)) === false && await fs.pathExists(path.join(__dirname, '..', '/static/pads/' + pad + '.json'))) {
@@ -1211,6 +1265,20 @@ async function demarrerServeur () {
 												for (let i = 0; i < liste.Contents.length; i++) {
 													await s3Client.send(new CopyObjectCommand({ Bucket: bucket, Key: id + '/' + liste.Contents[i].Key.replace(pad + '/', ''), CopySource: '/' + bucket + '/' + liste.Contents[i].Key, ACL: 'public-read' }))
 												}
+											}
+										}
+										const destination = req.body.dossier
+										if (destination !== '') {
+											let donneesUtilisateur = await db.HGETALL('utilisateurs:' + identifiant)
+											donneesUtilisateur = Object.assign({}, donneesUtilisateur)
+											if (donneesUtilisateur !== null) {
+												const dossiers = JSON.parse(donneesUtilisateur.dossiers)
+												dossiers.forEach(function (dossier, indexDossier) {
+													if (dossier.id === destination) {
+														dossiers[indexDossier].pads.push(id)
+													}
+												})
+												await db.HSET('utilisateurs:' + identifiant, 'dossiers', JSON.stringify(dossiers))
 											}
 										}
 										res.json({ id: id, token: token, titre: 'Copie de ' + donnees.pad.titre, identifiant: identifiant, fond: donnees.pad.fond, acces: donnees.pad.acces, code: code, contributions: donnees.pad.contributions, affichage: donnees.pad.affichage, registreActivite: registreActivite, conversation: conversation, listeUtilisateurs: listeUtilisateurs, editionNom: editionNom, fichiers: donnees.pad.fichiers, enregistrements: enregistrements, liens: donnees.pad.liens, documents: donnees.pad.documents, commentaires: donnees.pad.commentaires, evaluations: donnees.pad.evaluations, copieBloc: copieBloc, ordre: ordre, largeur: largeur, date: date, colonnes: donnees.pad.colonnes, affichageColonnes: affichageColonnes, bloc: donnees.pad.bloc, activite: 0 })
@@ -1475,6 +1543,44 @@ async function demarrerServeur () {
 		}
 	})
 
+	app.post('/api/mettre-pad-corbeille', async function (req, res) {
+		const identifiant = req.body.identifiant
+		if (req.session.identifiant && req.session.identifiant === identifiant && req.session.statut === 'utilisateur' && req.session.hasOwnProperty('motdepasse') && req.session.motdepasse !== '') {
+			const padId = req.body.padId
+			if (await verifierAdminUtilisateur(padId, identifiant, req.session.motdepasse) === true) {
+				await db
+				.multi()
+				.SADD('pads-supprimes:' + identifiant, padId.toString())
+				.SREM('pads-crees:' + identifiant, padId.toString())
+				.exec()
+				res.send('pad_supprime')
+			} else {
+				res.send('non_autorise')
+			}
+		} else {
+			res.send('non_connecte')
+		}
+	})
+
+	app.post('/api/restaurer-pad', async function (req, res) {
+		const identifiant = req.body.identifiant
+		if (req.session.identifiant && req.session.identifiant === identifiant && req.session.statut === 'utilisateur' && req.session.hasOwnProperty('motdepasse') && req.session.motdepasse !== '') {
+			const padId = req.body.padId
+			if (await verifierAdminUtilisateur(padId, identifiant, req.session.motdepasse) === true) {
+				await db
+				.multi()
+				.SREM('pads-supprimes:' + identifiant, padId.toString())
+				.SADD('pads-crees:' + identifiant, padId.toString())
+				.exec()
+				res.send('pad_restaure')
+			} else {
+				res.send('non_autorise')
+			}
+		} else {
+			res.send('non_connecte')
+		}
+	})
+
 	app.post('/api/supprimer-pad', async function (req, res) {
 		if (maintenance === true) {
 			res.redirect('/maintenance')
@@ -1519,6 +1625,7 @@ async function demarrerServeur () {
 						.UNLINK('activite:' + pad)
 						.UNLINK('dates-pads:' + pad)
 						.SREM('pads-crees:' + identifiant, pad.toString())
+						.SREM('pads-supprimes:' + identifiant, pad.toString())
 						.exec()
 						const utilisateurs = await db.SMEMBERS('utilisateurs-pads:' + pad)
 						if (utilisateurs === null) { res.send('erreur_suppression'); return false }
@@ -1593,7 +1700,11 @@ async function demarrerServeur () {
 				if (typeof donneesPad === 'object' && donneesPad !== null) {
 					if (donneesPad.identifiant === identifiant) { // pad créé
 						if (admin || await verifierAdmin(pad, donneesPad, req.session) === true) {
-							await db.SREM('pads-crees:' + identifiant, pad.toString())
+							await db
+							.multi()
+							.SREM('pads-crees:' + identifiant, pad.toString())
+							.SREM('pads-supprimes:' + identifiant, pad.toString())
+							.exec()
 							const utilisateurs = await db.SMEMBERS('utilisateurs-pads:' + pad)
 							if (utilisateurs === null) { res.send('erreur_suppression'); return false }
 							for (let j = 0; j < utilisateurs.length; j++) {
@@ -1925,6 +2036,7 @@ async function demarrerServeur () {
 						.multi()
 						.SADD('pads-crees:' + nouvelIdentifiant, pad.toString())
 						.SREM('pads-crees:' + identifiant, pad.toString())
+						.SREM('pads-supprimes:' + identifiant, pad.toString())
 						.SADD('utilisateurs-pads:' + pad, nouvelIdentifiant)
 						.SREM('utilisateurs-pads:' + pad, identifiant)
 						.HSET('pads:' + pad, 'identifiant', nouvelIdentifiant)
@@ -1942,6 +2054,7 @@ async function demarrerServeur () {
 							.multi()
 							.SADD('pads-crees:' + nouvelIdentifiant, pad.toString())
 							.SREM('pads-crees:' + identifiant, pad.toString())
+							.SREM('pads-supprimes:' + identifiant, pad.toString())
 							.SADD('utilisateurs-pads:' + pad, nouvelIdentifiant)
 							.SREM('utilisateurs-pads:' + pad, identifiant)
 							.HSET('pads:' + pad, 'identifiant', nouvelIdentifiant)
@@ -1987,6 +2100,7 @@ async function demarrerServeur () {
 								.multi()
 								.SADD('pads-crees:' + nouvelIdentifiant, pad.toString())
 								.SREM('pads-crees:' + identifiant, pad.toString())
+								.SREM('pads-supprimes:' + identifiant, pad.toString())
 								.SADD('utilisateurs-pads:' + pad, nouvelIdentifiant)
 								.SREM('utilisateurs-pads:' + pad, identifiant)
 								.HSET('pads:' + pad, 'identifiant', nouvelIdentifiant)
@@ -2003,6 +2117,7 @@ async function demarrerServeur () {
 									.multi()
 									.SADD('pads-crees:' + nouvelIdentifiant, pad.toString())
 									.SREM('pads-crees:' + identifiant, pad.toString())
+									.SREM('pads-supprimes:' + identifiant, pad.toString())
 									.SADD('utilisateurs-pads:' + pad, nouvelIdentifiant)
 									.SREM('utilisateurs-pads:' + pad, identifiant)
 									.HSET('pads:' + pad, 'identifiant', nouvelIdentifiant)
@@ -2297,6 +2412,7 @@ async function demarrerServeur () {
 						await db
 						.multi()
 						.UNLINK('pads-crees:' + identifiant)
+						.UNLINK('pads-supprimes:' + identifiant)
 						.UNLINK('pads-rejoints:' + identifiant)
 						.UNLINK('pads-favoris:' + identifiant)
 						.UNLINK('pads-admins:' + identifiant)
@@ -3548,6 +3664,7 @@ async function demarrerServeur () {
 						.UNLINK('activite:' + pad)
 						.UNLINK('dates-pads:' + pad)
 						.SREM('pads-crees:' + identifiant, pad.toString())
+						.SREM('pads-supprimes:' + identifiant, pad.toString())
 						.exec()
 						const utilisateurs = await db.SMEMBERS('utilisateurs-pads:' + pad)
 						if (utilisateurs === null) { res.send('erreur'); return false }
@@ -3598,6 +3715,7 @@ async function demarrerServeur () {
 								.UNLINK('activite:' + pad)
 								.UNLINK('dates-pads:' + pad)
 								.SREM('pads-crees:' + identifiant, pad.toString())
+								.SREM('pads-supprimes:' + identifiant, pad.toString())
 								.exec()
 								const utilisateurs = await db.SMEMBERS('utilisateurs-pads:' + pad)
 									if (utilisateurs === null) { res.send('erreur'); return false }
@@ -5778,6 +5896,81 @@ async function demarrerServeur () {
 				resolveMain(resultat)
 			})
 		})
+		// Pads supprimés
+		const donneesPadsSupprimes = new Promise(async function (resolveMain) {
+			const pads = await db.SMEMBERS('pads-supprimes:' + identifiant)
+			const donneesPads = []
+			if (pads === null) { resolveMain(donneesPads); return false }
+			for (const pad of pads) {
+				const donneePad = new Promise(async function (resolve) {
+					const resultat = await db.EXISTS('pads:' + pad)
+					if (resultat === null) { resolve({}); return false }
+					if (resultat === 1) {
+						let donnees = await db.HGETALL('pads:' + pad)
+						donnees = Object.assign({}, donnees)
+						if (donnees === null) { resolve({}); return false }
+						// Pour compatibilité avec les anciens chemins
+						if (donnees.hasOwnProperty('fond') && !donnees.fond.includes('/img/') && donnees.fond.substring(0, 1) !== '#' && donnees.fond !== '' && typeof donnees.fond === 'string') {
+							donnees.fond = path.basename(donnees.fond)
+						}
+						const reponse = await db.EXISTS('utilisateurs:' + donnees.identifiant)
+						if (reponse === 1) {
+							let utilisateur = await db.HGETALL('utilisateurs:' + donnees.identifiant)
+							utilisateur = Object.assign({}, utilisateur)
+							if (utilisateur === null) {
+								donnees.nom = donnees.identifiant
+								resolve(donnees)
+								return false
+							}
+							if (utilisateur.nom === '') {
+								donnees.nom = donnees.identifiant
+							} else {
+								donnees.nom = utilisateur.nom
+							}
+							resolve(donnees)
+						} else {
+							donnees.nom = donnees.identifiant
+							resolve(donnees)
+						}
+					} else if (resultat !== 1 && isNaN(parseInt(pad)) === false && await fs.pathExists(path.join(__dirname, '..', '/static/pads/pad-' + pad + '.json'))) {
+						const donnees = await fs.readJson(path.join(__dirname, '..', '/static/pads/pad-' + pad + '.json'))
+						if (typeof donnees === 'object' && donnees !== null && donnees.hasOwnProperty('identifiant')) {
+							// Pour compatibilité avec les anciens chemins
+							if (donnees.hasOwnProperty('fond') && !donnees.fond.includes('/img/') && donnees.fond.substring(0, 1) !== '#' && donnees.fond !== '' && typeof donnees.fond === 'string') {
+								donnees.fond = path.basename(donnees.fond)
+							}
+							const reponse = await db.EXISTS('utilisateurs:' + donnees.identifiant)
+							if (reponse === 1) {
+								let utilisateur = await db.HGETALL('utilisateurs:' + donnees.identifiant)
+								utilisateur = Object.assign({}, utilisateur)
+								if (utilisateur === null) {
+									donnees.nom = donnees.identifiant
+									resolve(donnees)
+									return false
+								}
+								if (utilisateur.nom === '') {
+									donnees.nom = donnees.identifiant
+								} else {
+									donnees.nom = utilisateur.nom
+								}
+								resolve(donnees)
+							} else {
+								donnees.nom = donnees.identifiant
+								resolve(donnees)
+							}
+						} else {
+							resolve({})
+						}
+					} else {
+						resolve({})
+					}
+				})
+				donneesPads.push(donneePad)
+			}
+			Promise.all(donneesPads).then(function (resultat) {
+				resolveMain(resultat)
+			})
+		})
 		// Pads rejoints
 		const donneesPadsRejoints = new Promise(async function (resolveMain) {
 			const pads = await db.SMEMBERS('pads-rejoints:' + identifiant)
@@ -6008,7 +6201,7 @@ async function demarrerServeur () {
 				resolveMain(resultat)
 			})
 		})
-		return Promise.all([donneesPadsCrees, donneesPadsRejoints, donneesPadsAdmins, donneesPadsFavoris])
+		return Promise.all([donneesPadsCrees, donneesPadsSupprimes, donneesPadsRejoints, donneesPadsAdmins, donneesPadsFavoris])
 	}
 
 	function recupererDonneesAuteur (identifiant) {

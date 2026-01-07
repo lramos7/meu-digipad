@@ -14,7 +14,7 @@
     "remplirChamps": "Bitte füllen Sie alle Felder aus.",
     "identifiantExisteDeja": "Benutzername <i>{identifiant}</i> existiert bereits.",
     "motsDePassePasIdentiques": "Die Passwörter stimmen nicht überein.",
-    "monCompte": "Mein Account",
+    "monCompte": "Mein Digipad-Account",
     "parametresCompte": "Account Einstellungen",
     "rechercher": "Suche",
     "recherche": "Suche",
@@ -395,5 +395,9 @@
 	"parametreFondModifie": "Parameter für die Wiederholung des Hintergrundbildes geändert.",
 	"couleur": "Farbe",
 	"aValideCapsule": "den Beitrag \"{titre}\" überprüft",
-	"aValideUneCapsule": "einen Beitrag überprüft"
+	"aValideUneCapsule": "einen Beitrag überprüft",
+	"corbeille": "Papierkorb",
+	"restaurer": "Wiederherstellen",
+	"padRestaure": "Pad wiederhergestellt.",
+	"padDansCorbeille": "Pad in den Papierkorb verschoben."
 }

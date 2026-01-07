@@ -14,7 +14,7 @@
 	"remplirChamps": "Veuillez remplir tous les champs du formulaire.",
 	"identifiantExisteDeja": "L'identifiant <i>{identifiant}<\/i> existe déjà.",
 	"motsDePassePasIdentiques": "Les 2 mots de passe ne sont pas identiques.",
-	"monCompte": "Mon compte",
+	"monCompte": "Mon compte Digipad",
 	"parametresCompte": "Paramètres du compte",
 	"rechercher": "Rechercher",
 	"recherche": "Recherche",
@@ -395,5 +395,9 @@
 	"parametreFondModifie": "Paramètre de répétition de l'image de fond modifié.",
 	"couleur": "Couleur",
 	"aValideCapsule": "a validé la capsule «&nbsp;{titre}&nbsp;»",
-	"aValideUneCapsule": "a validé une capsule"
+	"aValideUneCapsule": "a validé une capsule",
+	"corbeille": "Corbeille",
+	"restaurer": "Restaurer",
+	"padRestaure": "Pad restauré.",
+	"padDansCorbeille": "Pad mis à la corbeille."
 }

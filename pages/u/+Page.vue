@@ -78,6 +78,10 @@
 					<span class="bouton supprimer" role="button" :tabindex="definirTabIndex()" :title="$t('supprimerDossier')" @click="afficherModaleConfirmation($event, item.id, 'supprimer-dossier')" @keydown.enter="afficherModaleConfirmation($event, item.id, 'supprimer-dossier')"><i class="material-icons">delete</i></span>
 				</div>
 			</div>
+			<div class="onglet" role="button" :tabindex="definirTabIndex()" :class="{'actif': onglet === 'pads-corbeille'}" @click="modifierOnglet('pads-corbeille')" @keydown.enter="modifierOnglet('pads-corbeille')">
+				<span>{{ $t('corbeille') }}</span>
+				<span class="badge">{{ padsCorbeille.length }}</span>
+			</div>
 			<span class="bouton-ajouter" role="button" :tabindex="definirTabIndex()" @click="afficherModaleAjouterDossier" @keydown.enter="afficherModaleAjouterDossier">{{ $t('ajouterDossier') }}</span>
 		</div>
 
@@ -106,7 +110,7 @@
 						<span role="button" :tabindex="definirTabIndex()" :title="$t('affichageMosaique')" @click="modifierAffichage('mosaique')" @keydown.enter="modifierAffichage('mosaique')"><i class="material-icons">view_module</i></span>
 					</div>
 				</div>
-				<div id="actions-dossier" v-if="onglet !== 'pads-crees' && onglet !== 'pads-rejoints' && onglet !== 'pads-admins' && onglet !== 'pads-favoris'">
+				<div id="actions-dossier" v-if="onglet !== 'pads-crees' && onglet !== 'pads-rejoints' && onglet !== 'pads-admins' && onglet !== 'pads-favoris' && onglet !== 'pads-corbeille'">
 					<div class="conteneur">
 						<label>{{ $t('actionsDossier') }}</label>
 						<span class="bouton" role="button" :tabindex="definirTabIndex()" :title="$t('modifierDossier')" @click="afficherModaleModifierDossier($event, onglet)" @keydown.enter="afficherModaleModifierDossier($event, onglet)"><i class="material-icons">edit</i></span>
@@ -117,22 +121,25 @@
 					<template v-for="(pad, indexPad) in pads">
 						<div :id="'pad-' + pad.id" class="pad liste" v-if="affichage === 'liste'" :key="'pad_liste_' + indexPad">
 							<a class="fond" :href="'/p/' + pad.id + '/' + pad.token" :class="{'fond-personnalise': !pad.fond.includes('/img/') && pad.fond.substring(0, 1) !== '#'}" :style="definirFond(pad.fond, pad.id)" />
-							<a class="meta" :class="{'pad-rejoint': pad.identifiant !== identifiant, 'deplacer': dossiers.length > 0}" :href="'/p/' + pad.id + '/' + pad.token">
+							<a class="meta" :href="'/p/' + pad.id + '/' + pad.token">
 								<span class="mise-a-jour" v-if="pad.hasOwnProperty('notification') && pad.notification.includes(identifiant)" />
 								<span class="titre">{{ pad.titre }}</span>
-								<span class="date">{{ $t('creeLe') }} {{ $formaterDate(pad.date, langue) }}</span>
+								<span class="dossier" v-if="verifierDossierPad(pad.id) && (onglet === 'pads-crees' || onglet === 'pads-rejoints' || onglet === 'pads-admins' || onglet === 'pads-favoris')"> (📁 {{ verifierTitreDossier(pad.id) }})</span>
+								<span class="date">&nbsp;-&nbsp;{{ $t('creeLe') }} {{ $formaterDate(pad.date, langue) }}</span>
 								<span class="auteur" v-if="pad.identifiant !== identifiant">&nbsp;{{ $t('par') }} {{ pad.identifiant }}</span>
 								<span class="vues" v-if="pad.hasOwnProperty('vues') && pad.vues > 1"> - {{ pad.vues }} {{ $t('vues') }}</span>
 								<span class="vues" v-else-if="pad.hasOwnProperty('vues') && pad.vues < 2"> - {{ pad.vues }} {{ $t('vue') }}</span>
 								<span class="vues" v-else-if="!pad.hasOwnProperty('vues')"> - 0 {{ $t('vue') }}</span>
 							</a>
 							<div class="actions" v-if="pad.identifiant === identifiant">
-								<span class="ajouter-favori" role="button" :tabindex="definirTabIndex()" @click="ajouterFavori(pad)" @keydown.enter="ajouterFavori(pad)" :title="$t('ajouterFavori')" v-if="!favoris.includes(pad.id)"><i class="material-icons">star_outline</i></span>
-								<span class="supprimer-favori" role="button" :tabindex="definirTabIndex()" @click="supprimerFavori(pad.id)" @keydown.enter="supprimerFavori(pad.id)" :title="$t('supprimerFavori')" v-else><i class="material-icons">star</i></span>
-								<span class="deplacer" role="button" :tabindex="definirTabIndex()" @click="afficherModaleDeplacerPad(pad.id)" @keydown.enter="afficherModaleDeplacerPad(pad.id)" :title="$t('ajouterDansDossier')" :class="{'actif': verifierDossierPad(pad.id)}" v-if="dossiers.length > 0"><i class="material-icons">drive_file_move</i></span>
-								<span class="dupliquer" role="button" :tabindex="definirTabIndex()" @click="afficherModaleConfirmation($event, pad.id, 'dupliquer')" @keydown.enter="afficherModaleConfirmation($event, pad.id, 'dupliquer')" :title="$t('dupliquerPad')"><i class="material-icons">content_copy</i></span>
-								<span class="exporter" role="button" :tabindex="definirTabIndex()" @click="afficherModaleConfirmation($event, pad.id, 'exporter')" @keydown.enter="afficherModaleConfirmation($event, pad.id, 'exporter')" :title="$t('exporterPad')"><i class="material-icons">get_app</i></span>
-								<span class="supprimer" role="button" :tabindex="definirTabIndex()" @click="afficherModaleConfirmation($event, pad.id, 'supprimer')" @keydown.enter="afficherModaleConfirmation($event, pad.id, 'supprimer')" :title="$t('supprimerPad')"><i class="material-icons">delete</i></span>
+								<span class="ajouter-favori" role="button" :tabindex="definirTabIndex()" @click="ajouterFavori(pad)" @keydown.enter="ajouterFavori(pad)" :title="$t('ajouterFavori')" v-if="!favoris.includes(pad.id) && onglet !== 'pads-corbeille'"><i class="material-icons">star_outline</i></span>
+								<span class="supprimer-favori" role="button" :tabindex="definirTabIndex()" @click="supprimerFavori(pad.id)" :title="$t('supprimerFavori')" v-else-if="favoris.includes(pad.id) && onglet !== 'pads-corbeille'"><i class="material-icons">star</i></span>
+								<span class="deplacer" role="button" :tabindex="definirTabIndex()" @click="afficherModaleDeplacerPad(pad.id)" @keydown.enter="afficherModaleDeplacerPad(pad.id)" :title="$t('ajouterDansDossier')" :class="{'actif': verifierDossierPad(pad.id)}" v-if="dossiers.length > 0 && onglet !== 'pads-corbeille'"><i class="material-icons">drive_file_move</i></span>
+								<span class="dupliquer" role="button" :tabindex="definirTabIndex()" @click="afficherModaleConfirmation($event, pad.id, 'dupliquer')" @keydown.enter="afficherModaleConfirmation($event, pad.id, 'dupliquer')" :title="$t('dupliquerPad')" v-if="onglet !== 'pads-corbeille'"><i class="material-icons">content_copy</i></span>
+								<span class="exporter" role="button" :tabindex="definirTabIndex()" @click="afficherModaleConfirmation($event, pad.id, 'exporter')" @keydown.enter="afficherModaleConfirmation($event, pad.id, 'exporter')" :title="$t('exporterPad')" v-if="onglet !== 'pads-corbeille'"><i class="material-icons">get_app</i></span>
+								<span class="restaurer" role="button" :tabindex="definirTabIndex()" @click="restaurerPad(pad)" @keydown.enter="restaurerPad(pad)" :title="$t('restaurer')" v-if="onglet === 'pads-corbeille'"><i class="material-icons">restore_from_trash</i></span>
+								<span class="supprimer" role="button" :tabindex="definirTabIndex()" @click="afficherModaleConfirmation($event, pad.id, 'supprimer')" @keydown.enter="afficherModaleConfirmation($event, pad.id, 'supprimer')" :title="$t('supprimerPad')" v-if="onglet === 'pads-corbeille'"><i class="material-icons">delete</i></span>
+								<span class="supprimer" role="button" :tabindex="definirTabIndex()" @click="mettrePadCorbeille(pad)" @keydown.enter="mettrePadCorbeille(pad)" :title="$t('supprimerPad')" v-else><i class="material-icons">delete</i></span>
 							</div>
 							<div class="actions" v-else>
 								<span class="ajouter-favori" role="button" :tabindex="definirTabIndex()" @click="ajouterFavori(pad)" @keydown.enter="ajouterFavori(pad)" :title="$t('ajouterFavori')" v-if="!favoris.includes(pad.id)"><i class="material-icons">star_outline</i></span>
@@ -147,7 +154,7 @@
 						<div :id="'pad-' + pad.id" class="pad mosaique" v-else :key="'pad_mosaique_' + indexPad">
 							<a class="conteneur" :class="{'fond-personnalise': !pad.fond.includes('/img/') && pad.fond.substring(0, 1) !== '#'}" :style="definirFond(pad.fond, pad.id)" :href="'/p/' + pad.id + '/' + pad.token">
 								<div class="meta">
-									<span class="titre"><span class="mise-a-jour" v-if="pad.hasOwnProperty('notification') && pad.notification.includes(identifiant)" />{{ pad.titre }}</span>
+									<span class="titre"><span class="mise-a-jour" v-if="pad.hasOwnProperty('notification') && pad.notification.includes(identifiant)" />{{ pad.titre }} <small v-if="verifierDossierPad(pad.id) && (onglet === 'pads-crees' || onglet === 'pads-rejoints' || onglet === 'pads-admins' || onglet === 'pads-favoris')"> (📁 {{ verifierTitreDossier(pad.id) }})</small></span>
 									<span class="date">{{ $t('creeLe') }} {{ $formaterDate(pad.date, langue) }}</span>
 									<span class="auteur" v-if="pad.identifiant !== identifiant">&nbsp;{{ $t('par') }} {{ pad.identifiant }}</span>
 									<span class="vues" v-if="pad.hasOwnProperty('vues') && pad.vues > 1"> - {{ pad.vues }} {{ $t('vues') }}</span>
@@ -156,12 +163,14 @@
 								</div>
 							</a>
 							<div class="actions" v-if="pad.identifiant === identifiant">
-								<span class="ajouter-favori" role="button" :tabindex="definirTabIndex()" @click="ajouterFavori(pad)" @keydown.enter="ajouterFavori(pad)" :title="$t('ajouterFavori')" v-if="!favoris.includes(pad.id)"><i class="material-icons">star_outline</i></span>
-								<span class="supprimer-favori" role="button" :tabindex="definirTabIndex()" @click="supprimerFavori(pad.id)" @keydown.enter="supprimerFavori(pad.id)" :title="$t('supprimerFavori')" v-else><i class="material-icons">star</i></span>
-								<span class="deplacer" role="button" :tabindex="definirTabIndex()" @click="afficherModaleDeplacerPad(pad.id)" @keydown.enter="afficherModaleDeplacerPad(pad.id)" :title="$t('ajouterDansDossier')" :class="{'actif': verifierDossierPad(pad.id)}" v-if="dossiers.length > 0"><i class="material-icons">drive_file_move</i></span>
-								<span class="dupliquer" role="button" :tabindex="definirTabIndex()" @click="afficherModaleConfirmation($event, pad.id, 'dupliquer')" @keydown.enter="afficherModaleConfirmation($event, pad.id, 'dupliquer')" :title="$t('dupliquerPad')"><i class="material-icons">content_copy</i></span>
-								<span class="exporter" role="button" :tabindex="definirTabIndex()" @click="afficherModaleConfirmation($event, pad.id, 'exporter')" @keydown.enter="afficherModaleConfirmation($event, pad.id, 'exporter')" :title="$t('exporterPad')"><i class="material-icons">get_app</i></span>
-								<span class="supprimer" role="button" :tabindex="definirTabIndex()" @click="afficherModaleConfirmation($event, pad.id, 'supprimer')" @keydown.enter="afficherModaleConfirmation($event, pad.id, 'supprimer')" :title="$t('supprimerPad')"><i class="material-icons">delete</i></span>
+								<span class="ajouter-favori" role="button" :tabindex="definirTabIndex()" @click="ajouterFavori(pad)" @keydown.enter="ajouterFavori(pad)" :title="$t('ajouterFavori')" v-if="!favoris.includes(pad.id) && onglet !== 'pads-corbeille'"><i class="material-icons">star_outline</i></span>
+								<span class="supprimer-favori" role="button" :tabindex="definirTabIndex()" @click="supprimerFavori(pad.id)" :title="$t('supprimerFavori')" v-else-if="favoris.includes(pad.id) && onglet !== 'pads-corbeille'"><i class="material-icons">star</i></span>
+								<span class="deplacer" role="button" :tabindex="definirTabIndex()" @click="afficherModaleDeplacerPad(pad.id)" @keydown.enter="afficherModaleDeplacerPad(pad.id)" :title="$t('ajouterDansDossier')" :class="{'actif': verifierDossierPad(pad.id)}" v-if="dossiers.length > 0 && onglet !== 'pads-corbeille'"><i class="material-icons">drive_file_move</i></span>
+								<span class="dupliquer" role="button" :tabindex="definirTabIndex()" @click="afficherModaleConfirmation($event, pad.id, 'dupliquer')" @keydown.enter="afficherModaleConfirmation($event, pad.id, 'dupliquer')" :title="$t('dupliquerPad')" v-if="onglet !== 'pads-corbeille'"><i class="material-icons">content_copy</i></span>
+								<span class="exporter" role="button" :tabindex="definirTabIndex()" @click="afficherModaleConfirmation($event, pad.id, 'exporter')" @keydown.enter="afficherModaleConfirmation($event, pad.id, 'exporter')" :title="$t('exporterPad')" v-if="onglet !== 'pads-corbeille'"><i class="material-icons">get_app</i></span>
+								<span class="restaurer" role="button" :tabindex="definirTabIndex()" @click="restaurerPad(pad)" @keydown.enter="restaurerPad(pad)" :title="$t('restaurer')" v-if="onglet === 'pads-corbeille'"><i class="material-icons">restore_from_trash</i></span>
+								<span class="supprimer" role="button" :tabindex="definirTabIndex()" @click="afficherModaleConfirmation($event, pad.id, 'supprimer')" @keydown.enter="afficherModaleConfirmation($event, pad.id, 'supprimer')" :title="$t('supprimerPad')" v-if="onglet === 'pads-corbeille'"><i class="material-icons">delete</i></span>
+								<span class="supprimer" role="button" :tabindex="definirTabIndex()" @click="mettrePadCorbeille(pad)" @keydown.enter="mettrePadCorbeille(pad)" :title="$t('supprimerPad')" v-else><i class="material-icons">delete</i></span>
 							</div>
 							<div class="actions" v-else>
 								<span class="ajouter-favori" role="button" :tabindex="definirTabIndex()" @click="ajouterFavori(pad)" @keydown.enter="ajouterFavori(pad)" :title="$t('ajouterFavori')" v-if="!favoris.includes(pad.id)"><i class="material-icons">star_outline</i></span>
@@ -184,22 +193,25 @@
 					<template v-for="(pad, indexPad) in resultats">
 						<div :id="'pad-' + pad.id" class="pad liste" v-if="affichage === 'liste'" :key="'pad_liste_' + indexPad">
 							<a class="fond" :href="'/p/' + pad.id + '/' + pad.token" :class="{'fond-personnalise': !pad.fond.includes('/img/') && pad.fond.substring(0, 1) !== '#'}" :style="definirFond(pad.fond, pad.id)" />
-							<a class="meta" :class="{'pad-rejoint': pad.identifiant !== identifiant, 'deplacer': dossiers.length > 0}" :href="'/p/' + pad.id + '/' + pad.token">
+							<a class="meta" :href="'/p/' + pad.id + '/' + pad.token">
 								<span class="mise-a-jour" v-if="pad.hasOwnProperty('notification') && pad.notification.includes(identifiant)" />
 								<span class="titre">{{ pad.titre }}</span>
-								<span class="date">{{ $t('creeLe') }} {{ $formaterDate(pad.date, langue) }}</span>
+								<span class="dossier" v-if="verifierDossierPad(pad.id) && (onglet === 'pads-crees' || onglet === 'pads-rejoints' || onglet === 'pads-admins' || onglet === 'pads-favoris')"> (📁 {{ verifierTitreDossier(pad.id) }})</span>
+								<span class="date">&nbsp;-&nbsp;{{ $t('creeLe') }} {{ $formaterDate(pad.date, langue) }}</span>
 								<span class="auteur" v-if="pad.identifiant !== identifiant">&nbsp;{{ $t('par') }} {{ pad.identifiant }}</span>
 								<span class="vues" v-if="pad.hasOwnProperty('vues') && pad.vues > 1"> - {{ pad.vues }} {{ $t('vues') }}</span>
 								<span class="vues" v-else-if="pad.hasOwnProperty('vues') && pad.vues < 2"> - {{ pad.vues }} {{ $t('vue') }}</span>
 								<span class="vues" v-else-if="!pad.hasOwnProperty('vues')"> - 0 {{ $t('vue') }}</span>
 							</a>
 							<div class="actions" v-if="pad.identifiant === identifiant">
-								<span class="ajouter-favori" role="button" :tabindex="definirTabIndex()" @click="ajouterFavori(pad)" @keydown.enter="ajouterFavori(pad)" :title="$t('ajouterFavori')" v-if="!favoris.includes(pad.id)"><i class="material-icons">star_outline</i></span>
-								<span class="supprimer-favori" role="button" :tabindex="definirTabIndex()" @click="supprimerFavori(pad.id)" :title="$t('supprimerFavori')" v-else><i class="material-icons">star</i></span>
-								<span class="deplacer" role="button" :tabindex="definirTabIndex()" @click="afficherModaleDeplacerPad(pad.id)" @keydown.enter="afficherModaleDeplacerPad(pad.id)" :title="$t('ajouterDansDossier')" :class="{'actif': verifierDossierPad(pad.id)}" v-if="dossiers.length > 0"><i class="material-icons">drive_file_move</i></span>
-								<span class="dupliquer" role="button" :tabindex="definirTabIndex()" @click="afficherModaleConfirmation($event, pad.id, 'dupliquer')" @keydown.enter="afficherModaleConfirmation($event, pad.id, 'dupliquer')" :title="$t('dupliquerPad')"><i class="material-icons">content_copy</i></span>
-								<span class="exporter" role="button" :tabindex="definirTabIndex()" @click="afficherModaleConfirmation($event, pad.id, 'exporter')" @keydown.enter="afficherModaleConfirmation($event, pad.id, 'exporter')" :title="$t('exporterPad')"><i class="material-icons">get_app</i></span>
-								<span class="supprimer" role="button" :tabindex="definirTabIndex()" @click="afficherModaleConfirmation($event, pad.id, 'supprimer')" @keydown.enter="afficherModaleConfirmation($event, pad.id, 'supprimer')" :title="$t('supprimerPad')"><i class="material-icons">delete</i></span>
+								<span class="ajouter-favori" role="button" :tabindex="definirTabIndex()" @click="ajouterFavori(pad)" @keydown.enter="ajouterFavori(pad)" :title="$t('ajouterFavori')" v-if="!favoris.includes(pad.id) && onglet !== 'pads-corbeille'"><i class="material-icons">star_outline</i></span>
+								<span class="supprimer-favori" role="button" :tabindex="definirTabIndex()" @click="supprimerFavori(pad.id)" :title="$t('supprimerFavori')" v-else-if="favoris.includes(pad.id) && onglet !== 'pads-corbeille'"><i class="material-icons">star</i></span>
+								<span class="deplacer" role="button" :tabindex="definirTabIndex()" @click="afficherModaleDeplacerPad(pad.id)" @keydown.enter="afficherModaleDeplacerPad(pad.id)" :title="$t('ajouterDansDossier')" :class="{'actif': verifierDossierPad(pad.id)}" v-if="dossiers.length > 0 && onglet !== 'pads-corbeille'"><i class="material-icons">drive_file_move</i></span>
+								<span class="dupliquer" role="button" :tabindex="definirTabIndex()" @click="afficherModaleConfirmation($event, pad.id, 'dupliquer')" @keydown.enter="afficherModaleConfirmation($event, pad.id, 'dupliquer')" :title="$t('dupliquerPad')" v-if="onglet !== 'pads-corbeille'"><i class="material-icons">content_copy</i></span>
+								<span class="exporter" role="button" :tabindex="definirTabIndex()" @click="afficherModaleConfirmation($event, pad.id, 'exporter')" @keydown.enter="afficherModaleConfirmation($event, pad.id, 'exporter')" :title="$t('exporterPad')" v-if="onglet !== 'pads-corbeille'"><i class="material-icons">get_app</i></span>
+								<span class="restaurer" role="button" :tabindex="definirTabIndex()" @click="restaurerPad(pad)" @keydown.enter="restaurerPad(pad)" :title="$t('restaurer')" v-if="onglet === 'pads-corbeille'"><i class="material-icons">restore_from_trash</i></span>
+								<span class="supprimer" role="button" :tabindex="definirTabIndex()" @click="afficherModaleConfirmation($event, pad.id, 'supprimer')" @keydown.enter="afficherModaleConfirmation($event, pad.id, 'supprimer')" :title="$t('supprimerPad')" v-if="onglet === 'pads-corbeille'"><i class="material-icons">delete</i></span>
+								<span class="supprimer" role="button" :tabindex="definirTabIndex()" @click="mettrePadCorbeille(pad)" @keydown.enter="mettrePadCorbeille(pad)" :title="$t('supprimerPad')" v-else><i class="material-icons">delete</i></span>
 							</div>
 							<div class="actions" v-else>
 								<span class="ajouter-favori" role="button" :tabindex="definirTabIndex()" @click="ajouterFavori(pad)" @keydown.enter="ajouterFavori(pad)" :title="$t('ajouterFavori')" v-if="!favoris.includes(pad.id)"><i class="material-icons">star_outline</i></span>
@@ -214,7 +226,7 @@
 						<div :id="'pad-' + pad.id" class="pad mosaique" v-else :key="'pad_mosaique_' + indexPad">
 							<a class="conteneur" :class="{'fond-personnalise': !pad.fond.includes('/img/') && pad.fond.substring(0, 1) !== '#'}" :style="definirFond(pad.fond, pad.id)" :href="'/p/' + pad.id + '/' + pad.token">
 								<div class="meta">
-									<span class="titre"><span class="mise-a-jour" v-if="pad.hasOwnProperty('notification') && pad.notification.includes(identifiant)" />{{ pad.titre }}</span>
+									<span class="titre"><span class="mise-a-jour" v-if="pad.hasOwnProperty('notification') && pad.notification.includes(identifiant)" />{{ pad.titre }} <small v-if="verifierDossierPad(pad.id) && (onglet === 'pads-crees' || onglet === 'pads-rejoints' || onglet === 'pads-admins' || onglet === 'pads-favoris')"> (📁 {{ verifierTitreDossier(pad.id) }})</small></span>
 									<span class="date">{{ $t('creeLe') }} {{ $formaterDate(pad.date, langue) }}</span>
 									<span class="auteur" v-if="pad.identifiant !== identifiant">&nbsp;{{ $t('par') }} {{ pad.identifiant }}</span>
 									<span class="vues" v-if="pad.hasOwnProperty('vues') && pad.vues > 1"> - {{ pad.vues }} {{ $t('vues') }}</span>
@@ -223,12 +235,14 @@
 								</div>
 							</a>
 							<div class="actions" v-if="pad.identifiant === identifiant">
-								<span class="ajouter-favori" role="button" :tabindex="definirTabIndex()" @click="ajouterFavori(pad)" @keydown.enter="ajouterFavori(pad)" :title="$t('ajouterFavori')" v-if="!favoris.includes(pad.id)"><i class="material-icons">star_outline</i></span>
-								<span class="supprimer-favori" role="button" :tabindex="definirTabIndex()" @click="supprimerFavori(pad.id)" :title="$t('supprimerFavori')" v-else><i class="material-icons">star</i></span>
-								<span class="deplacer" role="button" :tabindex="definirTabIndex()" @click="afficherModaleDeplacerPad(pad.id)" @keydown.enter="afficherModaleDeplacerPad(pad.id)" :title="$t('ajouterDansDossier')" :class="{'actif': verifierDossierPad(pad.id)}" v-if="dossiers.length > 0"><i class="material-icons">drive_file_move</i></span>
-								<span class="dupliquer" role="button" :tabindex="definirTabIndex()" @click="afficherModaleConfirmation($event, pad.id, 'dupliquer')" @keydown.enter="afficherModaleConfirmation($event, pad.id, 'dupliquer')" :title="$t('dupliquerPad')"><i class="material-icons">content_copy</i></span>
-								<span class="exporter" role="button" :tabindex="definirTabIndex()" @click="afficherModaleConfirmation($event, pad.id, 'exporter')" @keydown.enter="afficherModaleConfirmation($event, pad.id, 'exporter')" :title="$t('exporterPad')"><i class="material-icons">get_app</i></span>
-								<span class="supprimer" role="button" :tabindex="definirTabIndex()" @click="afficherModaleConfirmation($event, pad.id, 'supprimer')" @keydown.enter="afficherModaleConfirmation($event, pad.id, 'supprimer')" :title="$t('supprimerPad')"><i class="material-icons">delete</i></span>
+								<span class="ajouter-favori" role="button" :tabindex="definirTabIndex()" @click="ajouterFavori(pad)" @keydown.enter="ajouterFavori(pad)" :title="$t('ajouterFavori')" v-if="!favoris.includes(pad.id) && onglet !== 'pads-corbeille'"><i class="material-icons">star_outline</i></span>
+								<span class="supprimer-favori" role="button" :tabindex="definirTabIndex()" @click="supprimerFavori(pad.id)" :title="$t('supprimerFavori')" v-else-if="favoris.includes(pad.id) && onglet !== 'pads-corbeille'"><i class="material-icons">star</i></span>
+								<span class="deplacer" role="button" :tabindex="definirTabIndex()" @click="afficherModaleDeplacerPad(pad.id)" @keydown.enter="afficherModaleDeplacerPad(pad.id)" :title="$t('ajouterDansDossier')" :class="{'actif': verifierDossierPad(pad.id)}" v-if="dossiers.length > 0 && onglet !== 'pads-corbeille'"><i class="material-icons">drive_file_move</i></span>
+								<span class="dupliquer" role="button" :tabindex="definirTabIndex()" @click="afficherModaleConfirmation($event, pad.id, 'dupliquer')" @keydown.enter="afficherModaleConfirmation($event, pad.id, 'dupliquer')" :title="$t('dupliquerPad')" v-if="onglet !== 'pads-corbeille'"><i class="material-icons">content_copy</i></span>
+								<span class="exporter" role="button" :tabindex="definirTabIndex()" @click="afficherModaleConfirmation($event, pad.id, 'exporter')" @keydown.enter="afficherModaleConfirmation($event, pad.id, 'exporter')" :title="$t('exporterPad')" v-if="onglet !== 'pads-corbeille'"><i class="material-icons">get_app</i></span>
+								<span class="restaurer" role="button" :tabindex="definirTabIndex()" @click="restaurerPad(pad)" @keydown.enter="restaurerPad(pad)" :title="$t('restaurer')" v-if="onglet === 'pads-corbeille'"><i class="material-icons">restore_from_trash</i></span>
+								<span class="supprimer" role="button" :tabindex="definirTabIndex()" @click="afficherModaleConfirmation($event, pad.id, 'supprimer')" @keydown.enter="afficherModaleConfirmation($event, pad.id, 'supprimer')" :title="$t('supprimerPad')" v-if="onglet === 'pads-corbeille'"><i class="material-icons">delete</i></span>
+								<span class="supprimer" role="button" :tabindex="definirTabIndex()" @click="mettrePadCorbeille(pad)" @keydown.enter="mettrePadCorbeille(pad)" :title="$t('supprimerPad')" v-else><i class="material-icons">delete</i></span>
 							</div>
 							<div class="actions" v-else>
 								<span class="ajouter-favori" role="button" :tabindex="definirTabIndex()" @click="ajouterFavori(pad)" @keydown.enter="ajouterFavori(pad)" :title="$t('ajouterFavori')" v-if="!favoris.includes(pad.id)"><i class="material-icons">star_outline</i></span>
@@ -305,7 +319,7 @@
 						<select id="champ-dossier-pad">
 							<option value="aucun" v-if="dossierActuel.id !== 'aucun'">{{ $t('aucunDossier') }}</option>
 							<template v-for="(item, indexItem) in dossiers">
-								<option :value="item.id" v-if="dossierActuel.id !== item.id" :key="'dossier_' + indexItem">{{ item.nom }}</option>
+								<option v-if="dossierActuel.id !== item.id" :value="item.id" :key="'dossier_' + indexItem">{{ item.nom }}</option>
 							</template>
 						</select>
 						<div class="actions">
@@ -484,6 +498,7 @@ export default {
 			classement: this.$pageContext.pageProps.classement,
 			limite: 100,
 			padsCrees: this.$pageContext.pageProps.padsCrees,
+			padsCorbeille: this.$pageContext.pageProps.padsCorbeille,
 			padsRejoints: this.$pageContext.pageProps.padsRejoints,
 			padsAdmins: this.$pageContext.pageProps.padsAdmins,
 			padsFavoris: this.$pageContext.pageProps.padsFavoris,
@@ -496,13 +511,15 @@ export default {
 		onglet: function (onglet) {
 			let pads = []
 			if (onglet === 'pads-crees') {
-				pads = this.padsCrees
+				pads = JSON.parse(JSON.stringify(this.padsCrees))
 			} else if (onglet === 'pads-rejoints') {
-				pads = this.padsRejoints
+				pads = JSON.parse(JSON.stringify(this.padsRejoints))
 			} else if (onglet === 'pads-admins') {
-				pads = this.padsAdmins
+				pads = JSON.parse(JSON.stringify(this.padsAdmins))
 			} else if (onglet === 'pads-favoris') {
-				pads = this.padsFavoris
+				pads = JSON.parse(JSON.stringify(this.padsFavoris))
+			} else if (onglet === 'pads-corbeille') {
+				pads = JSON.parse(JSON.stringify(this.padsCorbeille))
 			} else {
 				let listePads = []
 				this.dossiers.forEach(function (dossier) {
@@ -519,6 +536,7 @@ export default {
 			}
 			this.pads = pads
 			this.requete = ''
+			this.classer(this.classement)
 		},
 		requete: function () {
 			this.rechercher()
@@ -625,9 +643,15 @@ export default {
 		creerPad () {
 			if (this.titre !== '') {
 				this.chargementModale = true
+				const onglets = ['pads-crees', 'pads-rejoints', 'pads-admins', 'pads-favoris', 'pads-corbeille']
+				let dossierId = ''
+				if (this.onglet !== '' && !onglets.includes(this.onglet)) {
+					dossierId = this.onglet
+				}
 				axios.post(this.hote + '/api/creer-pad', {
 					titre: this.titre,
-					identifiant: this.identifiant
+					identifiant: this.identifiant,
+					dossier: dossierId
 				}).then(function (reponse) {
 					const donnees = reponse.data
 					if (donnees === 'non_connecte') {
@@ -692,6 +716,14 @@ export default {
 					} else {
 						this.onglet = 'pads-crees'
 						this.padsCrees.push(donnees)
+						this.classer(this.classement)
+						this.$nextTick(function () {
+							if (this.affichage === 'liste' && document.querySelector('#pad-' + donnees.id + ' a.meta')) {
+								document.querySelector('#pad-' + donnees.id + ' a.meta').focus()
+							} else if (this.affichage === 'mosaique' && document.querySelector('#pad-' + donnees.id + ' a')) {
+								document.querySelector('#pad-' + donnees.id + ' a').focus()
+							}
+						}.bind(this))
 						this.notification = this.$t('padImporte')
 					}
 				}.bind(this)).catch(function () {
@@ -814,6 +846,15 @@ export default {
 			})
 			return padDansDossier
 		},
+		verifierTitreDossier (padId) {
+			let titreDossier = ''
+			this.dossiers.forEach(function (dossier) {
+				if (dossier.pads.includes(padId)) {
+					titreDossier = dossier.nom
+				}
+			})
+			return titreDossier
+		},
 		afficherModaleDeplacerPad (padId) {
 			this.padId = padId
 			let dossierActuel = { id: 'aucun', nom: '' }
@@ -881,9 +922,15 @@ export default {
 		dupliquerPad () {
 			this.modaleConfirmation = ''
 			this.chargement = true
+			const onglets = ['pads-crees', 'pads-rejoints', 'pads-admins', 'pads-favoris', 'pads-corbeille']
+			let dossierId = ''
+			if (this.onglet !== '' && !onglets.includes(this.onglet)) {
+				dossierId = this.onglet
+			}
 			axios.post(this.hote + '/api/dupliquer-pad', {
 				padId: this.padId,
-				identifiant: this.identifiant
+				identifiant: this.identifiant,
+				dossier: dossierId
 			}).then(function (reponse) {
 				this.chargement = false
 				const donnees = reponse.data
@@ -897,9 +944,26 @@ export default {
 					this.message = this.$t('actionNonAutorisee')
 				} else {
 					this.padsCrees.push(donnees)
+					if (dossierId !== '') {
+						this.pads.push(donnees)
+						this.dossiers.forEach(function (dossier, indexDossier) {
+							if (dossier.id === dossierId) {
+								this.dossiers[indexDossier].pads.push(donnees.id)
+							}
+						}.bind(this))
+					} else {
+						this.onglet = 'pads-crees'
+					}
+					this.classer(this.classement)
+					this.$nextTick(function () {
+						if (this.affichage === 'liste' && document.querySelector('#pad-' + donnees.id + ' a.meta')) {
+							document.querySelector('#pad-' + donnees.id + ' a.meta').focus()
+						} else if (this.affichage === 'mosaique' && document.querySelector('#pad-' + donnees.id + ' a')) {
+							document.querySelector('#pad-' + donnees.id + ' a').focus()
+						}
+					}.bind(this))
 					this.notification = this.$t('padDuplique')
 					this.padId = ''
-					this.onglet = 'pads-crees'
 				}
 			}.bind(this)).catch(function () {
 				this.chargement = false
@@ -935,6 +999,113 @@ export default {
 				this.message = this.$t('erreurCommunicationServeur')
 			}.bind(this))
 		},
+		restaurerPad (pad) {
+			this.chargement = true
+			const padId = pad.id
+			axios.post(this.hote + '/api/restaurer-pad', {
+				padId: padId,
+				identifiant: this.identifiant
+			}).then(function (reponse) {
+				this.chargement = false
+				const donnees = reponse.data
+				if (donnees === 'non_connecte') {
+					window.location.href = '/'
+				} else if (donnees === 'non_autorise') {
+					this.message = this.$t('actionNonAutorisee')
+				} else if (donnees === 'pad_restaure') {
+					this.padsCrees.push(pad)
+					this.padsCorbeille.forEach(function (pad, index) {
+						if (pad.id === padId) {
+							if (pad.favori === true) {
+								this.padsFavoris.push(pad)
+								this.favoris.push(padId)
+							}
+							if (pad.dossier !== '') {
+								this.dossiers.forEach(function (dossier, indexDossier) {
+									if (dossier.id === pad.dossier) {
+										this.dossiers[indexDossier].pads.push(padId)
+									}
+								}.bind(this))
+							}
+							this.padsCorbeille.splice(index, 1)
+						}
+					}.bind(this))
+					this.pads.forEach(function (pad, index) {
+						if (pad.id === padId) {
+							this.pads.splice(index, 1)
+						}
+					}.bind(this))
+					this.resultats.forEach(function (pad, index) {
+						if (pad.id === padId) {
+							this.resultats.splice(index, 1)
+						}
+					}.bind(this))
+					this.classer(this.classement)
+					this.notification = this.$t('padRestaure')
+				}
+			}.bind(this)).catch(function () {
+				this.chargement = false
+				this.message = this.$t('erreurCommunicationServeur')
+			}.bind(this))
+		},
+		mettrePadCorbeille (pad) {
+			this.chargement = true
+			const padId = pad.id
+			axios.post(this.hote + '/api/mettre-pad-corbeille', {
+				padId: padId,
+				identifiant: this.identifiant
+			}).then(function (reponse) {
+				this.chargement = false
+				const donnees = reponse.data
+				if (donnees === 'non_connecte') {
+					window.location.href = '/'
+				} else if (donnees === 'non_autorise') {
+					this.message = this.$t('actionNonAutorisee')
+				} else if (donnees === 'pad_supprime') {
+					pad.favori = false
+					pad.dossier = ''
+					this.padsFavoris.forEach(function (favori, indexFavori) {
+						if (favori.id === padId) {
+							this.padsFavoris.splice(indexFavori, 1)
+							pad.favori = true
+						}
+					}.bind(this))
+					this.dossiers.forEach(function (dossier, index) {
+						if (dossier.pads.includes(padId)) {
+							const indexContenu = dossier.pads.indexOf(padId)
+							this.dossiers[index].pads.splice(indexContenu, 1)
+							pad.dossier = dossier.id
+						}
+					}.bind(this))
+					this.padsCorbeille.push(pad)
+					this.padsCrees.forEach(function (pad, index) {
+						if (pad.id === padId) {
+							this.padsCrees.splice(index, 1)
+						}
+					}.bind(this))
+					this.pads.forEach(function (pad, index) {
+						if (pad.id === padId) {
+							this.pads.splice(index, 1)
+						}
+					}.bind(this))
+					this.favoris.forEach(function (favori, index) {
+						if (favori === padId) {
+							this.favoris.splice(index, 1)
+						}
+					}.bind(this))
+					this.resultats.forEach(function (pad, index) {
+						if (pad.id === padId) {
+							this.resultats.splice(index, 1)
+						}
+					}.bind(this))
+					this.classer(this.classement)
+					this.notification = this.$t('padDansCorbeille')
+				}
+			}.bind(this)).catch(function () {
+				this.chargement = false
+				this.message = this.$t('erreurCommunicationServeur')
+			}.bind(this))
+		},
 		supprimerPad () {
 			this.modaleConfirmation = ''
 			this.chargement = true
@@ -954,9 +1125,9 @@ export default {
 				} else if (donnees === 'erreur_suppression') {
 					this.message = this.$t('erreurSuppressionPad')
 				} else {
-					this.padsCrees.forEach(function (pad, index) {
+					this.padsCorbeille.forEach(function (pad, index) {
 						if (pad.id === this.padId) {
-							this.padsCrees.splice(index, 1)
+							this.padsCorbeille.splice(index, 1)
 						}
 					}.bind(this))
 					this.padsRejoints.forEach(function (pad, index) {
@@ -1728,25 +1899,12 @@ export default {
 }
 
 .pad.liste .meta {
-	width: calc(100% - (96px + 13.5rem));
-}
-
-.pad.liste .meta.pad-rejoint {
-	width: calc(100% - (48px + 10.5rem));
-}
-
-.pad.liste .meta.deplacer {
-	width: calc(100% - (120px + 15rem));
-}
-
-.pad.liste .meta.pad-rejoint.deplacer {
-	width: calc(100% - (72px + 12rem));
+	flex-grow: 1;
 }
 
 .pad.liste .titre {
 	font-size: 1.8rem;
 	font-weight: 700;
-	margin-right: 0.7rem;
 }
 
 .pad.liste .vues,

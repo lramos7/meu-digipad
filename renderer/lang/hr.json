@@ -14,7 +14,7 @@
 	"remplirChamps": "Molimo, ispunite sva polja obrasca.",
 	"identifiantExisteDeja": "Korisničko ime <i>{identifiant}<\/i> već postoji.",
 	"motsDePassePasIdentiques": "Te dvije lozinke se ne podudaraju.",
-	"monCompte": "Moj račun",
+	"monCompte": "Moj račun Digipad",
 	"parametresCompte": "Postavke računa",
 	"rechercher": "Traži",
 	"recherche": "Traži",
@@ -395,5 +395,9 @@
 	"parametreFondModifie": "Promijenjena postavka ponavljanja pozadinske slike.",
 	"couleur": "Boja",
 	"aValideCapsule": "validirao obradu \"{titre}\"",
-	"aValideUneCapsule": "validirao objavu"
+	"aValideUneCapsule": "validirao objavu",
+	"corbeille": "Kanta za otpad",
+	"restaurer": "Obnova",
+	"padRestaure": "Ploča je vraćena.",
+	"padDansCorbeille": "Ploča je premještena u kantu."
 }

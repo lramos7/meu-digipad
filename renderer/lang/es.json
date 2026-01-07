@@ -14,7 +14,7 @@
 	"remplirChamps": "Por favor, complete todos los campos del formulario.",
 	"identifiantExisteDeja": "El usuario <i>{identifiant}<\/i> ya existe.",
 	"motsDePassePasIdentiques": "Las 2 contraseñas no coinciden.",
-	"monCompte": "Mi cuenta",
+	"monCompte": "Mi cuenta Digipad",
 	"parametresCompte": "Parámetros de cuenta",
 	"rechercher": "Buscar",
 	"recherche": "Buscar",
@@ -395,5 +395,9 @@
 	"parametreFondModifie": "Parámetro de repetición de imagen de fondo modificado.",
 	"couleur": "Color",
 	"aValideCapsule": "ha aprobado la cápsula «{titre}»",
-	"aValideUneCapsule": "ha aprobado una cápsula"
+	"aValideUneCapsule": "ha aprobado una cápsula",
+	"corbeille": "Papelera",
+	"restaurer": "Restaurar",
+	"padRestaure": "Pad restaurado.",
+	"padDansCorbeille": "Pad enviado a la papelera."
 }
