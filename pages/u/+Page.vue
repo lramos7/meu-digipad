@@ -15,18 +15,18 @@
 		<div class="menu gauche" v-if="menu" role="menu">
 			<div class="en-tete">
 				<span class="titre">{{ $t('parametresCompte') }}</span>
-				<span class="fermer" role="button" :tabindex="definirTabIndex()" @click="fermerMenu" @keydown.enter="fermerMenu"><i class="material-icons">close</i></span>
+				<span class="fermer" role="button" :tabindex="definirTabIndexMenu()" @click="fermerMenu" @keydown.enter="fermerMenu"><i class="material-icons">close</i></span>
 			</div>
 			<div class="contenu ascenseur">
 				<div class="conteneur">
 					<label>{{ $t('langue') }}</label>
 					<div id="langues">
-						<span role="button" :tabindex="definirTabIndex()" :class="{'selectionne': langue === 'fr'}" @click="modifierLangue('fr')" @keydown.enter="modifierLangue('fr')">FR</span>
-						<span role="button" :tabindex="definirTabIndex()" :class="{'selectionne': langue === 'es'}" @click="modifierLangue('es')" @keydown.enter="modifierLangue('es')">ES</span>
-						<span role="button" :tabindex="definirTabIndex()" :class="{'selectionne': langue === 'it'}" @click="modifierLangue('it')" @keydown.enter="modifierLangue('it')">IT</span>
-						<span role="button" :tabindex="definirTabIndex()" :class="{'selectionne': langue === 'de'}" @click="modifierLangue('de')" @keydown.enter="modifierLangue('de')">DE</span>
-						<span role="button" :tabindex="definirTabIndex()" :class="{'selectionne': langue === 'en'}" @click="modifierLangue('en')" @keydown.enter="modifierLangue('en')">EN</span>
-						<span role="button" :tabindex="definirTabIndex()" :class="{'selectionne': langue === 'hr'}" @click="modifierLangue('hr')" @keydown.enter="modifierLangue('hr')">HR</span>
+						<span role="button" :tabindex="definirTabIndexMenu()" :class="{'selectionne': langue === 'fr'}" @click="modifierLangue('fr')" @keydown.enter="modifierLangue('fr')">FR</span>
+						<span role="button" :tabindex="definirTabIndexMenu()" :class="{'selectionne': langue === 'es'}" @click="modifierLangue('es')" @keydown.enter="modifierLangue('es')">ES</span>
+						<span role="button" :tabindex="definirTabIndexMenu()" :class="{'selectionne': langue === 'it'}" @click="modifierLangue('it')" @keydown.enter="modifierLangue('it')">IT</span>
+						<span role="button" :tabindex="definirTabIndexMenu()" :class="{'selectionne': langue === 'de'}" @click="modifierLangue('de')" @keydown.enter="modifierLangue('de')">DE</span>
+						<span role="button" :tabindex="definirTabIndexMenu()" :class="{'selectionne': langue === 'en'}" @click="modifierLangue('en')" @keydown.enter="modifierLangue('en')">EN</span>
+						<span role="button" :tabindex="definirTabIndexMenu()" :class="{'selectionne': langue === 'hr'}" @click="modifierLangue('hr')" @keydown.enter="modifierLangue('hr')">HR</span>
 					</div>
 				</div>
 				<div class="conteneur">
@@ -42,13 +42,13 @@
 					<input id="email" type="text" :value="email" @keydown.enter="modifierInformations">
 				</div>
 				<div class="conteneur conteneur-bouton">
-					<span class="bouton-vert" role="button":tabindex="definirTabIndex()" @click="modifierInformations" @keydown.enter="modifierInformations">{{ $t('enregistrer') }}</span>
+					<span class="bouton-vert" role="button":tabindex="definirTabIndexMenu()" @click="modifierInformations" @keydown.enter="modifierInformations">{{ $t('enregistrer') }}</span>
 				</div>
 				<div class="conteneur conteneur-bouton">
-					<span class="bouton-bleu" role="button" :tabindex="definirTabIndex()" @click="afficherModaleMotDePasse" @keydown.enter="afficherModaleMotDePasse">{{ $t('modifierMotDePasse') }}</span>
+					<span class="bouton-bleu" role="button" :tabindex="definirTabIndexMenu()" @click="afficherModaleMotDePasse" @keydown.enter="afficherModaleMotDePasse">{{ $t('modifierMotDePasse') }}</span>
 				</div>
 				<div class="conteneur conteneur-bouton">
-					<span class="bouton-rouge" role="button" :tabindex="definirTabIndex()" @click="afficherModaleConfirmation($event, '', 'supprimer-compte')" @keydown.enter="afficherModaleConfirmation($event, '', 'supprimer-compte')">{{ $t('supprimerCompte') }}</span>
+					<span class="bouton-rouge" role="button" :tabindex="definirTabIndexMenu()" @click="afficherModaleConfirmation($event, '', 'supprimer-compte')" @keydown.enter="afficherModaleConfirmation($event, '', 'supprimer-compte')">{{ $t('supprimerCompte') }}</span>
 				</div>
 			</div>
 		</div>
@@ -606,6 +606,9 @@ export default {
 		},
 		definirTabIndex () {
 			return this.modale === '' && this.message === '' && this.modaleConfirmation === '' && !this.menu ? 0 : -1
+		},
+		definirTabIndexMenu () {
+			return this.modale === '' && this.message === '' && this.modaleConfirmation === '' ? 0 : -1
 		},
 		definirTabIndexModale () {
 			return this.message === '' && this.modaleConfirmation === '' ? 0 : -1
