@@ -386,5 +386,9 @@
 	"corbeille": "Papierkorb",
 	"restaurer": "Wiederherstellen",
 	"padRestaure": "Pad wiederhergestellt.",
-	"padDansCorbeille": "Pad in den Papierkorb verschoben."
+	"padDansCorbeille": "Pad in den Papierkorb verschoben.",
+	"emailExisteDeja": "Die E-Mail-Adresse <i>{email}<\/i> ist nicht verfügbar.",
+	"activationEnvoyee": "Ein Aktivierungslink wurde gerade an Ihre E-Mail-Adresse gesendet. Klicken Sie auf den Link, um Ihr Konto zu aktivieren.",
+	"compteActive": "Ihr Konto wurde aktiviert.",
+	"erreurEnvoiEmail": "Fehler beim Versenden der E-Mail. Möglicherweise wurde das Tageslimit für die Anzahl der versendeten Nachrichten erreicht."
 }

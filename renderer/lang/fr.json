@@ -386,5 +386,9 @@
 	"corbeille": "Corbeille",
 	"restaurer": "Restaurer",
 	"padRestaure": "Pad restauré.",
-	"padDansCorbeille": "Pad mis à la corbeille."
+	"padDansCorbeille": "Pad mis à la corbeille.",
+	"emailExisteDeja": "L'adresse e-mail <i>{email}<\/i> est déjà utilisée.",
+	"activationEnvoyee": "Un lien d'activation vient d'être envoyé à votre adresse e-mail. Cliquez sur le lien pour activer votre compte.",
+	"compteActive": "Votre compte a été activé.",
+	"erreurEnvoiEmail": "Erreur lors de l'envoi de l'e-mail. La limite quotidienne du nombre de messages envoyés a peut-être été atteinte."
 }

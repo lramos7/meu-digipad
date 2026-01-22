@@ -290,12 +290,21 @@ export default {
 					motdepasse: this.motDePasse.trim(),
 					email: this.email.trim()
 				}).then(function (reponse) {
+					this.chargement = false
 					const donnees = reponse.data
 					if (donnees === 'utilisateur_existe_deja') {
-						this.chargement = false
 						this.message = this.$t('identifiantExisteDeja', { identifiant: this.identifiant.trim() })
+					} else if (donnees === 'email_existe_deja') {
+						this.message = this.$t('emailExisteDeja', { email: this.email })
+					} else if (donnees === 'identifiant_invalide') {
+						this.message = this.$t('identifiantNonConforme')
+					} else if (donnees === 'erreur_email') {
+						this.message = this.$t('erreurEnvoiEmail')
+					} else if (donnees === 'activation_demandee') {
+						this.fermerModaleInscription()
+						this.message = this.$t('activationEnvoyee')
 					} else {
-						window.location.href = '/u/' + donnees.identifiant
+						this.message = this.$t('erreurCommunicationServeur')
 					}
 				}.bind(this)).catch(function () {
 					this.chargement = false
@@ -312,13 +321,10 @@ export default {
 			}
 		},
 		verifierIdentifant (identifiant) {
-			const caracteres = ['?', '#', '$', '&', '%', '[', ']', '{', '}', '<', '>', '/', '@', '"', "'", '*', '+', '°', '=', '€']
-			let conforme = true
-			caracteres.forEach(function (caractere) {
-				if (identifiant.includes(caractere)) {
-					conforme = false
-				}
-			})
+			let conforme = false
+			if (identifiant.match(/^[\w-]+$/)) {
+				conforme = true
+			}
 			if (identifiant.length < 3) {
 				conforme = false
 			}
@@ -346,6 +352,8 @@ export default {
 						this.message = this.$t('identifiantNonValide')
 					} else if (donnees === 'email_invalide') {
 						this.message = this.$t('emailNonValide')
+					} else if (donnees === 'erreur_email') {
+						this.message = this.$t('erreurEnvoiEmail')
 					} else {
 						this.fermerModaleMotDePasseOublie()
 						this.notification = this.$t('emailEnvoye')
@@ -369,6 +377,7 @@ export default {
 		fermerModaleInscription () {
 			this.modale = ''
 			this.identifiant = ''
+			this.email = ''
 			this.motDePasse = ''
 			this.confirmationMotDePasse = ''
 			this.gererFocus()

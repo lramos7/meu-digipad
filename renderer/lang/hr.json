@@ -386,5 +386,9 @@
 	"corbeille": "Kanta za otpad",
 	"restaurer": "Obnova",
 	"padRestaure": "Ploča je vraćena.",
-	"padDansCorbeille": "Ploča je premještena u kantu."
+	"padDansCorbeille": "Ploča je premještena u kantu.",
+	"emailExisteDeja": "Adresa e-pošte <i>{email}</i> je već u upotrebi.",
+	"activationEnvoyee": "Poveznica za aktivaciju poslana je na vašu e-mail adresu. Kliknite na poveznicu kako biste aktivirali svoj račun.",
+	"compteActive": "Vaš je račun aktiviran.",
+	"erreurEnvoiEmail": "Pogreška pri slanju e-pošte. Možda je dostignuta dnevna granica broja poslatih poruka."
 }

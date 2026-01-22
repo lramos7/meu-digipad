@@ -386,5 +386,9 @@
 	"corbeille": "Trashbin",
 	"restaurer": "Restore",
 	"padRestaure": "Pad restored.",
-	"padDansCorbeille": "Pad trashed."
+	"padDansCorbeille": "Pad trashed.",
+	"emailExisteDeja": "The email address <i>{email}<\/i> is already in use.",
+	"activationEnvoyee": "An activation link has been sent to your email address. Click on the link to activate your account.",
+	"compteActive": "Your account has been activated.",
+	"erreurEnvoiEmail": "Error while sending the email. The daily limit for the number of messages sent may have been reached."
 }
