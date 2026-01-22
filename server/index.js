@@ -1399,7 +1399,7 @@ async function demarrerServeur () {
 	app.post('/api/exporter-pad', async function (req, res) {
 		const identifiant = req.body.identifiant
 		const motdepasseAdmin = req.body.admin
-		const motdepasseEnvAdmin = process.env.VITE_ADMIN_PASSWORD
+		const motdepasseEnvAdmin = process.env.ADMIN_PASSWORD
 		let admin = false
 		if (motdepasseAdmin !== '' && motdepasseAdmin === motdepasseEnvAdmin) {
 			admin = true
@@ -1683,7 +1683,7 @@ async function demarrerServeur () {
 		}
 		const identifiant = req.body.identifiant
 		const motdepasseAdmin = req.body.admin
-		const motdepasseEnvAdmin = process.env.VITE_ADMIN_PASSWORD
+		const motdepasseEnvAdmin = process.env.ADMIN_PASSWORD
 		const pad = req.body.padId
 		const type = req.body.type
 		let admin = false
@@ -1927,7 +1927,7 @@ async function demarrerServeur () {
 
 	app.post('/api/verifier-mot-de-passe-admin', function (req, res) {
 		const admin = req.body.admin
-		if (admin !== '' && admin === process.env.VITE_ADMIN_PASSWORD) {
+		if (admin !== '' && admin === process.env.ADMIN_PASSWORD) {
 			res.send('acces_verifie')
 		} else {
 			res.send('acces_invalide')
@@ -1936,7 +1936,7 @@ async function demarrerServeur () {
 
 	app.post('/api/modifier-mot-de-passe-admin', async function (req, res) {
 		const admin = req.body.admin
-		if (admin !== '' && admin === process.env.VITE_ADMIN_PASSWORD) {
+		if (admin !== '' && admin === process.env.ADMIN_PASSWORD) {
 			const identifiant = req.body.identifiant
 			const email = req.body.email.toLowerCase()
 			if (identifiant !== '') {
@@ -1991,7 +1991,7 @@ async function demarrerServeur () {
 	app.post('/api/recuperer-donnees-pad-admin', async function (req, res) {
 		const pad = req.body.padId
 		const admin = req.body.admin
-		if (admin !== '' && admin === process.env.VITE_ADMIN_PASSWORD) {
+		if (admin !== '' && admin === process.env.ADMIN_PASSWORD) {
 			const resultat = await db.EXISTS('pads:' + pad)
 			if (resultat === null) { res.send('erreur'); return false }
 			if (resultat === 1) {
@@ -2019,7 +2019,7 @@ async function demarrerServeur () {
 		const champ = req.body.champ
 		const valeur = req.body.valeur
 		const admin = req.body.admin
-		if (admin !== '' && admin === process.env.VITE_ADMIN_PASSWORD) {
+		if (admin !== '' && admin === process.env.ADMIN_PASSWORD) {
 			const resultat = await db.EXISTS('pads:' + pad)
 			if (resultat === null) { res.send('erreur'); return false }
 			if (resultat === 1) {
@@ -2056,7 +2056,7 @@ async function demarrerServeur () {
 		const pad = req.body.padId
 		const identifiant = req.body.identifiant
 		const admin = req.body.admin
-		if (admin !== '' && admin === process.env.VITE_ADMIN_PASSWORD) {
+		if (admin !== '' && admin === process.env.ADMIN_PASSWORD) {
 			const reponse = await db.EXISTS('utilisateurs:' + identifiant)
 			if (reponse === null) { res.send('erreur'); return false  }
 			if (reponse === 1) {
@@ -2116,7 +2116,7 @@ async function demarrerServeur () {
 		const nouvelIdentifiant = req.body.nouvelIdentifiant
 		const pad = req.body.padId
 		const admin = req.body.admin
-		if (admin !== '' && admin === process.env.VITE_ADMIN_PASSWORD) {
+		if (admin !== '' && admin === process.env.ADMIN_PASSWORD) {
 			const resultat = await db.EXISTS('utilisateurs:' + nouvelIdentifiant)
 			if (resultat === null) { res.send('erreur'); return false  }
 			if (resultat === 1) {
@@ -2176,7 +2176,7 @@ async function demarrerServeur () {
 		const identifiant = req.body.identifiant
 		const nouvelIdentifiant = req.body.nouvelIdentifiant
 		const admin = req.body.admin
-		if (admin !== '' && admin === process.env.VITE_ADMIN_PASSWORD) {
+		if (admin !== '' && admin === process.env.ADMIN_PASSWORD) {
 			const reponse = await db.EXISTS('utilisateurs:' + identifiant)
 			if (reponse === null) { res.send('erreur'); return false  }
 			if (reponse === 1) {
@@ -2251,7 +2251,7 @@ async function demarrerServeur () {
 		}
 		const identifiant = req.body.identifiant
 		const motdepasseAdmin = req.body.admin
-		const motdepasseEnvAdmin = process.env.VITE_ADMIN_PASSWORD
+		const motdepasseEnvAdmin = process.env.ADMIN_PASSWORD
 		let admin = false
 		if (motdepasseAdmin !== '' && motdepasseAdmin === motdepasseEnvAdmin) {
 			admin = true
@@ -5748,14 +5748,14 @@ async function demarrerServeur () {
 		})
 
 		socket.on('activermaintenance', function (admin) {
-			if (admin !== '' && admin === process.env.VITE_ADMIN_PASSWORD) {
+			if (admin !== '' && admin === process.env.ADMIN_PASSWORD) {
 				maintenance = true
 				socket.emit('verifiermaintenance', true)
 			}
 		})
 
 		socket.on('desactivermaintenance', function (admin) {
-			if (admin !== '' && admin === process.env.VITE_ADMIN_PASSWORD) {
+			if (admin !== '' && admin === process.env.ADMIN_PASSWORD) {
 				maintenance = false
 				socket.emit('verifiermaintenance', false)
 			}
