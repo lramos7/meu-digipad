@@ -30,7 +30,8 @@ exporterPadsJson()
 
 async function exporterPadsJson () {
 	const jours = 100
-	const pad = await db.GET('pad')
+	let pad = await db.GET('pad')
+	pad = parseInt(pad)
 	for (let i = 0; i < pad + 1; i++) {
 		const id = i
 		const chemin = path.join(__dirname, '..', '/static/pads')
