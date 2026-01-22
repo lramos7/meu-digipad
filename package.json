@@ -19,7 +19,7 @@
     "server": "nodemon --watch server ./server",
     "server:prod": "cross-env NODE_ENV=production node ./server",
     "export": "cross-env NODE_ENV=production node server/exporter-pads-json.js",
-    "exportpg": "cross-env NODE_ENV=production node server/exporter-pads-pg-json.js",
+    "cleandb": "cross-env NODE_ENV=production node server/nettoyer-db.js",
     "maintenance": "cross-env NODE_ENV=production node server/maintenance.js"
   },
   "type": "module",
