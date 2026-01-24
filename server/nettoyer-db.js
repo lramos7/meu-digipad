@@ -52,12 +52,14 @@ async function nettoyerDb () {
 		let d = await db.HGETALL('utilisateurs:' + identifiant)
 		d = Object.assign({}, d)
 		if (d.hasOwnProperty('motdepasse') && d.hasOwnProperty('date') && dayjs(new Date(d.date)).isBefore(dayjs().subtract(jours, 'days'))) {
-			const pads = await db.SMEMBERS('pads-crees:' + identifiant)
-			let email = ''
-			if (d.hasOwnProperty('email')) {
-				email = d.email
-			}
-			if (pads.length === 0) {
+			const padsCrees = await db.SMEMBERS('pads-crees:' + identifiant)
+			const padsRejoints = await db.SMEMBERS('pads-rejoints:' + identifiant)
+			const padsAdmin = await db.SMEMBERS('pads-admins:' + identifiant)
+			if (padsCrees.length === 0 && padsRejoints.length === 0 && padsAdmin.length === 0) {
+				let email = ''
+				if (d.hasOwnProperty('email')) {
+					email = d.email
+				}
 				const suppression = await supprimerCompte(identifiant, email)
 				console.log(suppression)
 			}
