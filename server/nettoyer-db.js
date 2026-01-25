@@ -36,7 +36,11 @@ async function nettoyerDb () {
 			let d = await db.HGETALL('pads:' + id)
 			d = Object.assign({}, d)
 			listeUtilisateurs.push(d.identifiant)
-			if ((d.hasOwnProperty('modifie') && dayjs(new Date(d.modifie)).isBefore(dayjs().subtract(jours, 'days'))) || (d.hasOwnProperty('date') && dayjs(new Date(d.date)).isBefore(dayjs().subtract(jours, 'days')))) {
+			let colonnes = []
+			try {
+				colonnes = JSON.parse(d.colonnes)
+			} catch (e) {}
+			if (colonnes.length === 0 && (d.hasOwnProperty('modifie') && dayjs(new Date(d.modifie)).isBefore(dayjs().subtract(jours, 'days'))) || (d.hasOwnProperty('date') && dayjs(new Date(d.date)).isBefore(dayjs().subtract(jours, 'days')))) {
 				const blocs = await db.ZRANGE('blocs:' + id, 0, -1)
 				if (blocs.length === 0) {
 					const suppression = await supprimerPad(d.identifiant, id)
