@@ -2620,35 +2620,44 @@ async function demarrerServeur () {
 		if (motdepasse.trim() !== '' && donnees.hasOwnProperty('motdepasse') && donnees.motdepasse.trim() !== '' && await bcrypt.compare(motdepasse, donnees.motdepasse)) {
 			const identifiant = req.body.identifiant
 			const acces = req.body.acces
+			let langue = 'fr'
+			if (req.session.hasOwnProperty('langue') && req.session.langue !== '' && req.session.langue !== undefined) {
+				langue = req.session.langue
+			}
+			let nom = ''
+			if (req.session.hasOwnProperty('nom') && req.session.nom !== '' && req.session.nom !== undefined) {
+				nom = req.session.nom
+			}
 			const resultat = await db.EXISTS('utilisateurs:' + identifiant)
-			if (resultat === null) { res.json({ message: 'erreur' }); return false }
 			if (resultat === 1) {
 				let utilisateur = await db.HGETALL('utilisateurs:' + identifiant)
 				utilisateur = Object.assign({}, utilisateur)
-				if (utilisateur === null) { res.json({ message: 'erreur' }); return false }
-				req.session.identifiant = identifiant
-				req.session.motdepasse = ''
-				req.session.nom = utilisateur.nom
-				req.session.statut = 'auteur'
-				req.session.langue = utilisateur.langue
-				if (!req.session.hasOwnProperty('acces')) {
-					req.session.acces = []
-				}
-				if (!req.session.hasOwnProperty('pads')) {
-					req.session.pads = []
-				}
-				if (!req.session.pads.includes(parseInt(pad))) {
-					req.session.pads.push(parseInt(pad))
-				}
-				req.session.cookie.expires = new Date(Date.now() + dureeSession)
-				if (acces === true) {
-					res.json({ message: 'motdepasse_correct', identifiant: identifiant, nom: utilisateur.nom, langue: utilisateur.langue })
-				} else {
-					const donneesPad = await recupererDonneesPadProtege(donnees, pad, identifiant)
-					res.json({ message: 'motdepasse_correct', identifiant: identifiant, nom: utilisateur.nom, langue: utilisateur.langue, pad: donneesPad.pad, blocs: donneesPad.blocs, activite: donneesPad.activite.reverse() })
-				}
+				nom = utilisateur.nom
+				langue = utilisateur.langue
 			} else {
-				res.json({ message: 'erreur' })
+				const date = dayjs().format()
+				await db.HSET('utilisateurs:' + identifiant, ['id', identifiant, 'date', date, 'nom', nom, 'langue', langue])
+			}
+			req.session.identifiant = identifiant
+			req.session.motdepasse = ''
+			req.session.nom = nom
+			req.session.statut = 'auteur'
+			req.session.langue = langue
+			if (!req.session.hasOwnProperty('acces')) {
+				req.session.acces = []
+			}
+			if (!req.session.hasOwnProperty('pads')) {
+				req.session.pads = []
+			}
+			if (!req.session.pads.includes(parseInt(pad))) {
+				req.session.pads.push(parseInt(pad))
+			}
+			req.session.cookie.expires = new Date(Date.now() + dureeSession)
+			if (acces === true) {
+				res.json({ message: 'motdepasse_correct', identifiant: identifiant, nom: nom, langue: langue })
+			} else {
+				const donneesPad = await recupererDonneesPadProtege(donnees, pad, identifiant)
+				res.json({ message: 'motdepasse_correct', identifiant: identifiant, nom: nom, langue: langue, pad: donneesPad.pad, blocs: donneesPad.blocs, activite: donneesPad.activite.reverse() })
 			}
 		} else {
 			res.json({ message: 'motdepasse_incorrect' })
