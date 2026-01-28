@@ -86,7 +86,7 @@ async function demarrerServeur () {
 			},
 			forcePathStyle: s3ServerType === 'minio' ? true : false,
 			requestHandler: {
-				requestTimeout: 30_000,
+				requestTimeout: 60_000,
 				httpsAgent: { maxSockets: maxSockets }
 			}
 		})
