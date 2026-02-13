@@ -54,7 +54,6 @@
     "gm": "^1.25.0",
     "helmet": "^8.1.0",
     "imagesloaded": "^5.0.0",
-    "isomorphic-dompurify": "^2.31.0",
     "lamejs": "github:zhuker/lamejs",
     "libreoffice-convert": "^1.7.0",
     "linkify-html": "^4.3.2",
