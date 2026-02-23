@@ -19,20 +19,15 @@ RUN npm install
 # 3. Copia o código
 COPY . .
 
-# 4. Define variáveis para o processo de BUILD
-# O Vite precisa disso no momento da compilação para gerar os links corretos
-ARG DOMAIN=https://digipad.aicortix.top
-ENV DOMAIN=$DOMAIN
-ENV NODE_ENV=production
-ENV VITE_STORAGE=fs
 
-# Limpa builds anteriores e gera o novo
-RUN rm -rf dist && npm run build
+# Forçamos a instalação limpa e o build com a variável de ambiente injetada
+RUN npm install && \
+    NODE_ENV=production DOMAIN=https://digipad.aicortix.top npm run build
+
+# Permissões de escrita para as pastas de dados
+RUN mkdir -p public/uploads public/temp public/export && chmod -R 777 public/
 
 EXPOSE 3000
 
-# Garante permissões nas pastas que o app vai escrever
-RUN mkdir -p public/uploads public/temp && chmod -R 777 public/uploads public/temp
-
-# 5. Comando de inicialização
+# Comando para rodar
 CMD ["pm2-runtime", "start", "ecosystem.config.cjs", "--env", "production"]
