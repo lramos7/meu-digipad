@@ -1,6 +1,6 @@
 FROM node:20-bookworm
 
-# Instala dependências de sistema
+# 1. Instala dependências de sistema
 RUN apt-get update && apt-get install -y --no-install-recommends \
     graphicsmagick \
     ghostscript \
@@ -12,24 +12,27 @@ RUN npm install -g pm2
 
 WORKDIR /usr/src/app
 
-# Copia arquivos e instala dependências
+# 2. Instala dependências do Node
 COPY package*.json ./
 RUN npm install
 
-# Copia o resto do código
+# 3. Copia o código
 COPY . .
 
-# CRUCIAL: O Build precisa das variáveis de ambiente durante a compilação
-# Substitua a URL abaixo se ela mudar
+# 4. Define variáveis para o processo de BUILD
+# O Vite precisa disso no momento da compilação para gerar os links corretos
 ARG DOMAIN=https://aicortix-digipad.s1q8w8.easypanel.host
 ENV DOMAIN=$DOMAIN
 ENV NODE_ENV=production
+ENV VITE_STORAGE=fs
 
-RUN npm run build
+# Limpa builds anteriores e gera o novo
+RUN rm -rf dist && npm run build
 
 EXPOSE 3000
 
-# Garante que as pastas de uploads existam
-RUN mkdir -p public/uploads public/temp
+# Garante permissões nas pastas que o app vai escrever
+RUN mkdir -p public/uploads public/temp && chmod -R 777 public/uploads public/temp
 
+# 5. Comando de inicialização
 CMD ["pm2-runtime", "start", "ecosystem.config.cjs", "--env", "production"]
