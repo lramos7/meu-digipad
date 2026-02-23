@@ -21,7 +21,7 @@ COPY . .
 
 # 4. Define variáveis para o processo de BUILD
 # O Vite precisa disso no momento da compilação para gerar os links corretos
-ARG DOMAIN=https://aicortix-digipad.s1q8w8.easypanel.host
+ARG DOMAIN=https://digipad.aicortix.top
 ENV DOMAIN=$DOMAIN
 ENV NODE_ENV=production
 ENV VITE_STORAGE=fs
