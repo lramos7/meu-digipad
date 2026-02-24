@@ -1,10 +1,4 @@
-FROM node:20-bookworm
-
-RUN apt-get update && apt-get install -y \
-    graphicsmagick \
-    ghostscript \
-    libreoffice \
-    && rm -rf /var/lib/apt/lists/*
+FROM node:20-alpine
 
 WORKDIR /app
 
@@ -13,8 +7,8 @@ RUN npm install
 
 COPY . .
 
-ENV NODE_ENV=production
+RUN npm run build
 
 EXPOSE 3000
 
-CMD ["npm", "run", "prod"]
+CMD ["npm", "run", "server:prod"]
