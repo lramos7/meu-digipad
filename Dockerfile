@@ -13,15 +13,12 @@ RUN npm install
 
 COPY . .
 
-# Copia .env para dentro da imagem antes do build
-# (ou use ARG/ENV se preferir)
-COPY .env .env
-
-# Build com variáveis corretas
 RUN npm run build
+
+RUN npm install -g pm2
 
 ENV NODE_ENV=production
 
 EXPOSE 3000
 
-CMD ["npm", "run", "prod"]
+CMD ["pm2-runtime", "ecosystem.config.cjs"]
