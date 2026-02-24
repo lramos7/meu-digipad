@@ -13,7 +13,11 @@ RUN npm install
 
 COPY . .
 
-# Build obrigatório para produção
+# Copia .env para dentro da imagem antes do build
+# (ou use ARG/ENV se preferir)
+COPY .env .env
+
+# Build com variáveis corretas
 RUN npm run build
 
 ENV NODE_ENV=production
