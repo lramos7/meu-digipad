@@ -21,8 +21,7 @@ COPY . .
 
 
 # Forçamos a instalação limpa e o build com a variável de ambiente injetada
-RUN npm install && \
-    NODE_ENV=production DOMAIN=https://digipad.aicortix.top npm run build
+RUN npm run build
 
 # Permissões de escrita para as pastas de dados
 RUN mkdir -p public/uploads public/temp public/export && chmod -R 777 public/
