@@ -13,4 +13,4 @@ RUN npm run build
 
 EXPOSE 3000
 
-CMD ["npm", "run", "server:prod"]
+CMD ["node", "dist/server/entry.mjs"]
